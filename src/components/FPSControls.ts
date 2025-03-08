@@ -34,7 +34,7 @@ export class IsometricControls {
 
   // Gun properties
   private gun: THREE.Group;
-  private gunOffset = new THREE.Vector3(0.7, -0.1, 0.1); // Adjusted to position gun next to player's body
+  private gunOffset = new THREE.Vector3(0.7, -0.1, -0.3); // Adjusted to position gun in front of the rotated player
 
   // Mouse control variables
   private mousePosition = new THREE.Vector2();
@@ -118,14 +118,12 @@ export class IsometricControls {
       switch (event.code) {
         case "KeyW":
           this.moveForward = true;
-          this.isMovingTowardsMouse = true;
           break;
         case "KeyA":
           this.moveLeft = true;
           break;
         case "KeyS":
           this.moveBackward = true;
-          this.isMovingAwayFromMouse = true;
           break;
         case "KeyD":
           this.moveRight = true;
@@ -157,14 +155,12 @@ export class IsometricControls {
       switch (event.code) {
         case "KeyW":
           this.moveForward = false;
-          this.isMovingTowardsMouse = false;
           break;
         case "KeyA":
           this.moveLeft = false;
           break;
         case "KeyS":
           this.moveBackward = false;
-          this.isMovingAwayFromMouse = false;
           break;
         case "KeyD":
           this.moveRight = false;
@@ -232,7 +228,8 @@ export class IsometricControls {
     const angle = Math.atan2(direction.x, direction.z);
 
     // Rotate the player to face the mouse
-    this.player.rotation.y = angle;
+    // Add PI (180 degrees) to make the player face toward the mouse instead of away from it
+    this.player.rotation.y = angle + Math.PI;
 
     // Save target point for movement
     this.targetPoint.copy(targetPoint);
@@ -254,68 +251,42 @@ export class IsometricControls {
     // Apply gravity
     this.velocity.y -= this.gravity * delta;
 
-    // Direction calculation always using player's facing direction
+    // Direction calculation for cardinal directions
     this.direction.set(0, 0, 0);
 
-    if (this.isMovingTowardsMouse) {
-      // Calculate direction towards mouse point
-      const directionToMouse = new THREE.Vector3()
-        .subVectors(this.targetPoint, this.player.position)
-        .setY(0) // Keep movement on xz plane
-        .normalize();
+    // Create vectors for camera-aligned movement
+    const cameraAngle = Math.PI / 4; // 45 degrees, matching the camera's angle
 
-      this.direction.copy(directionToMouse);
-    } else if (this.isMovingAwayFromMouse) {
-      // Calculate direction away from mouse point (invert the direction)
-      const directionFromMouse = new THREE.Vector3()
-        .subVectors(this.player.position, this.targetPoint)
-        .setY(0) // Keep movement on xz plane
-        .normalize();
+    // Define movement directions based on camera perspective
+    const forwardDir = new THREE.Vector3(
+      -Math.sin(cameraAngle),
+      0,
+      -Math.cos(cameraAngle)
+    );
 
-      // Set direction when moving away from mouse
-      this.direction.copy(directionFromMouse);
-    } else {
-      // Movement calculation
-      if (this.moveForward) this.direction.z += 1;
-      if (this.moveBackward) this.direction.z -= 1;
-      if (this.moveLeft) this.direction.x -= 1;
-      if (this.moveRight) this.direction.x += 1;
+    const rightDir = new THREE.Vector3(
+      Math.cos(cameraAngle),
+      0,
+      -Math.sin(cameraAngle)
+    );
 
-      // Normalize direction if moving diagonally
-      if (this.direction.lengthSq() > 0) {
-        this.direction.normalize();
-      }
+    // Apply movement based on camera-aligned directions
+    if (this.moveForward) {
+      this.direction.add(forwardDir);
+    }
+    if (this.moveBackward) {
+      this.direction.sub(forwardDir);
+    }
+    if (this.moveRight) {
+      this.direction.add(rightDir);
+    }
+    if (this.moveLeft) {
+      this.direction.sub(rightDir);
     }
 
-    // Calculate movement in world space based on player rotation
-    let moveX = 0;
-    let moveZ = 0;
-
-    // Camera angle adjustment for isometric view
-    const angle = Math.PI / 4;
-
-    if (this.isMovingTowardsMouse || this.isMovingAwayFromMouse) {
-      // When moving towards or away from mouse, use the raw direction
-      moveX = this.direction.x;
-      moveZ = this.direction.z;
-    } else {
-      // For WASD movement, align with player's facing direction
-      // Create a movement vector based on input direction
-      const moveVector = new THREE.Vector3(
-        this.direction.x,
-        0,
-        this.direction.z
-      );
-
-      // Apply player's rotation to the movement vector
-      moveVector.applyAxisAngle(
-        new THREE.Vector3(0, 1, 0),
-        this.player.rotation.y
-      );
-
-      // Extract the rotated x and z components
-      moveX = moveVector.x;
-      moveZ = moveVector.z;
+    // Normalize direction if moving diagonally
+    if (this.direction.lengthSq() > 0) {
+      this.direction.normalize();
     }
 
     // Apply movement speed based on state
@@ -326,8 +297,9 @@ export class IsometricControls {
       currentSpeed = this.runSpeed;
     }
 
-    this.velocity.x = moveX * currentSpeed;
-    this.velocity.z = moveZ * currentSpeed;
+    // Set velocity directly from direction
+    this.velocity.x = this.direction.x * currentSpeed;
+    this.velocity.z = this.direction.z * currentSpeed;
 
     // Update player position
     this.player.position.x += this.velocity.x * delta;
@@ -437,6 +409,7 @@ export class IsometricControls {
     right.applyAxisAngle(new THREE.Vector3(0, 1, 0), this.player.rotation.y);
 
     // Calculate gun position relative to player
+    // Adjust the gun offset to be in front of the player now that they're rotated correctly
     const gunPosition = new THREE.Vector3(
       this.player.position.x +
         right.x * this.gunOffset.x +
