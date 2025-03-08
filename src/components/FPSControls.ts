@@ -144,7 +144,7 @@ export class FPSControls {
 
     // Move forward/backward
     if (this.moveForward || this.moveBackward) {
-      this.velocity.z = -this.direction.z * this.speed;
+      this.velocity.z = this.direction.z * this.speed;
     } else {
       this.velocity.z = 0;
     }
