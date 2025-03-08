@@ -30,6 +30,13 @@ export class IsometricControls {
   private direction = new THREE.Vector3();
   private prevTime = performance.now();
 
+  // Mouse control variables
+  private mousePosition = new THREE.Vector2();
+  private raycaster = new THREE.Raycaster();
+  private targetPoint = new THREE.Vector3();
+  private isMovingTowardsMouse = false;
+  private scene: THREE.Scene;
+
   // Movement settings
   private speed = 10.0;
   private crouchSpeed = 5.0;
@@ -55,6 +62,7 @@ export class IsometricControls {
     this.camera = camera;
     this.domElement = domElement;
     this.player = player;
+    this.scene = player.parent as THREE.Scene;
 
     // Set up isometric camera position and rotation
     this.setupIsometricView();
@@ -75,6 +83,13 @@ export class IsometricControls {
   }
 
   private initControls() {
+    // Mouse move event
+    this.domElement.addEventListener("mousemove", (event) => {
+      // Calculate mouse position in normalized device coordinates (-1 to +1)
+      this.mousePosition.x = (event.clientX / window.innerWidth) * 2 - 1;
+      this.mousePosition.y = -(event.clientY / window.innerHeight) * 2 + 1;
+    });
+
     // Key down events
     document.addEventListener("keydown", (event) => {
       switch (event.code) {
@@ -162,15 +177,47 @@ export class IsometricControls {
     this.player.position.y += (this.normalHeight - this.crouchHeight) / 2;
   }
 
+  private updatePlayerRotation() {
+    // Cast a ray from the camera through the mouse position
+    this.raycaster.setFromCamera(this.mousePosition, this.camera);
+
+    // Find the point of intersection with the ground plane
+    const groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+    const targetPoint = new THREE.Vector3();
+    this.raycaster.ray.intersectPlane(groundPlane, targetPoint);
+
+    // Calculate the direction the player should face
+    const direction = new THREE.Vector3()
+      .subVectors(targetPoint, this.player.position)
+      .setY(0) // Ensure we only rotate in the XZ plane
+      .normalize();
+
+    // Skip if the direction is too small (mouse is directly over player)
+    if (direction.lengthSq() < 0.001) return;
+
+    // Calculate the angle to rotate the player
+    const angle = Math.atan2(direction.x, direction.z);
+
+    // Rotate the player to face the mouse
+    this.player.rotation.y = angle;
+
+    // Save target point for movement
+    this.targetPoint.copy(targetPoint);
+  }
+
   public update() {
     if (!this.enabled) return;
 
     const time = performance.now();
     const delta = (time - this.prevTime) / 1000;
 
+    // Update player rotation to face the mouse
+    this.updatePlayerRotation();
+
     // Apply gravity
     this.velocity.y -= this.gravity * delta;
 
+    // Always use keyboard for movement (removed mouse-based movement)
     // Reset direction
     this.direction.z = Number(this.moveForward) - Number(this.moveBackward);
     this.direction.x = Number(this.moveRight) - Number(this.moveLeft);
@@ -180,11 +227,10 @@ export class IsometricControls {
     const angle = Math.PI / 4;
 
     // Calculate movement direction aligned with camera view
-    // For isometric view, we need to rotate the movement vector by the camera angle
     const moveX = (this.direction.x - this.direction.z) * Math.cos(angle);
     const moveZ = (this.direction.x + this.direction.z) * Math.sin(angle);
 
-    // Apply movement speed based on state (running, crouching, or normal)
+    // Apply movement speed based on state
     let currentSpeed = this.speed;
     if (this.isCrouching) {
       currentSpeed = this.crouchSpeed;
