@@ -33,7 +33,7 @@ if (appElement) {
 const playerGeometry = new THREE.BoxGeometry(1, 2, 1); // A bit taller than wide
 const playerMaterial = new THREE.MeshStandardMaterial({ color: 0xffaa00 }); // Orange-yellow color
 const player = new THREE.Mesh(playerGeometry, playerMaterial);
-player.position.set(0, 1, 0); // Position at origin, slightly above ground
+player.position.set(0, 1, 0); // Position at origin, 1 unit above ground (half player height)
 player.castShadow = true;
 player.receiveShadow = true;
 scene.add(player);
@@ -73,7 +73,7 @@ const groundMaterial = new THREE.MeshStandardMaterial({
 });
 const ground = new THREE.Mesh(groundGeometry, groundMaterial);
 ground.rotation.x = -Math.PI / 2; // Rotate to be horizontal
-ground.position.y = -1;
+ground.position.y = 0;
 ground.receiveShadow = true;
 scene.add(ground);
 

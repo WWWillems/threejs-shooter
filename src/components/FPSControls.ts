@@ -24,19 +24,26 @@ export class IsometricControls {
   private moveLeft = false;
   private moveRight = false;
   private canJump = false;
+  private isCrouching = false;
   private velocity = new THREE.Vector3();
   private direction = new THREE.Vector3();
   private prevTime = performance.now();
 
   // Movement settings
   private speed = 10.0;
+  private crouchSpeed = 5.0;
   private jumpStrength = 5.0;
   private gravity = 30.0;
 
   // Camera settings
   private cameraHeight = 15;
+  private crouchCameraHeight = 8;
   private cameraDistance = 20;
   private enabled = true;
+
+  // Player dimensions
+  private normalHeight = 2;
+  private crouchHeight = 1;
 
   constructor(
     camera: THREE.Camera,
@@ -65,17 +72,6 @@ export class IsometricControls {
     this.camera.lookAt(this.player.position);
   }
 
-  private updateCameraPosition() {
-    // Calculate camera position based on player position
-    const angle = Math.PI / 4; // 45 degrees
-
-    this.camera.position.set(
-      this.player.position.x + this.cameraDistance * Math.sin(angle),
-      this.player.position.y + this.cameraHeight,
-      this.player.position.z + this.cameraDistance * Math.cos(angle)
-    );
-  }
-
   private initControls() {
     // Key down events
     document.addEventListener("keydown", (event) => {
@@ -98,6 +94,13 @@ export class IsometricControls {
             this.canJump = false;
           }
           break;
+        case "ControlLeft":
+        case "ControlRight":
+          if (!this.isCrouching) {
+            this.isCrouching = true;
+            this.crouch();
+          }
+          break;
       }
     });
 
@@ -116,8 +119,35 @@ export class IsometricControls {
         case "KeyD":
           this.moveRight = false;
           break;
+        case "ControlLeft":
+        case "ControlRight":
+          if (this.isCrouching) {
+            this.isCrouching = false;
+            this.standUp();
+          }
+          break;
       }
     });
+  }
+
+  private crouch() {
+    if (this.player.geometry instanceof THREE.BoxGeometry) {
+      this.player.geometry.dispose();
+      const newGeometry = new THREE.BoxGeometry(1, this.crouchHeight, 1);
+      this.player.geometry = newGeometry;
+    }
+
+    this.player.position.y -= (this.normalHeight - this.crouchHeight) / 2;
+  }
+
+  private standUp() {
+    if (this.player.geometry instanceof THREE.BoxGeometry) {
+      this.player.geometry.dispose();
+      const newGeometry = new THREE.BoxGeometry(1, this.normalHeight, 1);
+      this.player.geometry = newGeometry;
+    }
+
+    this.player.position.y += (this.normalHeight - this.crouchHeight) / 2;
   }
 
   public update() {
@@ -142,9 +172,10 @@ export class IsometricControls {
     const moveX = (this.direction.x - this.direction.z) * Math.cos(angle);
     const moveZ = (this.direction.x + this.direction.z) * Math.sin(angle);
 
-    // Apply movement speed
-    this.velocity.x = moveX * this.speed;
-    this.velocity.z = -moveZ * this.speed;
+    // Apply movement speed (slower when crouching)
+    const currentSpeed = this.isCrouching ? this.crouchSpeed : this.speed;
+    this.velocity.x = moveX * currentSpeed;
+    this.velocity.z = -moveZ * currentSpeed;
 
     // Update player position
     this.player.position.x += this.velocity.x * delta;
@@ -152,19 +183,35 @@ export class IsometricControls {
     this.player.position.z += this.velocity.z * delta;
 
     // Simple ground collision detection
-    if (this.player.position.y < 1) {
-      // Half the player's height
+    const playerHeight = this.isCrouching
+      ? this.crouchHeight
+      : this.normalHeight;
+    if (this.player.position.y < playerHeight / 2) {
+      // Player should not go below y=playerHeight/2 (which is half player height above ground)
       this.velocity.y = 0;
-      this.player.position.y = 1;
+      this.player.position.y = playerHeight / 2;
       this.canJump = true;
     }
 
-    // Update camera position to follow player
+    // Update camera position to follow player with appropriate height
     this.updateCameraPosition();
 
     // Make the camera look at the player
     this.camera.lookAt(this.player.position);
 
     this.prevTime = time;
+  }
+
+  private updateCameraPosition() {
+    // Calculate camera position based on player position
+    const angle = Math.PI / 4; // 45 degrees
+    // Remove the camera height adjustment based on crouching state
+    // const currentCameraHeight = this.isCrouching ? this.crouchCameraHeight : this.cameraHeight;
+
+    this.camera.position.set(
+      this.player.position.x + this.cameraDistance * Math.sin(angle),
+      this.player.position.y + this.cameraHeight, // Always use the normal camera height
+      this.player.position.z + this.cameraDistance * Math.cos(angle)
+    );
   }
 }
