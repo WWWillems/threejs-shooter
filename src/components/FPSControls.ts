@@ -84,6 +84,11 @@ export class IsometricControls {
   }
 
   private initControls() {
+    // Prevent context menu on right-click
+    this.domElement.addEventListener("contextmenu", (event) => {
+      event.preventDefault();
+    });
+
     // Mouse move event
     this.domElement.addEventListener("mousemove", (event) => {
       // Calculate mouse position in normalized device coordinates (-1 to +1)
