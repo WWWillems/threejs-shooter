@@ -35,6 +35,7 @@ export class IsometricControls {
   private raycaster = new THREE.Raycaster();
   private targetPoint = new THREE.Vector3();
   private isMovingTowardsMouse = false;
+  private isMovingAwayFromMouse = false;
   private scene: THREE.Scene;
 
   // Movement settings
@@ -95,12 +96,14 @@ export class IsometricControls {
       switch (event.code) {
         case "KeyW":
           this.moveForward = true;
+          this.isMovingTowardsMouse = true;
           break;
         case "KeyA":
           this.moveLeft = true;
           break;
         case "KeyS":
           this.moveBackward = true;
+          this.isMovingAwayFromMouse = true;
           break;
         case "KeyD":
           this.moveRight = true;
@@ -132,12 +135,14 @@ export class IsometricControls {
       switch (event.code) {
         case "KeyW":
           this.moveForward = false;
+          this.isMovingTowardsMouse = false;
           break;
         case "KeyA":
           this.moveLeft = false;
           break;
         case "KeyS":
           this.moveBackward = false;
+          this.isMovingAwayFromMouse = false;
           break;
         case "KeyD":
           this.moveRight = false;
@@ -217,18 +222,50 @@ export class IsometricControls {
     // Apply gravity
     this.velocity.y -= this.gravity * delta;
 
-    // Always use keyboard for movement (removed mouse-based movement)
-    // Reset direction
-    this.direction.z = Number(this.moveForward) - Number(this.moveBackward);
-    this.direction.x = Number(this.moveRight) - Number(this.moveLeft);
-    this.direction.normalize();
+    // Direction calculation
+    if (this.isMovingTowardsMouse) {
+      // Calculate direction towards mouse point
+      const directionToMouse = new THREE.Vector3()
+        .subVectors(this.targetPoint, this.player.position)
+        .setY(0) // Keep movement on xz plane
+        .normalize();
+
+      // Set direction when moving towards mouse
+      this.direction.z = -directionToMouse.z; // Forward/backward component
+      this.direction.x = directionToMouse.x; // Left/right component
+    } else if (this.isMovingAwayFromMouse) {
+      // Calculate direction away from mouse point (invert the direction)
+      const directionFromMouse = new THREE.Vector3()
+        .subVectors(this.player.position, this.targetPoint)
+        .setY(0) // Keep movement on xz plane
+        .normalize();
+
+      // Set direction when moving away from mouse
+      this.direction.z = -directionFromMouse.z; // Forward/backward component
+      this.direction.x = directionFromMouse.x; // Left/right component
+    } else {
+      // Traditional WASD movement for other keys
+      this.direction.z = Number(this.moveForward) - Number(this.moveBackward);
+      this.direction.x = Number(this.moveRight) - Number(this.moveLeft);
+      this.direction.normalize();
+    }
 
     // Get the camera angle (45 degrees)
     const angle = Math.PI / 4;
 
     // Calculate movement direction aligned with camera view
-    const moveX = (this.direction.x - this.direction.z) * Math.cos(angle);
-    const moveZ = (this.direction.x + this.direction.z) * Math.sin(angle);
+    let moveX: number;
+    let moveZ: number;
+
+    if (this.isMovingTowardsMouse || this.isMovingAwayFromMouse) {
+      // When moving towards or away from mouse, use the raw direction
+      moveX = this.direction.x;
+      moveZ = this.direction.z;
+    } else {
+      // For WASD movement, align with camera view
+      moveX = (this.direction.x - this.direction.z) * Math.cos(angle);
+      moveZ = (this.direction.x + this.direction.z) * Math.sin(angle);
+    }
 
     // Apply movement speed based on state
     let currentSpeed = this.speed;
