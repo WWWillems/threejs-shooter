@@ -15,6 +15,72 @@ interface MouseEvent {
   mozMovementY?: number;
   clientX: number;
   clientY: number;
+  button: number;
+}
+
+// Bullet class to manage bullet behavior
+class Bullet {
+  private mesh: THREE.Mesh;
+  private velocity: THREE.Vector3;
+  private lifespan = 3.0; // Seconds before bullet is removed
+  private speed = 30.0;
+  private alive = true;
+
+  constructor(
+    position: THREE.Vector3,
+    direction: THREE.Vector3,
+    scene: THREE.Scene
+  ) {
+    // Create bullet geometry - small sphere
+    const geometry = new THREE.SphereGeometry(0.1, 8, 8);
+    const material = new THREE.MeshBasicMaterial({ color: 0xffff00 });
+    this.mesh = new THREE.Mesh(geometry, material);
+
+    // Position bullet at gun barrel
+    this.mesh.position.copy(position);
+
+    // Set velocity based on normalized direction and speed
+    this.velocity = direction.normalize().multiplyScalar(this.speed);
+
+    // Add to scene
+    scene.add(this.mesh);
+
+    // Enable shadows
+    this.mesh.castShadow = true;
+  }
+
+  update(delta: number): boolean {
+    // Update lifespan
+    this.lifespan -= delta;
+
+    // Check if bullet should be removed
+    if (this.lifespan <= 0) {
+      this.alive = false;
+      return false;
+    }
+
+    // Update position
+    this.mesh.position.x += this.velocity.x * delta;
+    this.mesh.position.y += this.velocity.y * delta;
+    this.mesh.position.z += this.velocity.z * delta;
+
+    return true;
+  }
+
+  remove(scene: THREE.Scene) {
+    scene.remove(this.mesh);
+    // Clean up geometry and material
+    this.mesh.geometry.dispose();
+    (this.mesh.material as THREE.Material).dispose();
+  }
+
+  isAlive(): boolean {
+    return this.alive;
+  }
+
+  getPosition(): THREE.Vector3 {
+    return this.mesh.position;
+  }
 }
 
 export class IsometricControls {
@@ -60,6 +126,10 @@ export class IsometricControls {
   // Player dimensions
   private normalHeight = 2;
   private crouchHeight = 1;
+
+  private bullets: Bullet[] = [];
+  private lastShotTime = 0;
+  private fireRate = 0.25; // Time in seconds between shots
 
   constructor(
     camera: THREE.Camera,
@@ -176,6 +246,15 @@ export class IsometricControls {
         case "ShiftRight":
           this.isRunning = false;
           break;
+      }
+    });
+
+    // Mouse click event for shooting
+    this.domElement.addEventListener("mousedown", (event: Event) => {
+      const mouseEvent = event as unknown as MouseEvent;
+      if (mouseEvent.button === 0) {
+        // Left mouse button
+        this.shoot();
       }
     });
   }
@@ -323,6 +402,22 @@ export class IsometricControls {
     // Make the camera look at the player
     this.camera.lookAt(this.player.position);
 
+    // Update bullets
+    for (let i = this.bullets.length - 1; i >= 0; i--) {
+      const bullet = this.bullets[i];
+
+      // Update bullet and check if it's still alive
+      if (!bullet.update(delta)) {
+        // Remove bullet from scene
+        bullet.remove(this.scene);
+        // Remove from bullets array
+        this.bullets.splice(i, 1);
+      }
+
+      // Here you could add collision detection for bullets
+      // e.g., check if bullet hit an enemy or obstacle
+    }
+
     this.prevTime = time;
   }
 
@@ -425,5 +520,38 @@ export class IsometricControls {
 
     // Update gun rotation to match player rotation
     this.gun.rotation.y = this.player.rotation.y;
+  }
+
+  // Method to create and shoot a bullet
+  private shoot() {
+    const currentTime = performance.now() / 1000;
+
+    // Check if enough time has passed since last shot (fire rate control)
+    if (currentTime - this.lastShotTime < this.fireRate) {
+      return;
+    }
+
+    // Update last shot time
+    this.lastShotTime = currentTime;
+
+    // Get gun barrel position (front of the gun)
+    const barrelPosition = new THREE.Vector3();
+    // Get world position of the gun
+    this.gun.getWorldPosition(barrelPosition);
+
+    // Offset to the barrel tip
+    const barrelTip = new THREE.Vector3(0, 0, -0.6); // Adjust based on your gun model
+    barrelTip.applyQuaternion(this.gun.quaternion);
+    barrelPosition.add(barrelTip);
+
+    // Get direction based on player rotation
+    const direction = new THREE.Vector3(0, 0, -1);
+    direction.applyQuaternion(this.player.quaternion);
+
+    // Create new bullet
+    const bullet = new Bullet(barrelPosition, direction, this.scene);
+    this.bullets.push(bullet);
+
+    // Play shoot sound or add muzzle flash effect here if desired
   }
 }
