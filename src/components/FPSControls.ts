@@ -134,9 +134,17 @@ export class IsometricControls {
     this.direction.x = Number(this.moveRight) - Number(this.moveLeft);
     this.direction.normalize();
 
-    // In isometric view, we use fixed world axes for movement
-    this.velocity.z = -this.direction.z * this.speed;
-    this.velocity.x = this.direction.x * this.speed;
+    // Get the camera angle (45 degrees)
+    const angle = Math.PI / 4;
+
+    // Calculate movement direction aligned with camera view
+    // For isometric view, we need to rotate the movement vector by the camera angle
+    const moveX = (this.direction.x - this.direction.z) * Math.cos(angle);
+    const moveZ = (this.direction.x + this.direction.z) * Math.sin(angle);
+
+    // Apply movement speed
+    this.velocity.x = moveX * this.speed;
+    this.velocity.z = -moveZ * this.speed;
 
     // Update player position
     this.player.position.x += this.velocity.x * delta;
