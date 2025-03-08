@@ -1,23 +1,22 @@
 import "./style.css";
 import * as THREE from "three";
-import { FPSControls } from "./components/FPSControls";
+import { IsometricControls } from "./components/FPSControls";
 
 // Initialize the scene
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x111111);
 
-// Create a fog effect
-scene.fog = new THREE.Fog(0x111111, 10, 50);
+// Create a fog effect but increase distance for isometric view
+scene.fog = new THREE.Fog(0x111111, 20, 80);
 
 // Setup the camera
 const camera = new THREE.PerspectiveCamera(
-  75,
+  45, // Use a narrower FOV for isometric-like view
   window.innerWidth / window.innerHeight,
   0.1,
   1000
 );
-camera.position.set(0, 2, 10);
-camera.lookAt(0, 0, 0);
+// Camera position will be set by IsometricControls
 
 // Setup the renderer
 const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -30,8 +29,17 @@ if (appElement) {
   appElement.appendChild(renderer.domElement);
 }
 
-// Add first person controls
-const controls = new FPSControls(camera, renderer.domElement);
+// Create a player object
+const playerGeometry = new THREE.BoxGeometry(1, 2, 1); // A bit taller than wide
+const playerMaterial = new THREE.MeshStandardMaterial({ color: 0xffaa00 }); // Orange-yellow color
+const player = new THREE.Mesh(playerGeometry, playerMaterial);
+player.position.set(0, 1, 0); // Position at origin, slightly above ground
+player.castShadow = true;
+player.receiveShadow = true;
+scene.add(player);
+
+// Add isometric controls and pass the player object
+const controls = new IsometricControls(camera, renderer.domElement, player);
 
 // Add ambient light
 const ambientLight = new THREE.AmbientLight(0x404040);
