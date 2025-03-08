@@ -25,6 +25,7 @@ export class IsometricControls {
   private moveRight = false;
   private canJump = false;
   private isCrouching = false;
+  private isRunning = false;
   private velocity = new THREE.Vector3();
   private direction = new THREE.Vector3();
   private prevTime = performance.now();
@@ -32,6 +33,7 @@ export class IsometricControls {
   // Movement settings
   private speed = 10.0;
   private crouchSpeed = 5.0;
+  private runSpeed = 20.0;
   private jumpStrength = 5.0;
   private gravity = 30.0;
 
@@ -101,6 +103,12 @@ export class IsometricControls {
             this.crouch();
           }
           break;
+        case "ShiftLeft":
+        case "ShiftRight":
+          if (!this.isCrouching) {
+            this.isRunning = true;
+          }
+          break;
       }
     });
 
@@ -125,6 +133,10 @@ export class IsometricControls {
             this.isCrouching = false;
             this.standUp();
           }
+          break;
+        case "ShiftLeft":
+        case "ShiftRight":
+          this.isRunning = false;
           break;
       }
     });
@@ -172,8 +184,14 @@ export class IsometricControls {
     const moveX = (this.direction.x - this.direction.z) * Math.cos(angle);
     const moveZ = (this.direction.x + this.direction.z) * Math.sin(angle);
 
-    // Apply movement speed (slower when crouching)
-    const currentSpeed = this.isCrouching ? this.crouchSpeed : this.speed;
+    // Apply movement speed based on state (running, crouching, or normal)
+    let currentSpeed = this.speed;
+    if (this.isCrouching) {
+      currentSpeed = this.crouchSpeed;
+    } else if (this.isRunning) {
+      currentSpeed = this.runSpeed;
+    }
+
     this.velocity.x = moveX * currentSpeed;
     this.velocity.z = -moveZ * currentSpeed;
 
