@@ -94,10 +94,14 @@ export class HUD {
         // Create slot content
         if (i < inventory.length) {
           const weapon = inventory[i];
+          // Get the appropriate weapon icon
+          const weaponIcon = this.getWeaponIcon(weapon.name);
+
           slotElement.innerHTML = `
             <div class="weapon-icon ${
               i === currentWeaponIndex ? "selected" : ""
             }">
+              <div class="weapon-image">${weaponIcon}</div>
               <span class="weapon-name">${weapon.name}</span>
               <span class="weapon-ammo">${weapon.bulletsInMagazine}/${
             weapon.totalBullets
@@ -230,11 +234,15 @@ export class HUD {
       if (slotElement && i < inventory.length) {
         const weapon = inventory[i];
 
+        // Get the appropriate weapon icon based on weapon name
+        const weaponIcon = this.getWeaponIcon(weapon.name);
+
         // Update slot content
         slotElement.innerHTML = `
           <div class="weapon-icon ${
             i === currentWeaponIndex ? "selected" : ""
           }">
+            <div class="weapon-image">${weaponIcon}</div>
             <span class="weapon-name">${weapon.name}</span>
             <span class="weapon-ammo">${weapon.bulletsInMagazine}/${
           weapon.totalBullets
@@ -242,6 +250,63 @@ export class HUD {
           </div>
         `;
       }
+    }
+  }
+
+  // Helper method to get SVG icon for each weapon type
+  private getWeaponIcon(weaponName: string): string {
+    switch (weaponName) {
+      case "Pistol":
+        return `<svg viewBox="0 0 100 40" xmlns="http://www.w3.org/2000/svg">
+          <!-- Barrel -->
+          <rect x="60" y="17" width="35" height="6" rx="1" fill="#555" />
+          <!-- Frame -->
+          <rect x="20" y="15" width="40" height="10" rx="2" fill="#777" />
+          <!-- Trigger guard -->
+          <path d="M25,25 L45,25 L45,35 L35,35 Z" fill="#555" />
+          <!-- Handle/Grip -->
+          <rect x="15" y="23" width="15" height="15" rx="2" fill="#666" transform="rotate(-5, 15, 25)" />
+          <!-- Hammer -->
+          <rect x="22" y="13" width="5" height="5" rx="1" fill="#444" />
+          <!-- Sight -->
+          <rect x="55" y="13" width="3" height="2" fill="#444" />
+        </svg>`;
+      case "Assault Rifle":
+        return `<svg viewBox="0 0 100 40" xmlns="http://www.w3.org/2000/svg">
+          <!-- Barrel -->
+          <rect x="70" y="17" width="30" height="4" rx="1" fill="#555" />
+          <!-- Suppressor -->
+          <rect x="90" y="16" width="10" height="6" rx="2" fill="#444" />
+          <!-- Frame -->
+          <rect x="15" y="15" width="55" height="8" rx="1" fill="#777" />
+          <!-- Stock -->
+          <rect x="0" y="15" width="17" height="8" rx="2" fill="#666" />
+          <!-- Magazine -->
+          <rect x="40" y="23" width="10" height="15" rx="1" fill="#555" />
+          <!-- Grip -->
+          <rect x="25" y="23" width="8" height="12" rx="1" fill="#666" transform="rotate(-5, 25, 23)" />
+          <!-- Sight -->
+          <rect x="60" y="12" width="10" height="3" rx="1" fill="#444" />
+          <rect x="64" y="9" width="2" height="3" fill="#333" />
+        </svg>`;
+      case "Shotgun":
+        return `<svg viewBox="0 0 100 40" xmlns="http://www.w3.org/2000/svg">
+          <!-- Double Barrels -->
+          <rect x="60" y="12" width="40" height="6" rx="2" fill="#555" />
+          <rect x="60" y="22" width="40" height="6" rx="2" fill="#555" />
+          <!-- Receiver -->
+          <rect x="30" y="10" width="30" height="20" rx="1" fill="#8b4513" />
+          <!-- Fore-end -->
+          <rect x="15" y="10" width="15" height="20" rx="2" fill="#a67b5b" />
+          <!-- Stock -->
+          <path d="M0,15 L15,15 L15,25 L10,30 L0,30 Z" fill="#8b4513" />
+          <!-- Trigger guard -->
+          <path d="M30,30 L45,30 L45,35 L35,35 Z" fill="#614126" />
+        </svg>`;
+      default:
+        return `<svg viewBox="0 0 100 40" xmlns="http://www.w3.org/2000/svg">
+          <rect x="30" y="15" width="40" height="10" fill="#999" />
+        </svg>`;
     }
   }
 }
