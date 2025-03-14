@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import socket from "../api/socket";
 import type { HUD } from "./HUD";
+import { WeaponSystem, WeaponType } from "./Weapon";
 
 interface RemotePlayer {
   id: string;
@@ -8,6 +9,10 @@ interface RemotePlayer {
   lastUpdate: number;
   position: THREE.Vector3;
   rotation: number;
+
+  currentHealth: number;
+
+  weaponSystem: WeaponSystem;
 }
 
 /**
@@ -98,6 +103,12 @@ export class RemotePlayerManager {
     // Add to scene
     this.scene.add(playerMesh);
 
+    const weaponSystem = new WeaponSystem(this.scene, playerMesh);
+    weaponSystem.switchToWeapon(0);
+
+    // Immediately update the weapon position
+    weaponSystem.updateWeaponPosition(false);
+
     // Store the player
     this.players.set(userId, {
       id: userId,
@@ -105,6 +116,8 @@ export class RemotePlayerManager {
       lastUpdate: performance.now(),
       position: playerMesh.position.clone(),
       rotation: 0,
+      currentHealth: 100,
+      weaponSystem,
     });
 
     console.log(`Added remote player: ${userId}`);
@@ -173,6 +186,9 @@ export class RemotePlayerManager {
       const currentRotation = player.mesh.rotation.y;
       const targetRotation = player.rotation;
       player.mesh.rotation.y += (targetRotation - currentRotation) * 0.3;
+
+      // Update the weapon position to match the player's new position and rotation
+      player.weaponSystem.updateWeaponPosition(false);
     }
   }
 
