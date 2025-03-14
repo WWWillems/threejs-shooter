@@ -322,15 +322,40 @@ export class WeaponSystem {
     const direction = new THREE.Vector3(0, 0, -1);
     direction.applyQuaternion(this.player.quaternion);
 
-    // Create new bullet
-    const bullet = new Bullet(barrelPosition, direction, scene);
-    this.bullets.push(bullet);
+    let primaryBullet: Bullet | null = null;
+
+    // Check if current weapon is shotgun
+    if (currentWeapon.name === "Shotgun") {
+      // Shotgun spread - create 3 bullets with different angles
+      // Parameters for spread
+      const spreadAngle = 0.1; // Angle in radians for the spread (about 5.7 degrees)
+
+      // Create main bullet (straight ahead)
+      primaryBullet = new Bullet(barrelPosition, direction, scene);
+      this.bullets.push(primaryBullet);
+
+      // Create bullet with spread to the right
+      const rightDirection = direction.clone();
+      rightDirection.applyAxisAngle(new THREE.Vector3(0, 1, 0), -spreadAngle);
+      const rightBullet = new Bullet(barrelPosition, rightDirection, scene);
+      this.bullets.push(rightBullet);
+
+      // Create bullet with spread to the left
+      const leftDirection = direction.clone();
+      leftDirection.applyAxisAngle(new THREE.Vector3(0, 1, 0), spreadAngle);
+      const leftBullet = new Bullet(barrelPosition, leftDirection, scene);
+      this.bullets.push(leftBullet);
+    } else {
+      // For all other weapons, create a single bullet
+      primaryBullet = new Bullet(barrelPosition, direction, scene);
+      this.bullets.push(primaryBullet);
+    }
 
     // Create muzzle flash
     this.createMuzzleFlash(barrelPosition, this.player.rotation.y);
 
-    // Return the bullet for further processing if needed
-    return bullet;
+    // Return the primary bullet for further processing if needed
+    return primaryBullet;
   }
 
   // Create muzzle flash effect
