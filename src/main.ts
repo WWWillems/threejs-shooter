@@ -107,6 +107,12 @@ const cube2 = createCube(2, 0x44ff44, 0, 0, 0);
 const cube3 = createCube(2, 0x4444ff, 3, 0, 0);
 scene.add(cube1, cube2, cube3);
 
+// Add a car to the scene
+const carPosition = new THREE.Vector3(10, 0, 5);
+const car = controls.addCarToScene(carPosition);
+// Rotate the car to face a different direction
+car.rotation.y = -Math.PI / 4; // 45 degrees
+
 // Handle window resize
 window.addEventListener("resize", () => {
   camera.aspect = window.innerWidth / window.innerHeight;
