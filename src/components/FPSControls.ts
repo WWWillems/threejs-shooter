@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import { Bullet } from "./Bullet";
-import { Weapon, WeaponSystem } from "./Weapon";
+import { WeaponSystem } from "./Weapon";
+import type { Weapon } from "./Weapon";
 
 // Add type extensions for pointer lock
 interface Document {
@@ -382,6 +383,16 @@ export class IsometricControls {
   // Get ammo info for HUD
   public getAmmoInfo() {
     return this.weaponSystem.getAmmoInfo();
+  }
+
+  // Get weapon inventory for HUD
+  public getInventory(): Weapon[] {
+    return this.weaponSystem.getInventory();
+  }
+
+  // Get current weapon index for HUD
+  public getCurrentWeaponIndex(): number {
+    return this.weaponSystem.getCurrentWeaponIndex();
   }
 
   // Get current gun (for backwards compatibility)
