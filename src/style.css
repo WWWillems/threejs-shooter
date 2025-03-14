@@ -64,6 +64,21 @@ canvas {
   animation: blink 1s infinite;
 }
 
+.empty-mag-indicator {
+  margin-top: 5px;
+  color: #ff8800;
+  font-weight: bold;
+  animation: pulse 1s infinite;
+}
+
+.no-ammo-indicator {
+  margin-top: 5px;
+  color: #ff0000;
+  font-weight: bold;
+  text-transform: uppercase;
+  animation: shake 0.5s cubic-bezier(0.36, 0.07, 0.19, 0.97) infinite;
+}
+
 .hidden {
   display: none;
 }
@@ -77,5 +92,40 @@ canvas {
   }
   100% {
     opacity: 1;
+  }
+}
+
+@keyframes pulse {
+  0% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.05);
+    opacity: 0.8;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes shake {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  10%,
+  30%,
+  50%,
+  70%,
+  90% {
+    transform: translateX(-2px);
+  }
+  20%,
+  40%,
+  60%,
+  80% {
+    transform: translateX(2px);
   }
 }

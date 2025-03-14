@@ -505,10 +505,7 @@ export class IsometricControls {
 
     // Check if we have bullets in the magazine
     if (this.bulletsInMagazine <= 0) {
-      // Try to reload automatically if we have bullets left
-      if (this.totalBullets > 0) {
-        this.reload();
-      }
+      // Don't auto-reload anymore, just return
       return;
     }
 
@@ -541,24 +538,34 @@ export class IsometricControls {
 
   // Start the reload process
   private reload() {
-    // Don't reload if already reloading
-    if (this.isReloading) {
-      return;
-    }
-
-    // Don't reload if magazine is full
-    if (this.bulletsInMagazine >= this.maxMagazineSize) {
-      return;
-    }
-
-    // Don't reload if no bullets left
-    if (this.totalBullets <= 0) {
+    // Check if reloading is allowed
+    if (!this.canReload()) {
       return;
     }
 
     // Start reloading
     this.isReloading = true;
     this.reloadStartTime = performance.now();
+  }
+
+  // Check if reload is allowed
+  private canReload(): boolean {
+    // Don't reload if already reloading
+    if (this.isReloading) {
+      return false;
+    }
+
+    // Don't reload if magazine is full
+    if (this.bulletsInMagazine >= this.maxMagazineSize) {
+      return false;
+    }
+
+    // Don't reload if no bullets left
+    if (this.totalBullets <= 0) {
+      return false;
+    }
+
+    return true;
   }
 
   // Complete the reload process
