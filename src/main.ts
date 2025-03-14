@@ -128,9 +128,9 @@ function createCube(
 }
 
 // Add some cubes to the scene
-const cube1 = createCube(2, 0xff4444, -8, 0, -12);
-const cube2 = createCube(2, 0x44ff44, 10, 0, 14);
-const cube3 = createCube(2, 0x4444ff, 15, 0, -10);
+const cube1 = createCube(1, 0xff4444, -8, 1.5, -12);
+const cube2 = createCube(1, 0x44ff44, 10, 1.5, 14);
+const cube3 = createCube(1, 0x4444ff, 15, 1.5, -10);
 scene.add(cube1, cube2, cube3);
 
 // CREATING A CINEMATIC SCENE LAYOUT:

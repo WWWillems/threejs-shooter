@@ -6,14 +6,35 @@ export interface CarCollisionInfo {
   heightOffset: number;
 }
 
+// Function to generate a random car color
+function getRandomCarColor() {
+  // Define an array of possible car colors (as hexadecimal)
+  const carColors = [
+    0x2255bb, // Blue
+    0xcc0000, // Red
+    0x006600, // Green
+    0x444444, // Dark Gray
+    0xffcc00, // Yellow
+    0xff6600, // Orange
+    0x996633, // Brown
+    0x00cccc, // Teal
+    0xffffff, // Whites
+    0x000000, // Black
+    0x990099, // Magenta
+  ];
+
+  // Return a random color from the array
+  return carColors[Math.floor(Math.random() * carColors.length)];
+}
+
 // Create a car model using basic geometry
-function createCarModel(): THREE.Group {
+function createCarModel(carColor: number = 0x2255bb): THREE.Group {
   const carGroup = new THREE.Group();
 
   // Car body - main chassis - increased dimensions
   const bodyGeometry = new THREE.BoxGeometry(2.5, 1.2, 5);
   const bodyMaterial = new THREE.MeshStandardMaterial({
-    color: 0x2255bb,
+    color: carColor,
     metalness: 0.6,
     roughness: 0.2,
   });
@@ -32,7 +53,7 @@ function createCarModel(): THREE.Group {
   // Car cabin/roof with slightly curved top - adjusted size
   const roofGeometry = new THREE.BoxGeometry(2.3, 0.2, 2.5);
   const roofMaterial = new THREE.MeshStandardMaterial({
-    color: 0x2255bb,
+    color: carColor,
     metalness: 0.7,
     roughness: 0.2,
   });
@@ -179,7 +200,7 @@ function createCarModel(): THREE.Group {
   // Door panels - adjusted dimensions
   const doorPanelGeometry = new THREE.BoxGeometry(0.06, 0.9, 2.2);
   const doorPanelMaterial = new THREE.MeshStandardMaterial({
-    color: 0x1e4eaa, // Slightly different blue for contrast
+    color: carColor, // Use the same color as the car body for consistency
     metalness: 0.6,
     roughness: 0.3,
   });
@@ -416,9 +437,14 @@ function getCollisionDimensions(): CarCollisionInfo {
 // Add a car to the scene at the specified position
 export function addToScene(
   scene: THREE.Scene,
-  position: THREE.Vector3
+  position: THREE.Vector3,
+  useRandomColor: boolean = true
 ): THREE.Group {
-  const car = createCarModel();
+  // Generate a random color or use the default if useRandomColor is false
+  const carColor = useRandomColor ? getRandomCarColor() : 0x2255bb;
+
+  // Create car model with the specified or random color
+  const car = createCarModel(carColor);
   car.position.copy(position);
 
   // Rotate the car 90 degrees around the Y-axis to align with the X-axis
@@ -432,4 +458,5 @@ export const Car = {
   createCarModel,
   addToScene,
   getCollisionDimensions,
+  getRandomCarColor,
 };
