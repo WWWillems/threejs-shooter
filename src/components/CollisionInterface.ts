@@ -9,5 +9,5 @@ export interface CollisionDetector {
    * @param bulletPosition Position of the bullet
    * @returns True if collision detected, false otherwise
    */
-  checkBulletCarCollision(bulletPosition: THREE.Vector3): boolean;
+  checkForBulletCollision(bulletPosition: THREE.Vector3): boolean;
 }

@@ -330,7 +330,7 @@ export class WeaponSystem {
       }
 
       // Check for collision with cars if collision detector is provided
-      if (collisionDetector?.checkBulletCarCollision(bullet.getPosition())) {
+      if (collisionDetector?.checkForBulletCollision(bullet.getPosition())) {
         // Bullet hit a car - remove it
         bullet.remove(this.scene);
         // Remove from bullets array

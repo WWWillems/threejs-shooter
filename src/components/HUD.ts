@@ -1,4 +1,4 @@
-import type { IsometricControls } from "./FPSControls";
+import type { IsometricControls } from "./IsometricControls";
 
 export class HUD {
   private container: HTMLElement;
