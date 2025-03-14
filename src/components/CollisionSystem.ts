@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import { Car } from "./Car";
 import { StreetLight } from "./StreetLight";
+import { WoodenCrate } from "./WoodenCrate";
 import type { CollisionDetector } from "./CollisionInterface";
 
 /**
@@ -24,6 +25,16 @@ interface StreetLightCollider {
 }
 
 /**
+ * Type for wooden crate collision data
+ */
+interface WoodenCrateCollider {
+  box: THREE.Box3;
+  crateObj: THREE.Group;
+  dimensions: THREE.Vector3;
+  heightOffset: number;
+}
+
+/**
  * Manages all collision detection in the game
  */
 export class CollisionSystem implements CollisionDetector {
@@ -31,6 +42,8 @@ export class CollisionSystem implements CollisionDetector {
   private cars: THREE.Group[] = [];
   private streetLightColliders: StreetLightCollider[] = [];
   private streetLights: THREE.Group[] = [];
+  private woodenCrateColliders: WoodenCrateCollider[] = [];
+  private woodenCrates: THREE.Group[] = [];
   private playerCollider = new THREE.Box3();
   private tempBox = new THREE.Box3();
   private bulletRadius = 0.1; // Match the radius used in Bullet.ts
@@ -51,6 +64,14 @@ export class CollisionSystem implements CollisionDetector {
   public addStreetLight(streetLight: THREE.Group): void {
     this.streetLights.push(streetLight);
     this.updateStreetLightColliders();
+  }
+
+  /**
+   * Add a wooden crate to the collision system
+   */
+  public addWoodenCrate(crate: THREE.Group): void {
+    this.woodenCrates.push(crate);
+    this.updateWoodenCrateColliders();
   }
 
   /**
@@ -123,72 +144,164 @@ export class CollisionSystem implements CollisionDetector {
   }
 
   /**
-   * Check if player collides with any cars or street lights
+   * Update all wooden crate colliders with current positions and dimensions
+   */
+  public updateWoodenCrateColliders(): void {
+    this.woodenCrateColliders = [];
+
+    for (const crate of this.woodenCrates) {
+      // Get crate's accurate collision dimensions
+      const collisionInfo = WoodenCrate.getCollisionDimensions();
+
+      // Get the crate's dimensions and position
+      const dimensions = collisionInfo.dimensions;
+      const heightOffset = collisionInfo.heightOffset;
+
+      // Create a new bounding box with the correct dimensions
+      const box = new THREE.Box3();
+
+      // Store crate data for collision detection
+      this.woodenCrateColliders.push({
+        box,
+        crateObj: crate,
+        dimensions,
+        heightOffset,
+      });
+    }
+  }
+
+  /**
+   * Check if the player collides with any objects at the given position
    */
   public checkPlayerCollision(
     position: THREE.Vector3,
     playerHeight: number
   ): boolean {
-    // Update player collider at the test position
-    this.playerCollider.min.set(
-      position.x - 0.5, // Half width
-      position.y - playerHeight / 2, // Bottom of player
-      position.z - 0.5 // Half depth
-    );
-
+    // Update the player collider box
+    const halfHeight = playerHeight / 2;
+    this.playerCollider.min.set(position.x - 0.4, position.y, position.z - 0.4);
     this.playerCollider.max.set(
-      position.x + 0.5, // Half width
-      position.y + playerHeight / 2, // Top of player
-      position.z + 0.5 // Half depth
+      position.x + 0.4,
+      position.y + playerHeight,
+      position.z + 0.4
     );
 
-    // Check for collision with any car
+    // Check collision with cars
     for (const carData of this.carColliders) {
-      // Create a box that's correctly aligned with the car's rotation
+      // Get the car's world-space box adjusted for rotation
       const carBox = this.getRotatedCarBox(carData);
 
+      // Check if the player's box intersects with the car's box
       if (this.playerCollider.intersectsBox(carBox)) {
-        return true; // Collision detected
+        return true;
       }
     }
 
-    // Check for collision with any street light
+    // Check collision with street lights
     for (const lightData of this.streetLightColliders) {
-      if (this.playerCollider.intersectsBox(lightData.box)) {
-        return true; // Collision detected
+      // Create a box for the street light using its dimensions and position
+      const lightPosition = lightData.lightObj.position;
+      this.tempBox.min.set(
+        lightPosition.x - lightData.dimensions.x / 2,
+        lightPosition.y,
+        lightPosition.z - lightData.dimensions.z / 2
+      );
+      this.tempBox.max.set(
+        lightPosition.x + lightData.dimensions.x / 2,
+        lightPosition.y + lightData.dimensions.y,
+        lightPosition.z + lightData.dimensions.z / 2
+      );
+
+      // Check if the player's box intersects with the light's box
+      if (this.playerCollider.intersectsBox(this.tempBox)) {
+        return true;
       }
     }
 
-    return false; // No collision
+    // Check collision with wooden crates
+    for (const crateData of this.woodenCrateColliders) {
+      // Create a box for the crate using its dimensions and position
+      const cratePosition = crateData.crateObj.position;
+      this.tempBox.min.set(
+        cratePosition.x - crateData.dimensions.x / 2,
+        cratePosition.y,
+        cratePosition.z - crateData.dimensions.z / 2
+      );
+      this.tempBox.max.set(
+        cratePosition.x + crateData.dimensions.x / 2,
+        cratePosition.y + crateData.dimensions.y,
+        cratePosition.z + crateData.dimensions.z / 2
+      );
+
+      // Check if the player's box intersects with the crate's box
+      if (this.playerCollider.intersectsBox(this.tempBox)) {
+        return true;
+      }
+    }
+
+    // No collision detected
+    return false;
   }
 
   /**
-   * Check if a bullet collides with any car or street light
+   * Check if a bullet collides with any objects at the given position
    */
   public checkForBulletCollision(bulletPosition: THREE.Vector3): boolean {
-    // Create a small sphere to represent the bullet
-    const bulletSphere = new THREE.Sphere(bulletPosition, this.bulletRadius);
-
-    // Check collision with each car
+    // Check collision with cars
     for (const carData of this.carColliders) {
-      // Create a box that's correctly aligned with the car's rotation
+      // Get the car's world-space box adjusted for rotation
       const carBox = this.getRotatedCarBox(carData);
 
-      // Check if the bullet sphere intersects with the car box
-      if (carBox.intersectsSphere(bulletSphere)) {
-        return true; // Collision detected
+      // Check if the bullet's position is inside the car's box
+      if (carBox.containsPoint(bulletPosition)) {
+        return true;
       }
     }
 
-    // Check collision with each street light
+    // Check collision with street lights
     for (const lightData of this.streetLightColliders) {
-      // Check if the bullet sphere intersects with the street light box
-      if (lightData.box.intersectsSphere(bulletSphere)) {
-        return true; // Collision detected
+      // Create a box for the street light using its dimensions and position
+      const lightPosition = lightData.lightObj.position;
+      this.tempBox.min.set(
+        lightPosition.x - lightData.dimensions.x / 2,
+        lightPosition.y,
+        lightPosition.z - lightData.dimensions.z / 2
+      );
+      this.tempBox.max.set(
+        lightPosition.x + lightData.dimensions.x / 2,
+        lightPosition.y + lightData.dimensions.y,
+        lightPosition.z + lightData.dimensions.z / 2
+      );
+
+      // Check if the bullet's position is inside the light's box
+      if (this.tempBox.containsPoint(bulletPosition)) {
+        return true;
       }
     }
 
-    return false; // No collision
+    // Check collision with wooden crates
+    for (const crateData of this.woodenCrateColliders) {
+      // Create a box for the crate using its dimensions and position
+      const cratePosition = crateData.crateObj.position;
+      this.tempBox.min.set(
+        cratePosition.x - crateData.dimensions.x / 2,
+        cratePosition.y,
+        cratePosition.z - crateData.dimensions.z / 2
+      );
+      this.tempBox.max.set(
+        cratePosition.x + crateData.dimensions.x / 2,
+        cratePosition.y + crateData.dimensions.y,
+        cratePosition.z + crateData.dimensions.z / 2
+      );
+
+      // Check if the bullet's position is inside the crate's box
+      if (this.tempBox.containsPoint(bulletPosition)) {
+        return true;
+      }
+    }
+
+    // No collision detected
+    return false;
   }
 
   /**

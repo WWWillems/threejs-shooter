@@ -8,7 +8,7 @@ const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x111111);
 
 // Create a fog effect but increase distance for isometric view
-scene.fog = new THREE.Fog(0x111111, 20, 80);
+scene.fog = new THREE.FogExp2(0x111111, 0.02); // More subtle exponential fog with lower density
 
 // Setup the camera
 const camera = new THREE.PerspectiveCamera(
@@ -116,6 +116,85 @@ car.rotation.y = -Math.PI / 4; // 45 degrees
 // Add a street light pole near the car
 const streetLightPosition = new THREE.Vector3(12, 0, 7);
 const streetLight = controls.addStreetLightToScene(streetLightPosition);
+
+// Add wooden crates to the scene
+// A small cluster of crates near the starting area
+const crate1 = controls.addWoodenCrateToScene(
+  new THREE.Vector3(-5, 0.5, -5),
+  1,
+  Math.PI / 6
+);
+const crate2 = controls.addWoodenCrateToScene(
+  new THREE.Vector3(-6.5, 0.5, -4.5),
+  1,
+  -Math.PI / 8
+);
+const crate3 = controls.addWoodenCrateToScene(
+  new THREE.Vector3(-5.5, 0.6, -6.5),
+  1.2,
+  Math.PI / 3
+);
+
+// A stack of crates (smaller one on top of larger one)
+const largeCrate = controls.addWoodenCrateToScene(
+  new THREE.Vector3(8, 0.6, -7),
+  1.2,
+  Math.PI / 5
+);
+const smallCrate = controls.addWoodenCrateToScene(
+  new THREE.Vector3(8, 1.8, -7),
+  0.8,
+  Math.PI / 2
+);
+
+// Some scattered crates in different areas
+const crate4 = controls.addWoodenCrateToScene(
+  new THREE.Vector3(15, 0.5, 2),
+  1,
+  Math.PI / 4
+);
+const crate5 = controls.addWoodenCrateToScene(
+  new THREE.Vector3(-12, 0.55, 9),
+  1.1,
+  -Math.PI / 7
+);
+const crate6 = controls.addWoodenCrateToScene(
+  new THREE.Vector3(3, 0.5, -15),
+  1,
+  Math.PI / 9
+);
+
+// Add a more interesting grouping of crates (wall-like arrangement)
+const crateWall1 = controls.addWoodenCrateToScene(
+  new THREE.Vector3(-10, 0.5, -10),
+  1,
+  0
+);
+const crateWall2 = controls.addWoodenCrateToScene(
+  new THREE.Vector3(-10, 0.5, -11),
+  1,
+  Math.PI / 4
+);
+const crateWall3 = controls.addWoodenCrateToScene(
+  new THREE.Vector3(-10, 0.5, -12),
+  1,
+  Math.PI / 8
+);
+const crateWall4 = controls.addWoodenCrateToScene(
+  new THREE.Vector3(-10, 1.5, -10.5),
+  1,
+  Math.PI / 6
+);
+const crateWall5 = controls.addWoodenCrateToScene(
+  new THREE.Vector3(-10, 1.5, -11.5),
+  1,
+  -Math.PI / 10
+);
+const crateWall6 = controls.addWoodenCrateToScene(
+  new THREE.Vector3(-10, 2.5, -11),
+  1,
+  Math.PI / 3
+);
 
 // Handle window resize
 window.addEventListener("resize", () => {

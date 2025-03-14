@@ -9,6 +9,7 @@ import { CameraController } from "./CameraController";
 import { PlayerController } from "./PlayerController";
 import { DebugVisualizer } from "./DebugVisualizer";
 import { StreetLight } from "./StreetLight";
+import { WoodenCrate } from "./WoodenCrate";
 
 /**
  * Main game controls class using composition pattern to integrate all systems
@@ -108,6 +109,19 @@ export class IsometricControls implements CollisionDetector {
     const streetLight = StreetLight.addToScene(this.scene, position);
     this.collisionSystem.addStreetLight(streetLight);
     return streetLight;
+  }
+
+  /**
+   * Add a wooden crate to the scene and collision system
+   */
+  public addWoodenCrateToScene(
+    position: THREE.Vector3,
+    size = 1.5,
+    rotation = 0
+  ): THREE.Group {
+    const crate = WoodenCrate.addToScene(this.scene, position, size, rotation);
+    this.collisionSystem.addWoodenCrate(crate);
+    return crate;
   }
 
   /**
