@@ -354,7 +354,7 @@ export class ShopBuilding {
 
     // Add parking lines
     const lineWidth = 0.2;
-    const lineLength = 4;
+    //const lineLength = 4;
     const lineMaterial = new THREE.MeshBasicMaterial({
       color: 0xffffff, // White for parking lines
       side: THREE.DoubleSide,

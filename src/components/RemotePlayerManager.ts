@@ -1,7 +1,7 @@
 import * as THREE from "three";
 import socket from "../api/socket";
 import type { HUD } from "./HUD";
-import { WeaponSystem, WeaponType } from "./Weapon";
+import { WeaponSystem } from "./Weapon";
 
 interface RemotePlayer {
   id: string;
@@ -176,7 +176,7 @@ export class RemotePlayerManager {
   /**
    * Update all remote players (smoothly interpolate positions)
    */
-  public update(delta: number): void {
+  public update(_delta: number): void {
     // Update each player's visual representation
     for (const player of this.players.values()) {
       // Smoothly interpolate position
