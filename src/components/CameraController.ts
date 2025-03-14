@@ -46,11 +46,6 @@ export class CameraController {
    * Set up initial isometric view
    */
   private setupIsometricView(): void {
-    // Position the camera for isometric view
-    // Typical isometric angle is 45 degrees horizontally and 35.264 degrees vertically
-    const angle = this.angle;
-    const elevation = Math.atan(1 / Math.sqrt(2)); // ~35.264 degrees
-
     // Update camera position relative to player
     this.updateCameraPosition(false); // Start not crouched
 

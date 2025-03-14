@@ -18,8 +18,6 @@ type InputCallback = () => void;
 export class InputManager {
   // Mouse state
   private mousePosition = new THREE.Vector2();
-  private raycaster = new THREE.Raycaster();
-  private targetPoint = new THREE.Vector3();
 
   // Keyboard state
   private keys: { [key: string]: boolean } = {};

@@ -11,7 +11,7 @@ export class HUD {
   private noAmmoElement: HTMLElement | null = null;
   private emptyMagTimeout: number | null = null;
   private noAmmoTimeout: number | null = null;
-  private inventoryElement: HTMLElement | null = null;
+
   private weaponSlots: HTMLElement[] = [];
   private healthBarElement: HTMLElement | null = null;
   private healthValueElement: HTMLElement | null = null;
@@ -38,7 +38,7 @@ export class HUD {
     this.reloadIndicatorElement = document.getElementById("reload-indicator");
     this.emptyMagElement = document.getElementById("empty-mag-indicator");
     this.noAmmoElement = document.getElementById("no-ammo-indicator");
-    this.inventoryElement = document.getElementById("inventory");
+
     this.healthBarElement = document.getElementById("health-bar-fill");
     this.healthValueElement = document.getElementById("health-value");
     this.crosshairElement = document.getElementById("crosshair");

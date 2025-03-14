@@ -5,11 +5,6 @@ import { WoodenCrate } from "./WoodenCrate";
 import type { DestructibleCrate } from "./WoodenCrate";
 import type { CollisionDetector } from "./CollisionInterface";
 
-// Extended THREE.Group type with crateSize property
-interface WoodenCrateGroup extends THREE.Group {
-  crateSize?: number;
-}
-
 /**
  * Type for car collision data
  */
@@ -53,10 +48,8 @@ export class CollisionSystem implements CollisionDetector {
   private woodenCrates: DestructibleCrate[] = [];
   private playerCollider = new THREE.Box3();
   private tempBox = new THREE.Box3();
-  private bulletRadius = 0.1; // Match the radius used in Bullet.ts
-  private bulletDamage = 25; // Damage per bullet hit
 
-  constructor(private scene: THREE.Scene) {}
+  private bulletDamage = 25; // Damage per bullet hit
 
   /**
    * Get car colliders for visualization
@@ -223,7 +216,6 @@ export class CollisionSystem implements CollisionDetector {
     playerHeight: number
   ): boolean {
     // Update the player collider box
-    const halfHeight = playerHeight / 2;
     this.playerCollider.min.set(position.x - 0.4, position.y, position.z - 0.4);
     this.playerCollider.max.set(
       position.x + 0.4,

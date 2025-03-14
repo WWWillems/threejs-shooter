@@ -16,9 +16,9 @@ import { WoodenCrate } from "./WoodenCrate";
  */
 export class IsometricControls implements CollisionDetector {
   // Core game objects
-  private camera: THREE.Camera;
-  private scene: THREE.Scene;
-  private player: THREE.Mesh;
+  public camera: THREE.Camera;
+  public scene: THREE.Scene;
+  public player: THREE.Mesh;
 
   // Component systems using composition
   private inputManager: InputManager;
@@ -42,7 +42,7 @@ export class IsometricControls implements CollisionDetector {
 
     // Initialize component systems
     this.inputManager = new InputManager(domElement);
-    this.collisionSystem = new CollisionSystem(this.scene);
+    this.collisionSystem = new CollisionSystem();
     this.cameraController = new CameraController(camera, player);
     this.weaponSystem = new WeaponSystem(this.scene, this.player);
     this.playerController = new PlayerController(
