@@ -101,6 +101,7 @@ const groundMaterial = new THREE.MeshStandardMaterial({
   roughnessMap: concreteRoughnessMap,
   color: 0x888888, // Slightly darker gray for a more concrete-like appearance
   roughness: 0.8,
+  metalness: 0, // Setting metalness to 0 to remove reflections
   normalScale: new THREE.Vector2(0.5, 0.5), // Reduce normal map intensity for subtlety
 });
 const ground = new THREE.Mesh(groundGeometry, groundMaterial);

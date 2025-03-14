@@ -12,16 +12,28 @@ export interface WoodenCrateCollisionInfo {
 const textureLoader = new THREE.TextureLoader();
 
 // Load once and reuse these textures
-const woodTexture = textureLoader.load("/textures/wood_crate_diffuse.jpg");
-const woodNormalMap = textureLoader.load("/textures/wood_crate_normal.jpg");
+const woodTexture = textureLoader.load(
+  "/textures/crate/Wood_Crate_001_basecolor.jpg"
+);
+const woodNormalMap = textureLoader.load(
+  "/textures/crate/Wood_Crate_001_normal.jpg"
+);
 const woodRoughnessMap = textureLoader.load(
-  "/textures/wood_crate_roughness.jpg"
+  "/textures/crate/Wood_Crate_001_roughness.jpg"
+);
+const woodHeightMap = textureLoader.load(
+  "/textures/crate/Wood_Crate_001_height.png"
+);
+const woodAOMap = textureLoader.load(
+  "/textures/crate/Wood_Crate_001_ambientOcclusion.jpg"
 );
 
 // Configure texture properties
 woodTexture.wrapS = woodTexture.wrapT = THREE.RepeatWrapping;
 woodNormalMap.wrapS = woodNormalMap.wrapT = THREE.RepeatWrapping;
 woodRoughnessMap.wrapS = woodRoughnessMap.wrapT = THREE.RepeatWrapping;
+woodHeightMap.wrapS = woodHeightMap.wrapT = THREE.RepeatWrapping;
+woodAOMap.wrapS = woodAOMap.wrapT = THREE.RepeatWrapping;
 
 /**
  * Creates a wooden crate model with texture and details
@@ -37,10 +49,13 @@ function createWoodenCrateModel(size = 1): THREE.Group {
     map: woodTexture,
     normalMap: woodNormalMap,
     roughnessMap: woodRoughnessMap,
+    displacementMap: woodHeightMap,
+    displacementScale: 0.01, // Subtle displacement effect
+    aoMap: woodAOMap,
     normalScale: new THREE.Vector2(1, 1),
-    color: 0xffffff, // Use white to let the texture show through
-    roughness: 0.8,
-    metalness: 0.1,
+    color: 0x8a6240, // Warm brown color to enhance the wood appearance
+    roughness: 0.9,
+    metalness: 0.0,
   });
 
   // Create the main crate mesh
