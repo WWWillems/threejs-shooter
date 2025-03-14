@@ -1038,8 +1038,8 @@ export class IsometricControls {
     // Headlights with stronger emission
     const headlightGeometry = new THREE.BoxGeometry(0.4, 0.2, 0.1);
     const headlightMaterial = new THREE.MeshStandardMaterial({
-      color: 0xffffcc,
-      emissive: 0xffffcc,
+      color: 0xff0000,
+      emissive: 0xff0000,
       emissiveIntensity: 1.0,
     });
 
@@ -1052,7 +1052,7 @@ export class IsometricControls {
     headlightR.position.set(0.7, 0.6, -2.05);
 
     // Add actual light sources for the headlights
-    const leftLight = new THREE.SpotLight(0xffffcc, 1.5);
+    const leftLight = new THREE.SpotLight(0xff0000, 1.5);
     leftLight.position.copy(headlightL.position);
     leftLight.target.position.set(
       headlightL.position.x - 2,
@@ -1066,7 +1066,7 @@ export class IsometricControls {
     leftLight.castShadow = true;
     carGroup.add(leftLight.target);
 
-    const rightLight = new THREE.SpotLight(0xffffcc, 1.5);
+    const rightLight = new THREE.SpotLight(0xff0000, 1.5);
     rightLight.position.copy(headlightR.position);
     rightLight.target.position.set(
       headlightR.position.x + 2,
@@ -1083,8 +1083,8 @@ export class IsometricControls {
     // Brake lights (rear lights) with enhanced emissive properties
     const brakeGeometry = new THREE.BoxGeometry(0.35, 0.2, 0.05);
     const brakeMaterial = new THREE.MeshStandardMaterial({
-      color: 0xff0000,
-      emissive: 0xff0000,
+      color: 0xffffcc,
+      emissive: 0xffffcc,
       emissiveIntensity: 1.0, // Increased from 0.5
     });
 
@@ -1097,13 +1097,13 @@ export class IsometricControls {
     brakeR.position.set(0.7, 0.6, 2.05);
 
     // Add actual light sources for brake lights
-    const leftBrakeLight = new THREE.PointLight(0xff0000, 0.5);
+    const leftBrakeLight = new THREE.PointLight(0xffffcc, 0.5);
     leftBrakeLight.position.copy(brakeL.position);
     leftBrakeLight.position.z += 0.1; // Offset slightly to be behind the brake light
     leftBrakeLight.decay = 2;
     leftBrakeLight.distance = 5;
 
-    const rightBrakeLight = new THREE.PointLight(0xff0000, 0.5);
+    const rightBrakeLight = new THREE.PointLight(0xffffcc, 0.5);
     rightBrakeLight.position.copy(brakeR.position);
     rightBrakeLight.position.z += 0.1; // Offset slightly to be behind the brake light
     rightBrakeLight.decay = 2;
