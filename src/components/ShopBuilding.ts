@@ -330,7 +330,7 @@ export class ShopBuilding {
   ): void {
     // Create parking area on the right side of the building
     const parkingWidth = 8;
-    const parkingDepth = 6; // Reduced from 10 to 6 to make parking spaces shorter
+    const parkingDepth = buildingDepth; // Reduced from 10 to 6 to make parking spaces shorter
     const parkingOffset = 2; // Space between building and parking
 
     // Base asphalt/concrete for parking area
