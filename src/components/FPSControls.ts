@@ -836,32 +836,40 @@ export class IsometricControls {
     hood.castShadow = true;
 
     // Car cabin/roof with slightly curved top
-    const roofGeometry = new THREE.BoxGeometry(1.8, 0.1, 2);
+    const roofGeometry = new THREE.BoxGeometry(1.8, 0.25, 2);
     const roofMaterial = new THREE.MeshStandardMaterial({
       color: 0x2255bb,
       metalness: 0.7,
       roughness: 0.2,
     });
     const roof = new THREE.Mesh(roofGeometry, roofMaterial);
-    roof.position.y = 1.75;
+    roof.position.y = 1.5;
     roof.position.z = -0.4;
     roof.castShadow = true;
 
-    // Roof supports (pillars)
-    const pillarGeometry = new THREE.BoxGeometry(0.1, 0.7, 0.1);
+    // Add curved roof top - smaller and more subtle
+    const roofTopGeometry = new THREE.BoxGeometry(1.75, 0.08, 1.95);
+    const roofTop = new THREE.Mesh(roofTopGeometry, roofMaterial);
+    roofTop.position.y = 1.66;
+    roofTop.position.z = -0.4;
+    roofTop.scale.x = 0.92; // More narrower for a better curved look
+    roofTop.castShadow = true;
+
+    // Roof supports (pillars) - adjust height for thinner roof
+    const pillarGeometry = new THREE.BoxGeometry(0.1, 0.6, 0.1);
     const pillarMaterial = new THREE.MeshStandardMaterial({ color: 0x333333 });
 
     // Front pillars
     const frontLeftPillar = new THREE.Mesh(pillarGeometry, pillarMaterial);
-    frontLeftPillar.position.set(-0.85, 1.4, -1.4);
+    frontLeftPillar.position.set(-0.85, 1.25, -1.4);
     const frontRightPillar = new THREE.Mesh(pillarGeometry, pillarMaterial);
-    frontRightPillar.position.set(0.85, 1.4, -1.4);
+    frontRightPillar.position.set(0.85, 1.25, -1.4);
 
     // Rear pillars
     const rearLeftPillar = new THREE.Mesh(pillarGeometry, pillarMaterial);
-    rearLeftPillar.position.set(-0.85, 1.4, 0.6);
+    rearLeftPillar.position.set(-0.85, 1.25, 0.6);
     const rearRightPillar = new THREE.Mesh(pillarGeometry, pillarMaterial);
-    rearRightPillar.position.set(0.85, 1.4, 0.6);
+    rearRightPillar.position.set(0.85, 1.25, 0.6);
 
     // Improved wheels with rims and tires
     const wheelRadius = 0.4;
@@ -968,8 +976,8 @@ export class IsometricControls {
     const rearPlate = new THREE.Mesh(plateGeometry, plateMaterial);
     rearPlate.position.set(0, 0.3, 2.21);
 
-    // Door lines
-    const doorLineGeometry = new THREE.BoxGeometry(0.01, 0.6, 1.5);
+    // Door lines and panels
+    const doorLineGeometry = new THREE.BoxGeometry(0.03, 0.6, 1.8);
     const doorLineMaterial = new THREE.MeshStandardMaterial({
       color: 0x111111,
     });
@@ -978,16 +986,32 @@ export class IsometricControls {
     const rightDoorLine = new THREE.Mesh(doorLineGeometry, doorLineMaterial);
     rightDoorLine.position.set(1.005, 0.7, -0.2);
 
+    // Door panels - add some depth to doors
+    const doorPanelGeometry = new THREE.BoxGeometry(0.05, 0.7, 1.8);
+    const doorPanelMaterial = new THREE.MeshStandardMaterial({
+      color: 0x1e4eaa, // Slightly different blue for contrast
+      metalness: 0.6,
+      roughness: 0.3,
+    });
+
+    // Left door panel
+    const leftDoorPanel = new THREE.Mesh(doorPanelGeometry, doorPanelMaterial);
+    leftDoorPanel.position.set(-1.02, 0.7, -0.2);
+
+    // Right door panel
+    const rightDoorPanel = new THREE.Mesh(doorPanelGeometry, doorPanelMaterial);
+    rightDoorPanel.position.set(1.02, 0.7, -0.2);
+
     // Door handles
-    const handleGeometry = new THREE.BoxGeometry(0.02, 0.06, 0.15);
+    const handleGeometry = new THREE.BoxGeometry(0.05, 0.08, 0.2);
     const handleMaterial = new THREE.MeshStandardMaterial({
       color: 0xdddddd,
       metalness: 0.8,
     });
     const leftHandle = new THREE.Mesh(handleGeometry, handleMaterial);
-    leftHandle.position.set(-1.02, 0.8, -0.5);
+    leftHandle.position.set(-1.05, 0.8, -0.5);
     const rightHandle = new THREE.Mesh(handleGeometry, handleMaterial);
-    rightHandle.position.set(1.02, 0.8, -0.5);
+    rightHandle.position.set(1.05, 0.8, -0.5);
 
     // Side mirrors
     const mirrorArmGeometry = new THREE.BoxGeometry(0.05, 0.05, 0.2);
@@ -1010,29 +1034,47 @@ export class IsometricControls {
     const windowMaterial = new THREE.MeshStandardMaterial({
       color: 0x88ccff,
       transparent: true,
-      opacity: 0.6,
+      opacity: 0.5,
       metalness: 0.2,
     });
 
     // Windshield (front window) - with more realistic angle
-    const windshieldGeometry = new THREE.BoxGeometry(1.7, 0.9, 0.1);
+    const windshieldGeometry = new THREE.BoxGeometry(1.7, 0.85, 0.1);
     const windshield = new THREE.Mesh(windshieldGeometry, windowMaterial);
-    windshield.position.set(0, 1.4, -1.35);
+    windshield.position.set(0, 1.3, -1.35);
     windshield.rotation.x = Math.PI / 5; // Steeper angle for the windshield
 
-    // Side windows - left
-    const sideWindowGeometry = new THREE.BoxGeometry(0.05, 0.5, 2);
+    // Side windows - left with window frame
+    const sideWindowGeometry = new THREE.BoxGeometry(0.05, 0.4, 1.8);
     const leftWindow = new THREE.Mesh(sideWindowGeometry, windowMaterial);
-    leftWindow.position.set(-0.98, 1.35, -0.4);
+    leftWindow.position.set(-0.98, 1.25, -0.3);
 
-    // Side windows - right
+    // Window frame - left
+    const windowFrameGeometry = new THREE.BoxGeometry(0.07, 0.05, 1.8);
+    const windowFrameMaterial = new THREE.MeshStandardMaterial({
+      color: 0x333333,
+    });
+    const leftWindowTopFrame = new THREE.Mesh(
+      windowFrameGeometry,
+      windowFrameMaterial
+    );
+    leftWindowTopFrame.position.set(-0.98, 1.45, -0.3);
+
+    // Side windows - right with window frame
     const rightWindow = new THREE.Mesh(sideWindowGeometry, windowMaterial);
-    rightWindow.position.set(0.98, 1.35, -0.4);
+    rightWindow.position.set(0.98, 1.25, -0.3);
+
+    // Window frame - right
+    const rightWindowTopFrame = new THREE.Mesh(
+      windowFrameGeometry,
+      windowFrameMaterial
+    );
+    rightWindowTopFrame.position.set(0.98, 1.45, -0.3);
 
     // Rear window
-    const rearWindowGeometry = new THREE.BoxGeometry(1.6, 0.6, 0.1);
+    const rearWindowGeometry = new THREE.BoxGeometry(1.6, 0.55, 0.1);
     const rearWindow = new THREE.Mesh(rearWindowGeometry, windowMaterial);
-    rearWindow.position.set(0, 1.4, 0.55);
+    rearWindow.position.set(0, 1.3, 0.55);
     rearWindow.rotation.x = -Math.PI / 5; // Angle the rear window
 
     // Headlights with stronger emission
@@ -1124,6 +1166,7 @@ export class IsometricControls {
     carGroup.add(body);
     carGroup.add(hood);
     carGroup.add(roof);
+    carGroup.add(roofTop); // Add new roof top part
     carGroup.add(frontLeftPillar);
     carGroup.add(frontRightPillar);
     carGroup.add(rearLeftPillar);
@@ -1137,6 +1180,8 @@ export class IsometricControls {
     carGroup.add(grille);
     carGroup.add(frontPlate);
     carGroup.add(rearPlate);
+    carGroup.add(leftDoorPanel); // Add new door panel
+    carGroup.add(rightDoorPanel); // Add new door panel
     carGroup.add(leftDoorLine);
     carGroup.add(rightDoorLine);
     carGroup.add(leftHandle);
@@ -1148,6 +1193,8 @@ export class IsometricControls {
     carGroup.add(windshield);
     carGroup.add(leftWindow);
     carGroup.add(rightWindow);
+    carGroup.add(leftWindowTopFrame); // Add window frame
+    carGroup.add(rightWindowTopFrame); // Add window frame
     carGroup.add(rearWindow);
     carGroup.add(headlightL);
     carGroup.add(headlightR);
