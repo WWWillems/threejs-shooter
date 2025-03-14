@@ -3,6 +3,7 @@ import * as THREE from "three";
 import { IsometricControls } from "./components/IsometricControls";
 import { HUD } from "./components/HUD";
 import { PickupManager } from "./components/PickupManager";
+import { ShopBuilding } from "./components/ShopBuilding";
 
 // Initialize the scene
 const scene = new THREE.Scene();
@@ -358,6 +359,14 @@ for (let i = 0; i < 4; i++) {
     }
   }
 }
+
+// Add a shop building to the scene
+const shopPosition = new THREE.Vector3(0, 0, -20);
+const shopBuilding = new ShopBuilding(
+  shopPosition,
+  scene,
+  controls.getCollisionSystem()
+);
 
 // Handle window resize
 window.addEventListener("resize", () => {
