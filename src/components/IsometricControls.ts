@@ -196,6 +196,14 @@ export class IsometricControls implements CollisionDetector {
   }
 
   /**
+   * Drop the current weapon
+   * @returns The dropped weapon or null if no weapon was dropped
+   */
+  public dropCurrentWeapon(): Weapon | null {
+    return this.weaponSystem.dropCurrentWeapon();
+  }
+
+  /**
    * Get current gun (for backwards compatibility)
    */
   get gun(): THREE.Group {

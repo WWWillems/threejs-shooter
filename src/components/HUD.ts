@@ -79,6 +79,19 @@ export class HUD {
       "mousemove",
       this.trackMousePosition.bind(this)
     );
+
+    // Add keyboard event listener to handle weapon dropping
+    document.addEventListener("keydown", (event: KeyboardEvent) => {
+      if (event.key.toLowerCase() === "g") {
+        // Call dropCurrentWeapon method on controls
+        const droppedWeapon = this.controls.dropCurrentWeapon();
+
+        // If a weapon was successfully dropped, show notification
+        if (droppedWeapon) {
+          this.showWeaponDropNotification(droppedWeapon.name);
+        }
+      }
+    });
   }
 
   private createUIOverlay(): HTMLElement {
@@ -92,7 +105,7 @@ export class HUD {
           <div id="weapon-slot-1" class="weapon-slot"></div>
           <div id="weapon-slot-2" class="weapon-slot"></div>
         </div>
-        <p class="inventory-tip">Press 1-3 to switch weapons, or Q/E to cycle</p>
+        <p class="inventory-tip">Press 1-3 to switch weapons, Q/E to cycle, or G to drop</p>
       </div>
 
       <div class="fps-counter" id="fps">FPS: 0</div>
@@ -163,6 +176,10 @@ export class HUD {
         border-left-color: #cccc00;
       }
       
+      .notification.weapon {
+        border-left-color: #3399ff;
+      }
+      
       .notification.show {
         transform: translateX(0);
         opacity: 1;
@@ -189,6 +206,20 @@ export class HUD {
       .notification-message {
         font-size: 14px;
         opacity: 0.9;
+      }
+      
+      /* Style for empty weapon slots */
+      .weapon-icon.empty {
+        opacity: 0.6;
+        border: 1px dashed rgba(255, 255, 255, 0.3);
+      }
+      
+      .weapon-icon.empty .weapon-name {
+        color: rgba(255, 255, 255, 0.6);
+      }
+      
+      .weapon-icon.empty .weapon-ammo {
+        color: rgba(255, 255, 255, 0.4);
       }
     `;
     document.head.appendChild(style);
@@ -330,11 +361,19 @@ export class HUD {
     const ammoInfo = this.controls.getAmmoInfo();
 
     if (this.currentAmmoElement) {
-      this.currentAmmoElement.textContent = ammoInfo.current.toString();
+      if (ammoInfo.isEmpty) {
+        this.currentAmmoElement.textContent = "-";
+      } else {
+        this.currentAmmoElement.textContent = ammoInfo.current.toString();
+      }
     }
 
     if (this.totalAmmoElement) {
-      this.totalAmmoElement.textContent = ammoInfo.total.toString();
+      if (ammoInfo.isEmpty) {
+        this.totalAmmoElement.textContent = "-";
+      } else {
+        this.totalAmmoElement.textContent = ammoInfo.total.toString();
+      }
     }
 
     if (this.reloadIndicatorElement) {
@@ -364,21 +403,38 @@ export class HUD {
       if (slotElement && i < inventory.length) {
         const weapon = inventory[i];
 
-        // Get the appropriate weapon icon based on weapon name
-        const weaponIcon = this.getWeaponIcon(weapon.name);
+        // Check if weapon slot is empty
+        if (weapon.name === "Empty") {
+          slotElement.innerHTML = `
+            <div class="weapon-icon empty ${
+              i === currentWeaponIndex ? "selected" : ""
+            }">
+              <div class="weapon-image">
+                <svg viewBox="0 0 100 40" xmlns="http://www.w3.org/2000/svg">
+                  <rect x="30" y="15" width="40" height="10" fill="#444" fill-opacity="0.3" />
+                  <text x="50" y="25" text-anchor="middle" fill="#fff" font-size="10">Empty</text>
+                </svg>
+              </div>
+              <span class="weapon-name">Empty Slot</span>
+              <span class="weapon-ammo">-/-</span>
+            </div>
+          `;
+        } else {
+          // Get the appropriate weapon icon for non-empty slots
+          const weaponIcon = this.getWeaponIcon(weapon.name);
 
-        // Update slot content
-        slotElement.innerHTML = `
-          <div class="weapon-icon ${
-            i === currentWeaponIndex ? "selected" : ""
-          }">
-            <div class="weapon-image">${weaponIcon}</div>
-            <span class="weapon-name">${weapon.name}</span>
-            <span class="weapon-ammo">${weapon.bulletsInMagazine}/${
-          weapon.totalBullets
-        }</span>
-          </div>
-        `;
+          slotElement.innerHTML = `
+            <div class="weapon-icon ${
+              i === currentWeaponIndex ? "selected" : ""
+            }">
+              <div class="weapon-image">${weaponIcon}</div>
+              <span class="weapon-name">${weapon.name}</span>
+              <span class="weapon-ammo">${weapon.bulletsInMagazine}/${
+            weapon.totalBullets
+          }</span>
+            </div>
+          `;
+        }
       }
     }
   }
@@ -463,6 +519,11 @@ export class HUD {
           <!-- Trigger guard -->
           <path d="M30,30 L45,30 L45,35 L35,35 Z" fill="#614126" />
         </svg>`;
+      case "Empty":
+        return `<svg viewBox="0 0 100 40" xmlns="http://www.w3.org/2000/svg">
+          <rect x="30" y="15" width="40" height="10" fill="#444" fill-opacity="0.3" />
+          <text x="50" y="25" text-anchor="middle" fill="#fff" font-size="10">Empty</text>
+        </svg>`;
       default:
         return `<svg viewBox="0 0 100 40" xmlns="http://www.w3.org/2000/svg">
           <rect x="30" y="15" width="40" height="10" fill="#999" />
@@ -502,6 +563,22 @@ export class HUD {
       `
         <svg viewBox="0 0 24 24" width="24" height="24" fill="#cccc00">
           <path d="M7 15h10v2H7v-2zm12-6h-4.5V4l-5 5-5-5v5H0v2h4.5v5l5-5 5 5V9H19V9z"/>
+        </svg>
+      `
+    );
+  }
+
+  /**
+   * Show a notification when a player drops a weapon
+   */
+  public showWeaponDropNotification(weaponName: string): void {
+    this.showNotification(
+      "weapon",
+      "Weapon Dropped",
+      `${weaponName} was dropped`,
+      `
+        <svg viewBox="0 0 24 24" width="24" height="24" fill="#3399ff">
+          <path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/>
         </svg>
       `
     );

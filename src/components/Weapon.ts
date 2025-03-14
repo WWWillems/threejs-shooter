@@ -295,6 +295,11 @@ export class WeaponSystem {
     const currentTime = performance.now() / 1000;
     const currentWeapon = this.getCurrentWeapon();
 
+    // Don't shoot if the weapon is empty
+    if (currentWeapon.name === "Empty") {
+      return null;
+    }
+
     // Check if enough time has passed since last shot (fire rate control)
     if (currentTime - currentWeapon.lastShotTime < currentWeapon.fireRate) {
       return null;
@@ -608,6 +613,11 @@ export class WeaponSystem {
   public reload() {
     const currentWeapon = this.getCurrentWeapon();
 
+    // Don't reload if the weapon is empty
+    if (currentWeapon.name === "Empty") {
+      return;
+    }
+
     // Check if reloading is allowed
     if (!this.canReload(currentWeapon)) {
       return;
@@ -700,11 +710,16 @@ export class WeaponSystem {
       // Update current weapon index
       this.currentWeaponIndex = index;
 
-      // Add new weapon to scene
-      this.scene.add(this.getCurrentWeapon().model);
+      // Get the new current weapon
+      const newWeapon = this.getCurrentWeapon();
 
-      // Update weapon position
-      this.updateWeaponPosition(false);
+      // Only add to scene if it's not empty
+      if (newWeapon.name !== "Empty") {
+        this.scene.add(newWeapon.model);
+
+        // Update weapon position
+        this.updateWeaponPosition(false);
+      }
     }
   }
 
@@ -723,6 +738,77 @@ export class WeaponSystem {
     return this.currentWeaponIndex;
   }
 
+  // Drop the current weapon
+  public dropCurrentWeapon(): Weapon | null {
+    // Cannot drop if there's only one weapon left
+    if (this.weapons.length <= 1) {
+      return null;
+    }
+
+    // Get the current weapon before replacing it
+    const droppedWeapon = this.getCurrentWeapon();
+
+    // Remove current weapon from scene
+    this.scene.remove(droppedWeapon.model);
+
+    // Create a visual representation of the dropped weapon in the world
+    const droppedModel = droppedWeapon.model.clone();
+
+    // Position the model on the ground near the player
+    const playerPosition = this.player.position.clone();
+    // Position it slightly ahead of the player based on rotation
+    const direction = new THREE.Vector3(0, 0, -1);
+    direction.applyQuaternion(this.player.quaternion);
+    direction.multiplyScalar(2); // Drop 2 units ahead
+
+    playerPosition.add(direction);
+    playerPosition.y = 0.5; // Just above ground level
+
+    droppedModel.position.copy(playerPosition);
+
+    // Rotate the weapon to lay flat on the ground
+    droppedModel.rotation.set(Math.PI / 2, 0, Math.random() * Math.PI * 2);
+
+    // Add to scene
+    this.scene.add(droppedModel);
+
+    // Instead of removing the weapon from inventory, replace it with an empty slot
+    const emptyWeapon: Weapon = {
+      name: "Empty",
+      model: new THREE.Group(), // Empty group
+      bulletsInMagazine: 0,
+      totalBullets: 0,
+      maxMagazineSize: 0,
+      fireRate: 0,
+      isReloading: false,
+      reloadTime: 0,
+      reloadStartTime: 0,
+      lastShotTime: 0,
+    };
+
+    // Replace the current weapon with the empty slot
+    this.weapons[this.currentWeaponIndex] = emptyWeapon;
+
+    // Try to switch to a non-empty weapon if possible
+    this.switchToNonEmptyWeapon();
+
+    // Return the dropped weapon info
+    return droppedWeapon;
+  }
+
+  // Switch to a non-empty weapon if available
+  private switchToNonEmptyWeapon(): void {
+    // Find the first non-empty weapon
+    for (let i = 0; i < this.weapons.length; i++) {
+      if (i !== this.currentWeaponIndex && this.weapons[i].name !== "Empty") {
+        this.switchToWeapon(i);
+        return;
+      }
+    }
+
+    // If we get here, there are no non-empty weapons, so keep the current (empty) one
+  }
+
   // Get ammo info for HUD
   public getAmmoInfo() {
     const currentWeapon = this.getCurrentWeapon();
@@ -730,6 +816,7 @@ export class WeaponSystem {
       current: currentWeapon.bulletsInMagazine,
       total: currentWeapon.totalBullets,
       isReloading: currentWeapon.isReloading,
+      isEmpty: currentWeapon.name === "Empty",
     };
   }
 }
