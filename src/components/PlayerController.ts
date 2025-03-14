@@ -3,6 +3,7 @@ import type { InputManager } from "./InputManager";
 import type { CollisionSystem } from "./CollisionSystem";
 import type { CameraController } from "./CameraController";
 import type { WeaponSystem } from "./Weapon";
+import { WeaponType } from "./Weapon";
 
 /**
  * Player movement settings
@@ -424,5 +425,49 @@ export class PlayerController {
   public resurrect(): void {
     this.currentHealth = this.maxHealth;
     this.isDead = false;
+  }
+
+  /**
+   * Add ammo to a specific weapon type
+   * @param weaponType The type of weapon to add ammo to
+   * @param amount The amount of ammo to add
+   */
+  public addAmmo(weaponType: WeaponType, amount: number): void {
+    // Get the weapon inventory
+    const inventory = this.weaponSystem.getInventory();
+
+    // Find the weapon by name (case insensitive)
+    // Since WeaponType enum values are lowercase but Weapon names are capitalized,
+    // we need to convert the enum value to match the expected weapon name format
+    let weaponName: string;
+
+    switch (weaponType) {
+      case WeaponType.PISTOL:
+        weaponName = "Pistol";
+        break;
+      case WeaponType.RIFLE:
+        weaponName = "Assault Rifle";
+        break;
+      case WeaponType.SHOTGUN:
+        weaponName = "Shotgun";
+        break;
+      case WeaponType.SNIPER:
+        weaponName = "Sniper";
+        break;
+      default:
+        weaponName = weaponType;
+    }
+
+    const weapon = inventory.find((w) => w.name === weaponName);
+
+    if (weapon) {
+      // Add ammo to the weapon's total bullets
+      weapon.totalBullets += amount;
+      console.log(
+        `Added ${amount} ammo to ${weaponName}. Total: ${weapon.totalBullets}`
+      );
+    } else {
+      console.warn(`No weapon found with name: ${weaponName}`);
+    }
   }
 }

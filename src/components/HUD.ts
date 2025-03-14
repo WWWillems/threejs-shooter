@@ -1,4 +1,5 @@
 import type { IsometricControls } from "./IsometricControls";
+import { WeaponType } from "./Weapon";
 
 export class HUD {
   private container: HTMLElement;
@@ -11,6 +12,12 @@ export class HUD {
   private noAmmoElement: HTMLElement | null = null;
   private emptyMagTimeout: number | null = null;
   private noAmmoTimeout: number | null = null;
+  // Add notification elements
+  private notificationContainer: HTMLElement | null = null;
+  private activeNotifications: Map<
+    string,
+    { element: HTMLElement; timeoutId: number }
+  > = new Map();
 
   private weaponSlots: HTMLElement[] = [];
   private healthBarElement: HTMLElement | null = null;
@@ -38,6 +45,9 @@ export class HUD {
     this.reloadIndicatorElement = document.getElementById("reload-indicator");
     this.emptyMagElement = document.getElementById("empty-mag-indicator");
     this.noAmmoElement = document.getElementById("no-ammo-indicator");
+    this.notificationContainer = document.getElementById(
+      "notification-container"
+    );
 
     this.healthBarElement = document.getElementById("health-bar-fill");
     this.healthValueElement = document.getElementById("health-value");
@@ -107,7 +117,82 @@ export class HUD {
       <div class="inventory" id="inventory"></div>
       
       <div id="crosshair" class="crosshair">+</div>
+
+      <!-- Add notification container -->
+      <div id="notification-container" class="notification-container"></div>
     `;
+
+    // Add CSS for notifications
+    const style = document.createElement("style");
+    style.textContent = `
+      .notification-container {
+        position: absolute;
+        top: 20px;
+        right: 20px;
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+        gap: 10px;
+        max-width: 300px;
+        z-index: 1000;
+      }
+      
+      .notification {
+        background-color: rgba(0, 0, 0, 0.75);
+        color: white;
+        padding: 10px 15px;
+        border-radius: 5px;
+        font-size: 16px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        transform: translateX(100%);
+        opacity: 0;
+        transition: transform 0.3s ease, opacity 0.3s ease;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        border-left: 4px solid #4a90e2;
+        font-family: Arial, sans-serif;
+        pointer-events: none;
+      }
+      
+      .notification.health {
+        border-left-color: #ff4444;
+      }
+      
+      .notification.ammo {
+        border-left-color: #cccc00;
+      }
+      
+      .notification.show {
+        transform: translateX(0);
+        opacity: 1;
+      }
+      
+      .notification-icon {
+        width: 24px;
+        height: 24px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      
+      .notification-content {
+        display: flex;
+        flex-direction: column;
+      }
+      
+      .notification-title {
+        font-weight: bold;
+        margin-bottom: 2px;
+      }
+      
+      .notification-message {
+        font-size: 14px;
+        opacity: 0.9;
+      }
+    `;
+    document.head.appendChild(style);
+
     return overlay;
   }
 
@@ -383,6 +468,116 @@ export class HUD {
         return `<svg viewBox="0 0 100 40" xmlns="http://www.w3.org/2000/svg">
           <rect x="30" y="15" width="40" height="10" fill="#999" />
         </svg>`;
+    }
+  }
+
+  /**
+   * Show a notification when a player picks up a health item
+   */
+  public showHealthPickupNotification(amount: number): void {
+    this.showNotification(
+      "health",
+      "Health Pickup",
+      `+${amount} health`,
+      `
+        <svg viewBox="0 0 24 24" width="24" height="24" fill="#ff4444">
+          <path d="M19 3H5a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2V5a2 2 0 00-2-2zm-3 12h-3v3h-2v-3H8v-2h3V7h2v6h3v2z"/>
+        </svg>
+      `
+    );
+  }
+
+  /**
+   * Show a notification when a player picks up ammo
+   */
+  public showAmmoPickupNotification(
+    weaponType: WeaponType,
+    amount: number
+  ): void {
+    const weaponName = this.getWeaponNameFromType(weaponType);
+
+    this.showNotification(
+      "ammo",
+      "Ammo Pickup",
+      `+${amount} ${weaponName} ammo`,
+      `
+        <svg viewBox="0 0 24 24" width="24" height="24" fill="#cccc00">
+          <path d="M7 15h10v2H7v-2zm12-6h-4.5V4l-5 5-5-5v5H0v2h4.5v5l5-5 5 5V9H19V9z"/>
+        </svg>
+      `
+    );
+  }
+
+  /**
+   * Show a generic notification
+   */
+  private showNotification(
+    type: string,
+    title: string,
+    message: string,
+    iconSvg: string,
+    duration = 3000
+  ): void {
+    if (!this.notificationContainer) return;
+
+    // Create notification element
+    const notificationId = `notification-${Date.now()}`;
+    const notificationEl = document.createElement("div");
+    notificationEl.className = `notification ${type}`;
+    notificationEl.id = notificationId;
+    notificationEl.innerHTML = `
+      <div class="notification-icon">${iconSvg}</div>
+      <div class="notification-content">
+        <div class="notification-title">${title}</div>
+        <div class="notification-message">${message}</div>
+      </div>
+    `;
+
+    // Add to container
+    this.notificationContainer.appendChild(notificationEl);
+
+    // Trigger animation (need to delay it for the browser to process the DOM change)
+    setTimeout(() => {
+      notificationEl.classList.add("show");
+    }, 10);
+
+    // Create timeout to remove notification
+    const timeoutId = window.setTimeout(() => {
+      notificationEl.classList.remove("show");
+
+      // Remove from DOM after animation completes
+      setTimeout(() => {
+        if (notificationEl.parentNode) {
+          notificationEl.parentNode.removeChild(notificationEl);
+        }
+        this.activeNotifications.delete(notificationId);
+      }, 300);
+    }, duration);
+
+    // Store active notification
+    this.activeNotifications.set(notificationId, {
+      element: notificationEl,
+      timeoutId,
+    });
+  }
+
+  /**
+   * Get weapon name from weapon type
+   */
+  private getWeaponNameFromType(weaponType: WeaponType): string {
+    switch (weaponType) {
+      case WeaponType.DEFAULT:
+        return "Default";
+      case WeaponType.PISTOL:
+        return "Pistol";
+      case WeaponType.RIFLE:
+        return "Assault Rifle";
+      case WeaponType.SHOTGUN:
+        return "Shotgun";
+      case WeaponType.SNIPER:
+        return "Sniper";
+      default:
+        return "Unknown";
     }
   }
 }

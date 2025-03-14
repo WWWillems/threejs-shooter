@@ -2,6 +2,8 @@ import "./style.css";
 import * as THREE from "three";
 import { IsometricControls } from "./components/IsometricControls";
 import { HUD } from "./components/HUD";
+import { PickupManager } from "./components/PickupManager";
+import { WeaponType } from "./components/Weapon";
 
 // Initialize the scene
 const scene = new THREE.Scene();
@@ -68,6 +70,14 @@ let hud: HUD | null = null;
 if (appElement) {
   hud = new HUD(appElement, controls);
 }
+
+// Initialize PickupManager
+const pickupManager = new PickupManager(
+  scene,
+  player,
+  controls.getPlayerController(),
+  hud || undefined
+);
 
 // Add ambient light
 const ambientLight = new THREE.AmbientLight(0x404040);
@@ -410,43 +420,8 @@ function animate() {
   // Update controls
   controls.update();
 
-  // Check for health pickup collection
-  const healthPickups = scene.children.filter(
-    (obj) => obj.userData?.isHealthPickup === true
-  );
-
-  for (const pickup of healthPickups) {
-    // Calculate distance between player and pickup
-    const distance = player.position.distanceTo(pickup.position);
-
-    // If player is close enough, collect the pickup
-    if (distance < 1.5) {
-      // Apply healing to player
-      const playerController = controls.getPlayerController();
-      if (playerController) {
-        playerController.heal(pickup.userData.healAmount || 25);
-      }
-
-      // Create a simple pickup effect
-      const pickupEffect = new THREE.PointLight(0xff0000, 2, 5);
-      pickupEffect.position.copy(pickup.position);
-      scene.add(pickupEffect);
-
-      // Remove the light after a short delay
-      setTimeout(() => {
-        scene.remove(pickupEffect);
-      }, 300);
-
-      // Remove the pickup from the scene
-      scene.remove(pickup);
-    }
-
-    // Remove pickups that have been around too long (30 seconds)
-    const pickupAge = (Date.now() - pickup.userData.startTime) / 1000;
-    if (pickupAge > 30) {
-      scene.remove(pickup);
-    }
-  }
+  // Update pickup manager
+  pickupManager.update(delta);
 
   // Update HUD
   if (hud) {
@@ -471,3 +446,11 @@ let lastFrameTime = performance.now();
 
 // Start the animation loop
 animate();
+
+// Create a test health pickup (example of how to use the pickup system)
+const healthPickupPosition = new THREE.Vector3(5, 0.5, 5);
+pickupManager.createHealthPickup(healthPickupPosition, 25);
+
+// Create a test ammo pickup (example of how to use the pickup system)
+const ammoPickupPosition = new THREE.Vector3(7, 0.5, 5);
+pickupManager.createAmmoPickup(ammoPickupPosition, WeaponType.RIFLE, 30);

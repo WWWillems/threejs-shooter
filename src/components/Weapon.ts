@@ -16,6 +16,15 @@ export interface Weapon {
   lastShotTime: number;
 }
 
+// Enum for weapon types
+export enum WeaponType {
+  PISTOL = "pistol",
+  RIFLE = "rifle",
+  SHOTGUN = "shotgun",
+  SNIPER = "sniper",
+  DEFAULT = "default",
+}
+
 // Define a type for impact animation functions
 type ImpactAnimationFn = (delta: number) => void;
 
