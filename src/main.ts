@@ -79,6 +79,9 @@ const pickupManager = new PickupManager(
   hud || undefined
 );
 
+// Set pickup manager in controls
+controls.setPickupManager(pickupManager);
+
 // Add ambient light
 const ambientLight = new THREE.AmbientLight(0x404040);
 scene.add(ambientLight);

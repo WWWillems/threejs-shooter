@@ -1,4 +1,8 @@
 import * as THREE from "three";
+import { HealthPickup } from "./HealthPickup";
+import { AmmoPickup } from "./AmmoPickup";
+import { WeaponType } from "./Weapon";
+import type { PickupManager } from "./PickupManager";
 
 // Define wooden crate collision dimensions for collision detection
 export interface WoodenCrateCollisionInfo {
@@ -305,7 +309,8 @@ function addToScene(
   scene: THREE.Scene,
   position: THREE.Vector3,
   size = 1,
-  rotation = 0
+  rotation = 0,
+  pickupManager?: PickupManager
 ): DestructibleCrate {
   const crateGroup = createWoodenCrateModel(size);
   crateGroup.position.copy(position);
@@ -345,9 +350,30 @@ function addToScene(
         // Create destruction effect (particles)
         createDestructionEffect(scene, this.position, size);
 
-        // Random chance to spawn health pickup (30% chance)
-        if (Math.random() < 0.3) {
-          createHealthPickup(scene, this.position.clone());
+        // Random chance to spawn pickup (50% chance)
+        if (Math.random() < 0.5) {
+          // Randomly choose between health pickup (50%) or ammo pickup (50%)
+          if (pickupManager) {
+            if (Math.random() < 0.5) {
+              // Create health pickup
+              pickupManager.createHealthPickup(this.position.clone(), 25);
+            } else {
+              // Create ammo pickup with random weapon type
+              const weaponTypes = [
+                WeaponType.PISTOL,
+                WeaponType.RIFLE,
+                WeaponType.SHOTGUN,
+                WeaponType.SNIPER,
+              ];
+              const randomWeaponType =
+                weaponTypes[Math.floor(Math.random() * weaponTypes.length)];
+              pickupManager.createAmmoPickup(
+                this.position.clone(),
+                randomWeaponType,
+                30
+              );
+            }
+          }
         }
 
         // Remove from scene after a slight delay
@@ -366,7 +392,7 @@ function addToScene(
 }
 
 /**
- * Creates a particle effect when a crate is destroyed
+ * Creates a destruction effect when a crate is destroyed
  */
 function createDestructionEffect(
   scene: THREE.Scene,
@@ -475,90 +501,9 @@ function createDestructionEffect(
   animateParticles();
 }
 
-/**
- * Creates a health pickup that the player can collect
- */
-function createHealthPickup(scene: THREE.Scene, position: THREE.Vector3): void {
-  // Create a glowing red cross
-  const pickupGroup = new THREE.Group();
-
-  // Create base
-  const baseGeometry = new THREE.CylinderGeometry(0.3, 0.3, 0.1, 16);
-  const baseMaterial = new THREE.MeshStandardMaterial({
-    color: 0xffffff,
-    emissive: 0xff2222,
-    emissiveIntensity: 0.2,
-    metalness: 0.7,
-    roughness: 0.3,
-  });
-  const base = new THREE.Mesh(baseGeometry, baseMaterial);
-  pickupGroup.add(base);
-
-  // Create cross (horizontal bar)
-  const horizontalGeometry = new THREE.BoxGeometry(0.4, 0.1, 0.1);
-  const crossMaterial = new THREE.MeshStandardMaterial({
-    color: 0xff0000,
-    emissive: 0xff0000,
-    emissiveIntensity: 0.5,
-    metalness: 0.8,
-    roughness: 0.2,
-  });
-  const horizontalBar = new THREE.Mesh(horizontalGeometry, crossMaterial);
-  horizontalBar.position.y = 0.1;
-  pickupGroup.add(horizontalBar);
-
-  // Create cross (vertical bar)
-  const verticalGeometry = new THREE.BoxGeometry(0.1, 0.1, 0.4);
-  const verticalBar = new THREE.Mesh(verticalGeometry, crossMaterial);
-  verticalBar.position.y = 0.1;
-  pickupGroup.add(verticalBar);
-
-  // Position the pickup slightly above the ground
-  position.y = 0.3;
-  pickupGroup.position.copy(position);
-
-  // Add floating animation
-  const startY = position.y;
-  const startTime = Date.now();
-
-  // Make it glow with a point light
-  const light = new THREE.PointLight(0xff0000, 1, 2);
-  light.position.set(0, 0.2, 0);
-  pickupGroup.add(light);
-
-  // Add the pickup to the scene
-  scene.add(pickupGroup);
-
-  // Add rotation and floating animation
-  function animatePickup() {
-    const elapsed = (Date.now() - startTime) / 1000; // seconds
-
-    // Floating effect
-    pickupGroup.position.y = startY + Math.sin(elapsed * 2) * 0.1;
-
-    // Rotation effect
-    pickupGroup.rotation.y += 0.02;
-
-    // Check for player collision
-    // This will be implemented in the main game loop
-
-    // Continue animation
-    requestAnimationFrame(animatePickup);
-  }
-
-  // Store pickup data for collision detection
-  pickupGroup.userData.isHealthPickup = true;
-  pickupGroup.userData.healAmount = 25;
-  pickupGroup.userData.startTime = startTime;
-
-  // Start animation
-  animatePickup();
-}
-
 // Export module functions
 export const WoodenCrate = {
   addToScene,
   getCollisionDimensions,
   createDestructionEffect,
-  createHealthPickup,
 };

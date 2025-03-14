@@ -10,6 +10,7 @@ import { PlayerController } from "./PlayerController";
 import { DebugVisualizer } from "./DebugVisualizer";
 import { StreetLight } from "./StreetLight";
 import { WoodenCrate } from "./WoodenCrate";
+import type { PickupManager } from "./PickupManager";
 
 /**
  * Main game controls class using composition pattern to integrate all systems
@@ -27,6 +28,7 @@ export class IsometricControls implements CollisionDetector {
   private weaponSystem: WeaponSystem;
   private playerController: PlayerController;
   private debugVisualizer: DebugVisualizer;
+  private pickupManager?: PickupManager;
 
   // Track if controls are enabled
   private enabled = true;
@@ -119,7 +121,13 @@ export class IsometricControls implements CollisionDetector {
     size = 1.5,
     rotation = 0
   ): THREE.Group {
-    const crate = WoodenCrate.addToScene(this.scene, position, size, rotation);
+    const crate = WoodenCrate.addToScene(
+      this.scene,
+      position,
+      size,
+      rotation,
+      this.pickupManager
+    );
     this.collisionSystem.addWoodenCrate(crate, size);
     return crate;
   }
@@ -185,5 +193,12 @@ export class IsometricControls implements CollisionDetector {
    */
   get gun(): THREE.Group {
     return this.weaponSystem.getCurrentWeapon().model;
+  }
+
+  /**
+   * Set the pickup manager
+   */
+  public setPickupManager(pickupManager: PickupManager): void {
+    this.pickupManager = pickupManager;
   }
 }

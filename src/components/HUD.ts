@@ -401,9 +401,8 @@ export class HUD {
     }
 
     if (this.healthValueElement) {
-      this.healthValueElement.textContent = Math.ceil(
-        healthInfo.current
-      ).toString();
+      const currentHealth = Math.ceil(healthInfo.current);
+      this.healthValueElement.textContent = `${currentHealth} / ${healthInfo.max} HP`;
     }
 
     // Optional: Add visual effects when health is low

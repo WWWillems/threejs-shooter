@@ -44,7 +44,7 @@ export class PlayerController {
 
   // Health system
   private maxHealth = 100;
-  private currentHealth = 100;
+  private currentHealth = 10;
   private isDead = false;
 
   // Movement settings
