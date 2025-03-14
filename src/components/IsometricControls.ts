@@ -182,7 +182,14 @@ export class IsometricControls implements CollisionDetector {
   }
 
   /**
-   * Switch to a weapon by index
+   * Get the collision system
+   */
+  public getCollisionSystem(): CollisionSystem {
+    return this.collisionSystem;
+  }
+
+  /**
+   * Switch to a specific weapon by index
    */
   public switchToWeapon(index: number): void {
     this.weaponSystem.switchToWeapon(index);

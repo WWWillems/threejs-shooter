@@ -76,7 +76,8 @@ const pickupManager = new PickupManager(
   scene,
   player,
   controls.getPlayerController(),
-  hud || undefined
+  hud || undefined,
+  controls.getCollisionSystem()
 );
 
 // Set pickup manager in controls
@@ -450,10 +451,9 @@ let lastFrameTime = performance.now();
 // Start the animation loop
 animate();
 
-// Create a test health pickup (example of how to use the pickup system)
-const healthPickupPosition = new THREE.Vector3(5, 0.5, 5);
-pickupManager.createHealthPickup(healthPickupPosition, 25);
+// Remove the test pickups since we'll now have random spawning
+// const healthPickupPosition = new THREE.Vector3(5, 0.5, 5);
+// pickupManager.createHealthPickup(healthPickupPosition, 25);
 
-// Create a test ammo pickup (example of how to use the pickup system)
-const ammoPickupPosition = new THREE.Vector3(7, 0.5, 5);
-pickupManager.createAmmoPickup(ammoPickupPosition, WeaponType.RIFLE, 30);
+// const ammoPickupPosition = new THREE.Vector3(7, 0.5, 5);
+// pickupManager.createAmmoPickup(ammoPickupPosition, WeaponType.RIFLE, 30);
