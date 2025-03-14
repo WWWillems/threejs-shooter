@@ -1,6 +1,7 @@
 import "./style.css";
 import * as THREE from "three";
 import { IsometricControls } from "./components/FPSControls";
+import { HUD } from "./components/HUD";
 
 // Initialize the scene
 const scene = new THREE.Scene();
@@ -40,6 +41,12 @@ scene.add(player);
 
 // Add isometric controls and pass the player object
 const controls = new IsometricControls(camera, renderer.domElement, player);
+
+// Initialize HUD
+let hud: HUD | null = null;
+if (appElement) {
+  hud = new HUD(appElement, controls);
+}
 
 // Add ambient light
 const ambientLight = new THREE.AmbientLight(0x404040);
@@ -100,23 +107,6 @@ const cube2 = createCube(2, 0x44ff44, 0, 0, 0);
 const cube3 = createCube(2, 0x4444ff, 3, 0, 0);
 scene.add(cube1, cube2, cube3);
 
-// UI overlay
-const uiOverlay = document.createElement("div");
-uiOverlay.className = "ui-overlay";
-uiOverlay.innerHTML = `
-  <h2>Three.js Shooter</h2>
-  <p>FPS: <span id="fps">0</span></p>
-`;
-const appContainer = document.getElementById("app");
-if (appContainer) {
-  appContainer.appendChild(uiOverlay);
-}
-
-// FPS counter
-let frameCount = 0;
-let lastTime = performance.now();
-const fpsElement = document.getElementById("fps");
-
 // Handle window resize
 window.addEventListener("resize", () => {
   camera.aspect = window.innerWidth / window.innerHeight;
@@ -136,16 +126,9 @@ function animate() {
   // Update controls
   controls.update();
 
-  // Update FPS counter
-  frameCount++;
-  const currentTime = performance.now();
-  if (currentTime - lastTime >= 1000) {
-    const fps = Math.round((frameCount * 1000) / (currentTime - lastTime));
-    if (fpsElement) {
-      fpsElement.textContent = fps.toString();
-    }
-    frameCount = 0;
-    lastTime = currentTime;
+  // Update HUD
+  if (hud) {
+    hud.update();
   }
 
   // Render the scene

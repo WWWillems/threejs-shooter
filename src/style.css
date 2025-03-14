@@ -46,3 +46,36 @@ canvas {
 .ui-overlay h2 {
   margin: 0 0 5px 0;
 }
+
+.ammo-display {
+  margin-top: 10px;
+  font-family: "Courier New", monospace;
+}
+
+.ammo-display p {
+  font-size: 16px;
+  font-weight: bold;
+}
+
+.reload-indicator {
+  margin-top: 5px;
+  color: #ff0000;
+  font-weight: bold;
+  animation: blink 1s infinite;
+}
+
+.hidden {
+  display: none;
+}
+
+@keyframes blink {
+  0% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+  100% {
+    opacity: 1;
+  }
+}
