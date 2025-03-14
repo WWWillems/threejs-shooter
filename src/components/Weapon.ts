@@ -16,6 +16,16 @@ export interface Weapon {
   lastShotTime: number;
 }
 
+// Define a type for impact animation functions
+type ImpactAnimationFn = (delta: number) => void;
+
+// Add window interface augmentation
+declare global {
+  interface Window {
+    __impactAnimations: ImpactAnimationFn[];
+  }
+}
+
 export class WeaponSystem {
   private weapons: Weapon[] = [];
   private currentWeaponIndex = 0;
@@ -23,6 +33,11 @@ export class WeaponSystem {
   private player: THREE.Mesh;
   private bullets: Bullet[] = [];
   private gunOffset = new THREE.Vector3(0.7, -0.1, -0.3);
+
+  // Add muzzle flash properties
+  private muzzleFlash: THREE.Mesh | null = null;
+  private muzzleFlashDuration = 0.05; // in seconds
+  private muzzleFlashTimer = 0;
 
   constructor(scene: THREE.Scene, player: THREE.Mesh) {
     this.scene = scene;
@@ -311,12 +326,73 @@ export class WeaponSystem {
     const bullet = new Bullet(barrelPosition, direction, scene);
     this.bullets.push(bullet);
 
+    // Create muzzle flash
+    this.createMuzzleFlash(barrelPosition, this.player.rotation.y);
+
     // Return the bullet for further processing if needed
     return bullet;
   }
 
+  // Create muzzle flash effect
+  private createMuzzleFlash(position: THREE.Vector3, rotation: number): void {
+    // Remove existing muzzle flash if it exists
+    if (this.muzzleFlash) {
+      this.scene.remove(this.muzzleFlash);
+      if (this.muzzleFlash.geometry) this.muzzleFlash.geometry.dispose();
+      if (this.muzzleFlash.material instanceof THREE.Material)
+        this.muzzleFlash.material.dispose();
+    }
+
+    // Create muzzle flash geometry - a small circle facing forward
+    const flashGeometry = new THREE.CircleGeometry(0.2, 16);
+
+    // Create bright glowing material
+    const flashMaterial = new THREE.MeshBasicMaterial({
+      color: 0xffff00,
+      transparent: true,
+      opacity: 0.9,
+      side: THREE.DoubleSide,
+    });
+
+    this.muzzleFlash = new THREE.Mesh(flashGeometry, flashMaterial);
+
+    // Position at gun barrel tip
+    this.muzzleFlash.position.copy(position);
+
+    // Rotate to face outward from the barrel
+    this.muzzleFlash.rotation.y = rotation;
+    this.muzzleFlash.rotation.x = Math.PI / 2;
+
+    // Add slight random rotation for variation
+    this.muzzleFlash.rotation.z = Math.random() * Math.PI * 2;
+
+    // Add to scene
+    this.scene.add(this.muzzleFlash);
+
+    // Start timer for removal
+    this.muzzleFlashTimer = this.muzzleFlashDuration;
+  }
+
   // Update all bullets
   public updateBullets(delta: number, collisionDetector?: CollisionDetector) {
+    // Update muzzle flash timer and remove if expired
+    if (this.muzzleFlash && this.muzzleFlashTimer > 0) {
+      this.muzzleFlashTimer -= delta;
+      if (this.muzzleFlashTimer <= 0) {
+        this.scene.remove(this.muzzleFlash);
+        this.muzzleFlash = null;
+      } else {
+        // Animate the muzzle flash (pulsing/fading effect)
+        const scale = 1 + Math.sin(this.muzzleFlashTimer * 100) * 0.2;
+        this.muzzleFlash.scale.set(scale, scale, scale);
+
+        if (this.muzzleFlash.material instanceof THREE.Material) {
+          this.muzzleFlash.material.opacity =
+            this.muzzleFlashTimer / this.muzzleFlashDuration;
+        }
+      }
+    }
+
     for (let i = this.bullets.length - 1; i >= 0; i--) {
       const bullet = this.bullets[i];
 
@@ -331,16 +407,167 @@ export class WeaponSystem {
 
       // Check for collision with cars if collision detector is provided
       if (collisionDetector?.checkForBulletCollision(bullet.getPosition())) {
-        // Bullet hit a car - remove it
+        // Create impact effect at the bullet's position
+        this.createImpactEffect(bullet.getPosition());
+
+        // Remove bullet from scene
         bullet.remove(this.scene);
         // Remove from bullets array
         this.bullets.splice(i, 1);
-        // Could add effects here (sound, visual impact, etc.)
       }
 
       // Here you could add more collision detection for bullets
       // e.g., check if bullet hit other obstacles or enemies
     }
+  }
+
+  // Create impact effect where bullets hit
+  private createImpactEffect(position: THREE.Vector3): void {
+    // Create particle system for impact
+    const particleCount = 20; // Slightly more particles for better effect
+
+    // Create individual particle velocities and initial positions
+    const particleVelocities: THREE.Vector3[] = [];
+    const initialPositions: THREE.Vector3[] = [];
+
+    // Physics parameters
+    const gravity = 9.8; // Gravity constant
+    const initialSpeed = 2.0; // Initial outward velocity
+    const lifetime = 1.0; // Longer lifetime in seconds
+
+    // Create geometry for particle system
+    const particles = new THREE.BufferGeometry();
+    const positions = new Float32Array(particleCount * 3);
+    const colors = new Float32Array(particleCount * 3);
+    const sizes = new Float32Array(particleCount);
+    const color = new THREE.Color();
+
+    // Initialize particles
+    for (let i = 0; i < particleCount; i++) {
+      // Random initial direction
+      const angle = Math.random() * Math.PI * 2;
+      const radius = Math.random() * 0.05; // Small initial radius
+      const height = Math.random() * 0.05;
+
+      // Initial position - slightly randomized around impact point
+      const initialPosition = new THREE.Vector3(
+        position.x + Math.cos(angle) * radius,
+        position.y + height,
+        position.z + Math.sin(angle) * radius
+      );
+
+      // Store initial position
+      initialPositions.push(initialPosition.clone());
+
+      // Set up initial positions in the buffer
+      positions[i * 3] = initialPosition.x;
+      positions[i * 3 + 1] = initialPosition.y;
+      positions[i * 3 + 2] = initialPosition.z;
+
+      // Calculate initial velocity - outward and upward
+      const initialVelocity = new THREE.Vector3(
+        Math.cos(angle) * initialSpeed * (0.5 + Math.random()),
+        initialSpeed * (0.5 + Math.random()), // Upward component
+        Math.sin(angle) * initialSpeed * (0.5 + Math.random())
+      );
+
+      // Store velocity
+      particleVelocities.push(initialVelocity);
+
+      // Yellow/orange/red spark colors
+      const hue = 0.05 + Math.random() * 0.1; // Narrower range of yellow-orange-red
+      color.setHSL(hue, 1.0, 0.5 + Math.random() * 0.5);
+
+      colors[i * 3] = color.r;
+      colors[i * 3 + 1] = color.g;
+      colors[i * 3 + 2] = color.b;
+
+      // Random size
+      sizes[i] = Math.random() * 0.04 + 0.01;
+    }
+
+    // Set attributes
+    particles.setAttribute("position", new THREE.BufferAttribute(positions, 3));
+    particles.setAttribute("color", new THREE.BufferAttribute(colors, 3));
+    particles.setAttribute("size", new THREE.BufferAttribute(sizes, 1));
+
+    // Material for particles - add blending for better glow effect
+    const particleMaterial = new THREE.PointsMaterial({
+      size: 0.04,
+      sizeAttenuation: true,
+      vertexColors: true,
+      transparent: true,
+      opacity: 1.0,
+      blending: THREE.AdditiveBlending,
+    });
+
+    // Create particle system and add to scene
+    const particleSystem = new THREE.Points(particles, particleMaterial);
+    this.scene.add(particleSystem);
+
+    // Animation variables
+    let age = 0;
+
+    // Update function called each frame
+    const updateImpact = (delta: number) => {
+      age += delta;
+
+      if (age >= lifetime) {
+        // Remove the particle system
+        this.scene.remove(particleSystem);
+        particles.dispose();
+        particleMaterial.dispose();
+
+        // Remove this update function
+        window.__impactAnimations = (window.__impactAnimations || []).filter(
+          (fn: ImpactAnimationFn) => fn !== updateImpact
+        );
+      } else {
+        // Update positions based on physics
+        const positions = particles.getAttribute(
+          "position"
+        ) as THREE.BufferAttribute;
+
+        // Update each particle
+        for (let i = 0; i < particleCount; i++) {
+          // Apply gravity to y-velocity
+          particleVelocities[i].y -= gravity * delta;
+
+          // Update position with velocity
+          const x = positions.getX(i) + particleVelocities[i].x * delta;
+          const y = positions.getY(i) + particleVelocities[i].y * delta;
+          const z = positions.getZ(i) + particleVelocities[i].z * delta;
+
+          // Check for ground collision (y = 0)
+          if (y <= 0) {
+            // Bounce with friction or stop
+            if (Math.abs(particleVelocities[i].y) < 0.5) {
+              // Too slow, just stop at ground level
+              particleVelocities[i].set(0, 0, 0);
+              positions.setY(i, 0);
+            } else {
+              // Bounce with damping
+              particleVelocities[i].y *= -0.3; // Lose energy on bounce
+              particleVelocities[i].x *= 0.7; // Friction
+              particleVelocities[i].z *= 0.7; // Friction
+              positions.setY(i, 0);
+            }
+          } else {
+            // Normal update
+            positions.setXYZ(i, x, y, z);
+          }
+        }
+
+        positions.needsUpdate = true;
+
+        // Fade out the particles as they age
+        particleMaterial.opacity = 1.0 - age / lifetime;
+      }
+    };
+
+    // Add update function to global array
+    window.__impactAnimations = window.__impactAnimations || [];
+    window.__impactAnimations.push(updateImpact);
   }
 
   // Start the reload process

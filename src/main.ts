@@ -124,6 +124,11 @@ window.addEventListener("resize", () => {
 function animate() {
   requestAnimationFrame(animate);
 
+  // Calculate delta time for smooth animations
+  const time = performance.now();
+  const delta = (time - lastFrameTime) / 1000; // Convert to seconds
+  lastFrameTime = time;
+
   // Rotate the cubes
   cube1.rotation.y += 0.01;
   cube2.rotation.x += 0.01;
@@ -137,9 +142,21 @@ function animate() {
     hud.update();
   }
 
+  // Update bullet impact animations
+  if (window.__impactAnimations && window.__impactAnimations.length > 0) {
+    // Create a copy of the array to prevent issues if animations modify the array
+    const animations = [...window.__impactAnimations];
+    for (const animation of animations) {
+      animation(delta);
+    }
+  }
+
   // Render the scene
   renderer.render(scene, camera);
 }
+
+// Track last frame time for delta calculations
+let lastFrameTime = performance.now();
 
 // Start the animation loop
 animate();
