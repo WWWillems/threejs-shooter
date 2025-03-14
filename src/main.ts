@@ -415,11 +415,7 @@ for (let i = 0; i < 4; i++) {
 
 // Add a shop building to the scene
 const shopPosition = new THREE.Vector3(0, 0, -20);
-const shopBuilding = new ShopBuilding(
-  shopPosition,
-  scene,
-  controls.getCollisionSystem()
-);
+new ShopBuilding(shopPosition, scene, controls.getCollisionSystem());
 
 // Handle window resize
 window.addEventListener("resize", () => {
