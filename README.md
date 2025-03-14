@@ -1,6 +1,6 @@
-# Three.js Shooter Game
+# Bang bang - A vibe coded Three.js multiplayer shooter
 
-A 3D first-person shooter game built with Three.js and Vite.
+A 3D first-person shooter game vibe coded with Three.js and Vite.
 
 ## Features (Planned)
 

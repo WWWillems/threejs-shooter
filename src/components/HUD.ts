@@ -64,16 +64,21 @@ export class HUD {
     uiOverlay.style.background = "transparent";
     uiOverlay.innerHTML = `
       <div class="game-info" style="position: absolute; top: 10px; left: 10px; background: rgba(0, 0, 0, 0.6); padding: 10px; border-radius: 5px; pointer-events: auto;">
-        <h2>Three.js Shooter</h2>
+        <h2>Bang bang</h2>
         <p>FPS: <span id="fps">0</span></p>
       </div>
-      <div class="ammo-display" style="position: absolute; top: 10px; right: 10px; background: rgba(0, 0, 0, 0.6); padding: 10px; border-radius: 5px; pointer-events: auto;">
-        <p>Ammo: <span id="current-ammo">20</span> / <span id="total-ammo">250</span></p>
-        <div id="reload-indicator" class="reload-indicator hidden">RELOADING...</div>
-        <div id="empty-mag-indicator" class="empty-mag-indicator hidden">PRESS R TO RELOAD</div>
-        <div id="no-ammo-indicator" class="no-ammo-indicator hidden">OUT OF AMMO</div>
+      <div class="ammo-display" style="position: absolute; bottom: 10px; left: 10px; background: rgba(0, 0, 0, 0.6); padding: 15px; border-radius: 5px; pointer-events: auto; min-height: 100px; display: flex; flex-direction: column; justify-content: space-between;">
+        <h3 style="margin: 0 0 10px 0; font-size: 24px; text-align: center;">Ammo</h3>
+        <div style="padding: 10px 0;">
+          <p style="font-size: 32px; margin: 0; text-align: center; font-weight: bold;"><span id="current-ammo">20</span> / <span id="total-ammo">250</span></p>
+        </div>
+        <div style="margin-top: 10px;">
+          <div id="reload-indicator" class="reload-indicator hidden" style="font-size: 20px; text-align: center;">RELOADING...</div>
+          <div id="empty-mag-indicator" class="empty-mag-indicator hidden" style="font-size: 20px; text-align: center;">PRESS R TO RELOAD</div>
+          <div id="no-ammo-indicator" class="no-ammo-indicator hidden" style="font-size: 20px; text-align: center;">OUT OF AMMO</div>
+        </div>
       </div>
-      <div id="inventory" class="inventory-container" style="position: absolute; bottom: 20px; left: 0; right: 0; margin: 0 auto; width: fit-content; background: rgba(0, 0, 0, 0.6); padding: 10px; border-radius: 5px; text-align: center; pointer-events: auto;">
+      <div id="inventory" class="inventory-container" style="position: absolute; bottom: 10px; left: 0; right: 0; margin: 0 auto; width: fit-content; background: rgba(0, 0, 0, 0.6); padding: 10px; border-radius: 5px; text-align: center; pointer-events: auto;">
         <h3>Inventory</h3>
         <div class="weapon-slots">
           <div id="weapon-slot-0" class="weapon-slot"></div>
