@@ -603,7 +603,7 @@ export class HUD {
   /**
    * Show a generic notification
    */
-  private showNotification(
+  public showNotification(
     type: string,
     title: string,
     message: string,

@@ -4,6 +4,9 @@ import { IsometricControls } from "./components/IsometricControls";
 import { HUD } from "./components/HUD";
 import { PickupManager } from "./components/PickupManager";
 import { ShopBuilding } from "./components/ShopBuilding";
+import socket from "./api/socket";
+
+import { RemotePlayerManager } from "./components/RemotePlayerManager";
 
 // Initialize the scene
 const scene = new THREE.Scene();
@@ -82,6 +85,9 @@ const pickupManager = new PickupManager(
 
 // Set pickup manager in controls
 controls.setPickupManager(pickupManager);
+
+// Initialize RemotePlayerManager
+const remotePlayerManager = new RemotePlayerManager(scene, hud as HUD);
 
 // Add ambient light
 const ambientLight = new THREE.AmbientLight(0x404040);
@@ -484,6 +490,9 @@ function animate() {
   // Update pickup manager
   pickupManager.update(delta);
 
+  // Update remote players
+  remotePlayerManager.update(delta);
+
   // Update HUD
   if (hud) {
     hud.update();
@@ -514,3 +523,18 @@ animate();
 
 // const ammoPickupPosition = new THREE.Vector3(7, 0.5, 5);
 // pickupManager.createAmmoPickup(ammoPickupPosition, WeaponType.RIFLE, 30);
+
+// Get current player position and send to server
+setInterval(() => {
+  // Broadcast this player's position to other players
+  socket.emit("player position", {
+    position: {
+      x: player.position.x,
+      y: player.position.y,
+      z: player.position.z,
+    },
+    rotation: player.rotation.y,
+  });
+}, 100); // Send position updates 10 times per second
+
+//socket.emit("ping", "Ja hallo zeg");
