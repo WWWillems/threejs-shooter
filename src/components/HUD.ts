@@ -57,16 +57,23 @@ export class HUD {
   private createUIOverlay(): HTMLElement {
     const uiOverlay = document.createElement("div");
     uiOverlay.className = "ui-overlay";
+    uiOverlay.style.position = "relative";
+    uiOverlay.style.width = "100%";
+    uiOverlay.style.height = "100%";
+    uiOverlay.style.pointerEvents = "none";
+    uiOverlay.style.background = "transparent";
     uiOverlay.innerHTML = `
-      <h2>Three.js Shooter</h2>
-      <p>FPS: <span id="fps">0</span></p>
-      <div class="ammo-display">
+      <div class="game-info" style="position: absolute; top: 10px; left: 10px; background: rgba(0, 0, 0, 0.6); padding: 10px; border-radius: 5px; pointer-events: auto;">
+        <h2>Three.js Shooter</h2>
+        <p>FPS: <span id="fps">0</span></p>
+      </div>
+      <div class="ammo-display" style="position: absolute; top: 10px; right: 10px; background: rgba(0, 0, 0, 0.6); padding: 10px; border-radius: 5px; pointer-events: auto;">
         <p>Ammo: <span id="current-ammo">20</span> / <span id="total-ammo">250</span></p>
         <div id="reload-indicator" class="reload-indicator hidden">RELOADING...</div>
         <div id="empty-mag-indicator" class="empty-mag-indicator hidden">PRESS R TO RELOAD</div>
         <div id="no-ammo-indicator" class="no-ammo-indicator hidden">OUT OF AMMO</div>
       </div>
-      <div id="inventory" class="inventory-container">
+      <div id="inventory" class="inventory-container" style="position: absolute; bottom: 20px; left: 0; right: 0; margin: 0 auto; width: fit-content; background: rgba(0, 0, 0, 0.6); padding: 10px; border-radius: 5px; text-align: center; pointer-events: auto;">
         <h3>Inventory</h3>
         <div class="weapon-slots">
           <div id="weapon-slot-0" class="weapon-slot"></div>
