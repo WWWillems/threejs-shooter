@@ -481,4 +481,12 @@ export class PlayerController {
     // Delegate to the weapon system to add the weapon to inventory
     return this.weaponSystem.addWeapon(weapon);
   }
+
+  /**
+   * Select a weapon by index
+   * @param index The index of the weapon to select
+   */
+  public selectWeapon(index: number): void {
+    this.weaponSystem.switchToWeapon(index);
+  }
 }

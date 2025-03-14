@@ -61,8 +61,23 @@ export class WeaponPickup extends Pickup {
   }
 
   public collect(playerController: PlayerController): void {
-    // Add weapon to player inventory
-    playerController.addWeapon(this.weapon);
+    // Store the weapon name before adding it
+    const weaponName = this.weapon.name;
+
+    // Add weapon to player inventory and get the result
+    const weaponAdded = playerController.addWeapon(this.weapon);
+
+    // If weapon was added successfully, automatically select it
+    if (weaponAdded) {
+      // Get the inventory and find the index of the weapon we just added
+      const inventory = playerController.getInventory();
+      const weaponIndex = inventory.findIndex((w) => w.name === weaponName);
+
+      // If found in inventory, switch to it
+      if (weaponIndex !== -1) {
+        playerController.selectWeapon(weaponIndex);
+      }
+    }
 
     // Create effect with blue color for weapon pickup
     this.createCollectionEffect(0x3399ff);
