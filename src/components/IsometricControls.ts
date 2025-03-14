@@ -8,6 +8,7 @@ import { CollisionSystem } from "./CollisionSystem";
 import { CameraController } from "./CameraController";
 import { PlayerController } from "./PlayerController";
 import { DebugVisualizer } from "./DebugVisualizer";
+import { StreetLight } from "./StreetLight";
 
 /**
  * Main game controls class using composition pattern to integrate all systems
@@ -98,6 +99,15 @@ export class IsometricControls implements CollisionDetector {
     const car = Car.addToScene(this.scene, position);
     this.collisionSystem.addCar(car);
     return car;
+  }
+
+  /**
+   * Add a street light to the scene and collision system
+   */
+  public addStreetLightToScene(position: THREE.Vector3): THREE.Group {
+    const streetLight = StreetLight.addToScene(this.scene, position);
+    this.collisionSystem.addStreetLight(streetLight);
+    return streetLight;
   }
 
   /**

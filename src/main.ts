@@ -113,6 +113,10 @@ const car = controls.addCarToScene(carPosition);
 // Rotate the car to face a different direction
 car.rotation.y = -Math.PI / 4; // 45 degrees
 
+// Add a street light pole near the car
+const streetLightPosition = new THREE.Vector3(12, 0, 7);
+const streetLight = controls.addStreetLightToScene(streetLightPosition);
+
 // Handle window resize
 window.addEventListener("resize", () => {
   camera.aspect = window.innerWidth / window.innerHeight;

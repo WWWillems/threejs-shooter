@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { Car } from "./Car";
+import { StreetLight } from "./StreetLight";
 import type { CollisionDetector } from "./CollisionInterface";
 
 /**
@@ -13,11 +14,23 @@ interface CarCollider {
 }
 
 /**
+ * Type for street light collision data
+ */
+interface StreetLightCollider {
+  box: THREE.Box3;
+  lightObj: THREE.Group;
+  dimensions: THREE.Vector3;
+  heightOffset: number;
+}
+
+/**
  * Manages all collision detection in the game
  */
 export class CollisionSystem implements CollisionDetector {
   private carColliders: CarCollider[] = [];
   private cars: THREE.Group[] = [];
+  private streetLightColliders: StreetLightCollider[] = [];
+  private streetLights: THREE.Group[] = [];
   private playerCollider = new THREE.Box3();
   private tempBox = new THREE.Box3();
   private bulletRadius = 0.1; // Match the radius used in Bullet.ts
@@ -30,6 +43,14 @@ export class CollisionSystem implements CollisionDetector {
   public addCar(car: THREE.Group): void {
     this.cars.push(car);
     this.updateCarColliders();
+  }
+
+  /**
+   * Add a street light to the collision system
+   */
+  public addStreetLight(streetLight: THREE.Group): void {
+    this.streetLights.push(streetLight);
+    this.updateStreetLightColliders();
   }
 
   /**
@@ -60,7 +81,49 @@ export class CollisionSystem implements CollisionDetector {
   }
 
   /**
-   * Check if player collides with any cars
+   * Update all street light colliders with current positions and dimensions
+   */
+  public updateStreetLightColliders(): void {
+    this.streetLightColliders = [];
+
+    for (const streetLight of this.streetLights) {
+      // Get street light's accurate collision dimensions
+      const collisionInfo = StreetLight.getCollisionDimensions();
+
+      // Get the street light's dimensions and position
+      const dimensions = collisionInfo.dimensions;
+      const heightOffset = collisionInfo.heightOffset;
+
+      // Create a new bounding box with the correct dimensions
+      const box = new THREE.Box3();
+
+      // Create min and max points for the box
+      const min = new THREE.Vector3(
+        streetLight.position.x - dimensions.x / 2,
+        streetLight.position.y, // Start from ground
+        streetLight.position.z - dimensions.z / 2
+      );
+
+      const max = new THREE.Vector3(
+        streetLight.position.x + dimensions.x / 2,
+        streetLight.position.y + dimensions.y,
+        streetLight.position.z + dimensions.z / 2
+      );
+
+      box.set(min, max);
+
+      // Add to the colliders array
+      this.streetLightColliders.push({
+        box,
+        lightObj: streetLight,
+        dimensions,
+        heightOffset,
+      });
+    }
+  }
+
+  /**
+   * Check if player collides with any cars or street lights
    */
   public checkPlayerCollision(
     position: THREE.Vector3,
@@ -89,11 +152,18 @@ export class CollisionSystem implements CollisionDetector {
       }
     }
 
+    // Check for collision with any street light
+    for (const lightData of this.streetLightColliders) {
+      if (this.playerCollider.intersectsBox(lightData.box)) {
+        return true; // Collision detected
+      }
+    }
+
     return false; // No collision
   }
 
   /**
-   * Check if a bullet collides with any car
+   * Check if a bullet collides with any car or street light
    */
   public checkForBulletCollision(bulletPosition: THREE.Vector3): boolean {
     // Create a small sphere to represent the bullet
@@ -106,6 +176,14 @@ export class CollisionSystem implements CollisionDetector {
 
       // Check if the bullet sphere intersects with the car box
       if (carBox.intersectsSphere(bulletSphere)) {
+        return true; // Collision detected
+      }
+    }
+
+    // Check collision with each street light
+    for (const lightData of this.streetLightColliders) {
+      // Check if the bullet sphere intersects with the street light box
+      if (lightData.box.intersectsSphere(bulletSphere)) {
         return true; // Collision detected
       }
     }
