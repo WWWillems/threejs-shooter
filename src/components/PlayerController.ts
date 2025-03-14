@@ -1,9 +1,10 @@
 import * as THREE from "three";
-import type { InputManager } from "./InputManager";
+import { InputManager } from "./InputManager";
 import type { CollisionSystem } from "./CollisionSystem";
 import type { CameraController } from "./CameraController";
 import type { WeaponSystem } from "./Weapon";
 import { WeaponType } from "./Weapon";
+import type { Weapon } from "./Weapon";
 
 /**
  * Player movement settings
@@ -469,5 +470,15 @@ export class PlayerController {
     } else {
       console.warn(`No weapon found with name: ${weaponName}`);
     }
+  }
+
+  /**
+   * Add a weapon to the player's inventory
+   * @param weapon The weapon to add
+   * @returns True if weapon was added successfully, false otherwise
+   */
+  public addWeapon(weapon: Weapon): boolean {
+    // Delegate to the weapon system to add the weapon to inventory
+    return this.weaponSystem.addWeapon(weapon);
   }
 }

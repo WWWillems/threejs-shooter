@@ -1,6 +1,8 @@
 import * as THREE from "three";
 import { Bullet } from "./Bullet";
 import type { CollisionDetector } from "./CollisionInterface";
+import { WeaponPickup } from "./WeaponPickup";
+import type { PickupManager } from "./PickupManager";
 
 // Define the Weapon interface
 export interface Weapon {
@@ -42,18 +44,29 @@ export class WeaponSystem {
   private player: THREE.Mesh;
   private bullets: Bullet[] = [];
   private gunOffset = new THREE.Vector3(0.7, -0.1, -0.3);
+  private pickupManager: PickupManager | null = null;
 
   // Add muzzle flash properties
   private muzzleFlash: THREE.Mesh | null = null;
   private muzzleFlashDuration = 0.05; // in seconds
   private muzzleFlashTimer = 0;
 
-  constructor(scene: THREE.Scene, player: THREE.Mesh) {
+  constructor(
+    scene: THREE.Scene,
+    player: THREE.Mesh,
+    pickupManager?: PickupManager
+  ) {
     this.scene = scene;
     this.player = player;
+    this.pickupManager = pickupManager || null;
 
     // Initialize weapons
     this.initializeWeapons();
+
+    // Initialize impact animations array
+    if (!window.__impactAnimations) {
+      window.__impactAnimations = [];
+    }
   }
 
   // Initialize available weapons
@@ -762,15 +775,43 @@ export class WeaponSystem {
     direction.multiplyScalar(2); // Drop 2 units ahead
 
     playerPosition.add(direction);
-    playerPosition.y = 0.5; // Just above ground level
 
-    droppedModel.position.copy(playerPosition);
+    // Position the weapon to hover above the ground
+    playerPosition.y = 0.5; // Floating 0.5 units above the ground
 
-    // Rotate the weapon to lay flat on the ground
-    droppedModel.rotation.set(Math.PI / 2, 0, Math.random() * Math.PI * 2);
+    // Rotate the weapon to stand upright (pointing up)
+    // Reset initial rotation
+    droppedModel.rotation.set(0, 0, 0);
 
-    // Add to scene
-    this.scene.add(droppedModel);
+    // Different rotation based on weapon type for better visual appearance
+    if (droppedWeapon.name === "Pistol") {
+      // Pistols look better slightly tilted
+      droppedModel.rotateZ(Math.PI / 2); // Rotate 90 degrees around Z to point upward
+      droppedModel.rotateX(Math.PI / 12); // Small tilt
+    } else if (droppedWeapon.name === "Shotgun") {
+      // Shotguns are held horizontally, so rotate differently
+      droppedModel.rotateZ(Math.PI / 2); // Rotate 90 degrees around Z
+      droppedModel.rotateY(Math.PI / 2); // Rotate 90 degrees around Y
+    } else {
+      // Rifles and other weapons
+      droppedModel.rotateZ(Math.PI / 2); // Rotate 90 degrees around Z to point upward
+    }
+
+    // Add a small random rotation for variety
+    droppedModel.rotateY((Math.random() * Math.PI) / 12); // Small random rotation around Y axis
+
+    // Create a weapon pickup
+    if (this.pickupManager) {
+      // Use the pickup manager if available
+      this.pickupManager.createWeaponPickup(
+        playerPosition,
+        droppedWeapon,
+        droppedModel
+      );
+    } else {
+      // Fallback to direct creation if no pickup manager is available
+      new WeaponPickup(this.scene, playerPosition, droppedWeapon, droppedModel);
+    }
 
     // Instead of removing the weapon from inventory, replace it with an empty slot
     const emptyWeapon: Weapon = {
@@ -818,5 +859,99 @@ export class WeaponSystem {
       isReloading: currentWeapon.isReloading,
       isEmpty: currentWeapon.name === "Empty",
     };
+  }
+
+  /**
+   * Add a weapon to the player's inventory
+   * @param weapon The weapon to add
+   * @returns True if weapon was added successfully, false otherwise
+   */
+  public addWeapon(weapon: Weapon): boolean {
+    // First, check if we have an empty slot to replace
+    // Note: If you're seeing a TypeScript error about findIndex,
+    // update your tsconfig.json to include "lib": ["es2015", "dom"] or later
+    const emptySlotIndex = this.weapons.findIndex(
+      (w: Weapon) => w.name === "Empty"
+    );
+
+    if (emptySlotIndex !== -1) {
+      // We found an empty slot, replace it with the new weapon
+
+      // Create a new model for the weapon based on its name
+      let newModel: THREE.Group;
+      switch (weapon.name) {
+        case "Pistol":
+          newModel = this.createPistol();
+          break;
+        case "Assault Rifle":
+          newModel = this.createRifle();
+          break;
+        case "Shotgun":
+          newModel = this.createShotgun();
+          break;
+        default:
+          // If we don't recognize the weapon type, create a default model
+          newModel = new THREE.Group();
+          console.warn(`Unknown weapon type: ${weapon.name}`);
+      }
+
+      // Update the weapon with the new model
+      weapon.model = newModel;
+
+      // Replace the empty slot with the new weapon
+      this.weapons[emptySlotIndex] = weapon;
+
+      // If this is the current weapon, add it to the scene
+      if (emptySlotIndex === this.currentWeaponIndex) {
+        this.scene.add(weapon.model);
+        this.updateWeaponPosition(false);
+      }
+
+      console.log(
+        `Added ${weapon.name} to inventory at slot ${emptySlotIndex}`
+      );
+      return true;
+    }
+
+    // If we don't have an empty slot but have fewer than 3 weapons, add it
+    if (this.weapons.length < 3) {
+      // Create a new model for the weapon based on its name
+      let newModel: THREE.Group;
+      switch (weapon.name) {
+        case "Pistol":
+          newModel = this.createPistol();
+          break;
+        case "Assault Rifle":
+          newModel = this.createRifle();
+          break;
+        case "Shotgun":
+          newModel = this.createShotgun();
+          break;
+        default:
+          // If we don't recognize the weapon type, create a default model
+          newModel = new THREE.Group();
+          console.warn(`Unknown weapon type: ${weapon.name}`);
+      }
+
+      // Update the weapon with the new model
+      weapon.model = newModel;
+
+      // Add the weapon to the inventory
+      this.weapons.push(weapon);
+
+      console.log(`Added ${weapon.name} to inventory as new weapon`);
+      return true;
+    }
+
+    // If we get here, we couldn't add the weapon
+    console.log("Could not add weapon - inventory full");
+    return false;
+  }
+
+  /**
+   * Set the pickup manager
+   */
+  public setPickupManager(pickupManager: PickupManager): void {
+    this.pickupManager = pickupManager;
   }
 }

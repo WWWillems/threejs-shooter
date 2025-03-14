@@ -569,6 +569,22 @@ export class HUD {
   }
 
   /**
+   * Show a notification when a player picks up a weapon
+   */
+  public showWeaponPickupNotification(weaponName: string): void {
+    this.showNotification(
+      "weapon",
+      "Weapon Pickup",
+      `Picked up ${weaponName}`,
+      `
+        <svg viewBox="0 0 24 24" width="24" height="24" fill="#3399ff">
+          <path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z" transform="rotate(180, 12, 12)"/>
+        </svg>
+      `
+    );
+  }
+
+  /**
    * Show a notification when a player drops a weapon
    */
   public showWeaponDropNotification(weaponName: string): void {

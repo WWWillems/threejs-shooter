@@ -215,5 +215,10 @@ export class IsometricControls implements CollisionDetector {
    */
   public setPickupManager(pickupManager: PickupManager): void {
     this.pickupManager = pickupManager;
+
+    // Pass the pickup manager to the weapon system
+    if (this.weaponSystem) {
+      this.weaponSystem.setPickupManager(pickupManager);
+    }
   }
 }

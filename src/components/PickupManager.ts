@@ -1,17 +1,20 @@
 import * as THREE from "three";
 import type { PlayerController } from "./PlayerController";
 import { WeaponType } from "./Weapon";
+import type { Weapon } from "./Weapon";
 import { HealthPickup } from "./HealthPickup";
 import { AmmoPickup } from "./AmmoPickup";
+import { WeaponPickup } from "./WeaponPickup";
 import type { HUD } from "./HUD";
 import type { CollisionSystem } from "./CollisionSystem";
+import type { Pickup } from "./Pickup";
 
 /**
  * Pickup manager class to handle all pickups in the game
  */
 export class PickupManager {
   private scene: THREE.Scene;
-  private pickups: Array<HealthPickup | AmmoPickup> = [];
+  private pickups: Array<Pickup> = [];
   private playerController: PlayerController;
   private player: THREE.Object3D;
   private collectionDistance = 1.5;
@@ -76,6 +79,19 @@ export class PickupManager {
   }
 
   /**
+   * Create a weapon pickup at the specified position
+   */
+  public createWeaponPickup(
+    position: THREE.Vector3,
+    weapon: Weapon,
+    model: THREE.Object3D
+  ): WeaponPickup {
+    const pickup = new WeaponPickup(this.scene, position, weapon, model);
+    this.pickups.push(pickup);
+    return pickup;
+  }
+
+  /**
    * Update pickups - check for collection and expiration
    */
   public update(delta: number): void {
@@ -117,10 +133,7 @@ export class PickupManager {
   /**
    * Collect a pickup and show a notification
    */
-  private collectPickup(
-    pickup: HealthPickup | AmmoPickup,
-    index: number
-  ): void {
+  private collectPickup(pickup: Pickup, index: number): void {
     // Call the pickup's collect method
     pickup.collect(this.playerController);
 
@@ -141,6 +154,12 @@ export class PickupManager {
             userData.weaponType,
             userData.ammoAmount
           );
+        }
+      } else if (pickup instanceof WeaponPickup) {
+        // Get weapon info from pickup's userData
+        const userData = pickup.getMesh().userData;
+        if (userData.weaponName) {
+          this.hud.showWeaponPickupNotification(userData.weaponName);
         }
       }
     }

@@ -8,6 +8,9 @@ export interface PickupData {
   weaponType?: WeaponType;
   ammoAmount?: number;
   healAmount?: number;
+  weaponName?: string;
+  bulletsInMagazine?: number;
+  totalBullets?: number;
 }
 
 /**
