@@ -317,8 +317,98 @@ export class ShopBuilding {
     step.receiveShadow = true;
     this.shopMesh.add(step);
 
+    // 7. Add parking space next to the building
+    this.createParkingSpace(buildingWidth, buildingDepth);
+
     // Update the bounding box of the entire shop
     this.boundingBox.setFromObject(this.shopMesh);
+  }
+
+  private createParkingSpace(
+    buildingWidth: number,
+    buildingDepth: number
+  ): void {
+    // Create parking area on the right side of the building
+    const parkingWidth = 8;
+    const parkingDepth = 6; // Reduced from 10 to 6 to make parking spaces shorter
+    const parkingOffset = 2; // Space between building and parking
+
+    // Base asphalt/concrete for parking area
+    const parkingGeometry = new THREE.PlaneGeometry(parkingWidth, parkingDepth);
+    const parkingMaterial = new THREE.MeshStandardMaterial({
+      color: 0x444444, // Dark gray for asphalt
+      roughness: 0.9,
+      metalness: 0.1,
+      side: THREE.DoubleSide,
+    });
+
+    const parkingArea = new THREE.Mesh(parkingGeometry, parkingMaterial);
+    parkingArea.rotation.x = -Math.PI / 2; // Rotate to be horizontal
+    parkingArea.position.set(
+      buildingWidth / 2 + parkingOffset + parkingWidth / 2,
+      0.01, // Slightly above ground to avoid z-fighting
+      0
+    );
+    parkingArea.receiveShadow = true;
+    this.shopMesh.add(parkingArea);
+
+    // Add parking lines
+    const lineWidth = 0.2;
+    const lineLength = 4;
+    const lineMaterial = new THREE.MeshBasicMaterial({
+      color: 0xffffff, // White for parking lines
+      side: THREE.DoubleSide,
+    });
+
+    // Create 3 parking spaces
+    const spacesCount = 3;
+    const spaceWidth = parkingWidth / spacesCount;
+
+    // Parking area position (center point)
+    const parkingX = buildingWidth / 2 + parkingOffset + parkingWidth / 2;
+    const parkingZ = 0;
+
+    // Calculate the left edge of the parking area
+    const leftEdge = parkingX - parkingWidth / 2;
+
+    // Draw the outer border of the parking area
+
+    // Left vertical line (along entire parking area)
+    const leftLineGeometry = new THREE.PlaneGeometry(lineWidth, parkingDepth);
+    const leftLine = new THREE.Mesh(leftLineGeometry, lineMaterial);
+    leftLine.rotation.x = -Math.PI / 2;
+    leftLine.position.set(leftEdge, 0.02, parkingZ);
+    this.shopMesh.add(leftLine);
+
+    // Right vertical line (along entire parking area)
+    const rightLineGeometry = new THREE.PlaneGeometry(lineWidth, parkingDepth);
+    const rightLine = new THREE.Mesh(rightLineGeometry, lineMaterial);
+    rightLine.rotation.x = -Math.PI / 2;
+    rightLine.position.set(leftEdge + parkingWidth, 0.02, parkingZ);
+    this.shopMesh.add(rightLine);
+
+    // Top horizontal line
+    const topLineGeometry = new THREE.PlaneGeometry(parkingWidth, lineWidth);
+    const topLine = new THREE.Mesh(topLineGeometry, lineMaterial);
+    topLine.rotation.x = -Math.PI / 2;
+    topLine.position.set(parkingX, 0.02, parkingZ - parkingDepth / 2);
+    this.shopMesh.add(topLine);
+
+    // Bottom horizontal line
+    const bottomLineGeometry = new THREE.PlaneGeometry(parkingWidth, lineWidth);
+    const bottomLine = new THREE.Mesh(bottomLineGeometry, lineMaterial);
+    bottomLine.rotation.x = -Math.PI / 2;
+    bottomLine.position.set(parkingX, 0.02, parkingZ + parkingDepth / 2);
+    this.shopMesh.add(bottomLine);
+
+    // Draw internal divider lines for individual parking spaces
+    for (let i = 1; i < spacesCount; i++) {
+      const dividerGeometry = new THREE.PlaneGeometry(lineWidth, parkingDepth);
+      const divider = new THREE.Mesh(dividerGeometry, lineMaterial);
+      divider.rotation.x = -Math.PI / 2;
+      divider.position.set(leftEdge + i * spaceWidth, 0.02, parkingZ);
+      this.shopMesh.add(divider);
+    }
   }
 
   private addToCollisionSystem(): void {
