@@ -146,8 +146,35 @@ export class IsometricControls implements CollisionDetector {
   }
 
   /**
-   * Switch to a specific weapon by index
-   * Needed for backward compatibility with HUD
+   * Get player health information
+   */
+  public getHealth(): { current: number; max: number; isDead: boolean } {
+    return this.playerController.getHealth();
+  }
+
+  /**
+   * Get player height (for collision detection)
+   */
+  public getPlayerHeight(): number {
+    return this.playerController.getPlayerHeight();
+  }
+
+  /**
+   * Get car colliders for collision detection
+   */
+  public getCarColliders() {
+    return this.collisionSystem.getCarColliders();
+  }
+
+  /**
+   * Get the player controller
+   */
+  public getPlayerController(): PlayerController {
+    return this.playerController;
+  }
+
+  /**
+   * Switch to a weapon by index
    */
   public switchToWeapon(index: number): void {
     this.weaponSystem.switchToWeapon(index);

@@ -2,6 +2,7 @@ import * as THREE from "three";
 import { Car } from "./Car";
 import { StreetLight } from "./StreetLight";
 import { WoodenCrate } from "./WoodenCrate";
+import type { DestructibleCrate } from "./WoodenCrate";
 import type { CollisionDetector } from "./CollisionInterface";
 
 // Extended THREE.Group type with crateSize property
@@ -34,7 +35,7 @@ interface StreetLightCollider {
  */
 interface WoodenCrateCollider {
   box: THREE.Box3;
-  crateObj: WoodenCrateGroup;
+  crateObj: DestructibleCrate;
   dimensions: THREE.Vector3;
   heightOffset: number;
   size: number;
@@ -49,10 +50,11 @@ export class CollisionSystem implements CollisionDetector {
   private streetLightColliders: StreetLightCollider[] = [];
   private streetLights: THREE.Group[] = [];
   private woodenCrateColliders: WoodenCrateCollider[] = [];
-  private woodenCrates: WoodenCrateGroup[] = [];
+  private woodenCrates: DestructibleCrate[] = [];
   private playerCollider = new THREE.Box3();
   private tempBox = new THREE.Box3();
   private bulletRadius = 0.1; // Match the radius used in Bullet.ts
+  private bulletDamage = 25; // Damage per bullet hit
 
   constructor(private scene: THREE.Scene) {}
 
@@ -96,11 +98,11 @@ export class CollisionSystem implements CollisionDetector {
   /**
    * Add a wooden crate to the collision system
    */
-  public addWoodenCrate(crate: THREE.Group, size = 1): void {
-    // Store the crate along with its size
-    const crateGroup = crate as WoodenCrateGroup;
-    crateGroup.crateSize = size;
-    this.woodenCrates.push(crateGroup);
+  public addWoodenCrate(crate: DestructibleCrate, size = 1): void {
+    crate.crateSize = size;
+    this.woodenCrates.push(crate);
+
+    // Create initial collision boxes
     this.updateWoodenCrateColliders();
   }
 
@@ -174,47 +176,41 @@ export class CollisionSystem implements CollisionDetector {
   }
 
   /**
-   * Update all wooden crate colliders with current positions and dimensions
+   * Update all wooden crate colliders
    */
   public updateWoodenCrateColliders(): void {
     this.woodenCrateColliders = [];
 
+    // Remove destroyed crates from the array
+    this.woodenCrates = this.woodenCrates.filter((crate) => !crate.isDestroyed);
+
     for (const crate of this.woodenCrates) {
-      // Get the crate size from the custom property or use default
-      const crateSize = crate.crateSize || 1;
+      if (crate.isDestroyed) continue;
 
-      // Get crate's accurate collision dimensions with the correct size
-      const collisionInfo = WoodenCrate.getCollisionDimensions(crateSize);
+      const size = crate.crateSize || 1;
+      const { dimensions, heightOffset } =
+        WoodenCrate.getCollisionDimensions(size);
 
-      // Get the crate's dimensions and position
-      const dimensions = collisionInfo.dimensions;
-      const heightOffset = collisionInfo.heightOffset;
-      const cratePosition = crate.position;
-
-      // Create a new bounding box with the correct dimensions
+      // Create collision box
       const box = new THREE.Box3();
 
-      // The crate model's origin is at its center (due to THREE.BoxGeometry)
-      // So we need to calculate the box extending half the dimensions in each direction
-      const halfSize = crateSize / 2;
-      box.min.set(
-        cratePosition.x - halfSize,
-        cratePosition.y - halfSize,
-        cratePosition.z - halfSize
-      );
-      box.max.set(
-        cratePosition.x + halfSize,
-        cratePosition.y + halfSize,
-        cratePosition.z + halfSize
-      );
+      // Get world position of the crate
+      const crateWorldPos = new THREE.Vector3();
+      crate.getWorldPosition(crateWorldPos);
 
-      // Store crate data for collision detection
+      // Create a copy of the crate position adjusted for height offset
+      const adjustedPos = crateWorldPos.clone();
+      adjustedPos.y += heightOffset;
+
+      // Set the collision box around the adjusted crate position
+      box.setFromCenterAndSize(adjustedPos, dimensions);
+
       this.woodenCrateColliders.push({
         box,
         crateObj: crate,
         dimensions,
         heightOffset,
-        size: crateSize,
+        size,
       });
     }
   }
@@ -281,9 +277,29 @@ export class CollisionSystem implements CollisionDetector {
   }
 
   /**
-   * Check if a bullet collides with any objects at the given position
+   * Check for bullet collision with objects and apply damage
+   * @returns true if bullet hit something
    */
   public checkForBulletCollision(bulletPosition: THREE.Vector3): boolean {
+    // Check for bullet-crate collisions first
+    for (const crate of this.woodenCrateColliders) {
+      if (crate.crateObj.isDestroyed) continue;
+
+      // Check if bullet position is inside or close to the crate box
+      if (crate.box.containsPoint(bulletPosition)) {
+        // Apply damage to the crate
+        const wasDestroyed =
+          crate.crateObj.takeDamage?.(this.bulletDamage) ?? false;
+
+        // If the crate was destroyed, update colliders
+        if (wasDestroyed) {
+          this.updateWoodenCrateColliders();
+        }
+
+        return true; // Bullet hit the crate
+      }
+    }
+
     // Check collision with cars
     for (const carData of this.carColliders) {
       // Get the car's world-space box adjusted for rotation
@@ -312,15 +328,6 @@ export class CollisionSystem implements CollisionDetector {
 
       // Check if the bullet's position is inside the light's box
       if (this.tempBox.containsPoint(bulletPosition)) {
-        return true;
-      }
-    }
-
-    // Check collision with wooden crates
-    for (const crateData of this.woodenCrateColliders) {
-      // No need to create a temporary box since we've already set up the proper box
-      // when we created the collider in updateWoodenCrateColliders
-      if (crateData.box.containsPoint(bulletPosition)) {
         return true;
       }
     }

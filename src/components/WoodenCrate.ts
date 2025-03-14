@@ -6,6 +6,15 @@ export interface WoodenCrateCollisionInfo {
   heightOffset: number;
 }
 
+// Define interface for destructible crate
+export interface DestructibleCrate extends THREE.Group {
+  crateSize?: number;
+  health?: number;
+  maxHealth?: number;
+  takeDamage?: (amount: number) => boolean; // Returns true if destroyed
+  isDestroyed?: boolean;
+}
+
 /**
  * Load textures for wooden crates
  */
@@ -290,23 +299,266 @@ function getCollisionDimensions(size = 1): WoodenCrateCollisionInfo {
 }
 
 /**
- * Add a wooden crate to the scene at the specified position
+ * Adds a destructible wooden crate to the scene
  */
 function addToScene(
   scene: THREE.Scene,
   position: THREE.Vector3,
   size = 1,
   rotation = 0
-): THREE.Group {
-  const crate = createWoodenCrateModel(size);
-  crate.position.copy(position);
-  crate.rotation.y = rotation; // Allow rotation for variety
-  scene.add(crate);
+): DestructibleCrate {
+  const crateGroup = createWoodenCrateModel(size);
+  crateGroup.position.copy(position);
+  crateGroup.rotation.y = rotation;
+  scene.add(crateGroup);
+
+  // Add destructible properties
+  const crate = crateGroup as DestructibleCrate;
+  crate.crateSize = size;
+  crate.maxHealth = 100;
+  crate.health = 100;
+  crate.isDestroyed = false;
+
+  // Add damage function
+  crate.takeDamage = function (amount: number): boolean {
+    if (this.isDestroyed) return true;
+
+    if (this.health !== undefined && this.maxHealth !== undefined) {
+      this.health = Math.max(0, this.health - amount);
+
+      // Visual feedback - slightly darken crate as it takes damage
+      const darkFactor = this.health / this.maxHealth;
+      this.traverse((child) => {
+        if (child instanceof THREE.Mesh) {
+          if (child.material instanceof THREE.MeshStandardMaterial) {
+            // Adjust material properties based on damage
+            child.material.emissive.setRGB(0.3 * (1 - darkFactor), 0, 0);
+            child.material.color.multiplyScalar(0.7 + 0.3 * darkFactor);
+          }
+        }
+      });
+
+      // Check if destroyed
+      if (this.health <= 0) {
+        this.isDestroyed = true;
+
+        // Create destruction effect (particles)
+        createDestructionEffect(scene, this.position, size);
+
+        // Random chance to spawn health pickup (30% chance)
+        if (Math.random() < 0.3) {
+          createHealthPickup(scene, this.position.clone());
+        }
+
+        // Remove from scene after a slight delay
+        setTimeout(() => {
+          scene.remove(this);
+        }, 100);
+
+        return true;
+      }
+    }
+
+    return false;
+  };
+
   return crate;
 }
 
+/**
+ * Creates a particle effect when a crate is destroyed
+ */
+function createDestructionEffect(
+  scene: THREE.Scene,
+  position: THREE.Vector3,
+  size: number
+): void {
+  // Create wood particle geometry
+  const particleCount = 20 + Math.floor(size * 10);
+  const particles = new THREE.Group();
+
+  // Wood chip material
+  const woodMaterial = new THREE.MeshStandardMaterial({
+    map: woodTexture,
+    color: 0xa06732,
+    roughness: 1,
+  });
+
+  // Create random wood chips
+  for (let i = 0; i < particleCount; i++) {
+    // Random size for each particle
+    const chipSize = (Math.random() * 0.1 + 0.05) * size;
+
+    // Create a cube or rectangular chip
+    const geometry = new THREE.BoxGeometry(
+      chipSize * (Math.random() * 0.5 + 0.5),
+      chipSize * (Math.random() * 0.3 + 0.2),
+      chipSize * (Math.random() * 0.5 + 0.5)
+    );
+
+    const chip = new THREE.Mesh(geometry, woodMaterial);
+
+    // Set random position within crate bounds
+    const offset = size * 0.5;
+    chip.position.set(
+      position.x + (Math.random() - 0.5) * offset,
+      position.y + (Math.random() - 0.5) * offset,
+      position.z + (Math.random() - 0.5) * offset
+    );
+
+    // Set random rotation
+    chip.rotation.set(
+      Math.random() * Math.PI * 2,
+      Math.random() * Math.PI * 2,
+      Math.random() * Math.PI * 2
+    );
+
+    // Set velocity for animation
+    const velocity = new THREE.Vector3(
+      (Math.random() - 0.5) * 5,
+      Math.random() * 5 + 2,
+      (Math.random() - 0.5) * 5
+    );
+
+    // Attach velocity as user data
+    chip.userData.velocity = velocity;
+    chip.userData.rotationSpeed = new THREE.Vector3(
+      Math.random() * 0.2 - 0.1,
+      Math.random() * 0.2 - 0.1,
+      Math.random() * 0.2 - 0.1
+    );
+
+    particles.add(chip);
+  }
+
+  scene.add(particles);
+
+  // Store creation time
+  particles.userData.creationTime = Date.now();
+
+  // Animate particles
+  function animateParticles() {
+    const elapsedTime = (Date.now() - particles.userData.creationTime) / 1000;
+
+    if (elapsedTime > 2) {
+      // Remove particles after 2 seconds
+      scene.remove(particles);
+      return;
+    }
+
+    for (const chip of particles.children) {
+      // Apply gravity
+      chip.userData.velocity.y -= 9.8 * 0.016; // gravity * deltaTime
+
+      // Update position
+      chip.position.x += chip.userData.velocity.x * 0.016;
+      chip.position.y += chip.userData.velocity.y * 0.016;
+      chip.position.z += chip.userData.velocity.z * 0.016;
+
+      // Update rotation
+      chip.rotation.x += chip.userData.rotationSpeed.x;
+      chip.rotation.y += chip.userData.rotationSpeed.y;
+      chip.rotation.z += chip.userData.rotationSpeed.z;
+
+      // Ground collision
+      if (chip.position.y < 0) {
+        chip.position.y = 0;
+        chip.userData.velocity.y *= -0.3; // bounce with damping
+        chip.userData.velocity.x *= 0.8; // friction
+        chip.userData.velocity.z *= 0.8; // friction
+      }
+    }
+
+    requestAnimationFrame(animateParticles);
+  }
+
+  animateParticles();
+}
+
+/**
+ * Creates a health pickup that the player can collect
+ */
+function createHealthPickup(scene: THREE.Scene, position: THREE.Vector3): void {
+  // Create a glowing red cross
+  const pickupGroup = new THREE.Group();
+
+  // Create base
+  const baseGeometry = new THREE.CylinderGeometry(0.3, 0.3, 0.1, 16);
+  const baseMaterial = new THREE.MeshStandardMaterial({
+    color: 0xffffff,
+    emissive: 0xff2222,
+    emissiveIntensity: 0.2,
+    metalness: 0.7,
+    roughness: 0.3,
+  });
+  const base = new THREE.Mesh(baseGeometry, baseMaterial);
+  pickupGroup.add(base);
+
+  // Create cross (horizontal bar)
+  const horizontalGeometry = new THREE.BoxGeometry(0.4, 0.1, 0.1);
+  const crossMaterial = new THREE.MeshStandardMaterial({
+    color: 0xff0000,
+    emissive: 0xff0000,
+    emissiveIntensity: 0.5,
+    metalness: 0.8,
+    roughness: 0.2,
+  });
+  const horizontalBar = new THREE.Mesh(horizontalGeometry, crossMaterial);
+  horizontalBar.position.y = 0.1;
+  pickupGroup.add(horizontalBar);
+
+  // Create cross (vertical bar)
+  const verticalGeometry = new THREE.BoxGeometry(0.1, 0.1, 0.4);
+  const verticalBar = new THREE.Mesh(verticalGeometry, crossMaterial);
+  verticalBar.position.y = 0.1;
+  pickupGroup.add(verticalBar);
+
+  // Position the pickup slightly above the ground
+  position.y = 0.3;
+  pickupGroup.position.copy(position);
+
+  // Add floating animation
+  const startY = position.y;
+  const startTime = Date.now();
+
+  // Make it glow with a point light
+  const light = new THREE.PointLight(0xff0000, 1, 2);
+  light.position.set(0, 0.2, 0);
+  pickupGroup.add(light);
+
+  // Add the pickup to the scene
+  scene.add(pickupGroup);
+
+  // Add rotation and floating animation
+  function animatePickup() {
+    const elapsed = (Date.now() - startTime) / 1000; // seconds
+
+    // Floating effect
+    pickupGroup.position.y = startY + Math.sin(elapsed * 2) * 0.1;
+
+    // Rotation effect
+    pickupGroup.rotation.y += 0.02;
+
+    // Check for player collision
+    // This will be implemented in the main game loop
+
+    // Continue animation
+    requestAnimationFrame(animatePickup);
+  }
+
+  // Store pickup data for collision detection
+  pickupGroup.userData.isHealthPickup = true;
+  pickupGroup.userData.healAmount = 25;
+  pickupGroup.userData.startTime = startTime;
+
+  // Start animation
+  animatePickup();
+}
+
+// Export module functions
 export const WoodenCrate = {
-  createWoodenCrateModel,
   addToScene,
   getCollisionDimensions,
+  createDestructionEffect,
+  createHealthPickup,
 };

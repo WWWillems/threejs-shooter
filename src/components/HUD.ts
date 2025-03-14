@@ -13,6 +13,8 @@ export class HUD {
   private noAmmoTimeout: number | null = null;
   private inventoryElement: HTMLElement | null = null;
   private weaponSlots: HTMLElement[] = [];
+  private healthBarElement: HTMLElement | null = null;
+  private healthValueElement: HTMLElement | null = null;
 
   // FPS tracking
   private frameCount = 0;
@@ -31,6 +33,8 @@ export class HUD {
     this.emptyMagElement = document.getElementById("empty-mag-indicator");
     this.noAmmoElement = document.getElementById("no-ammo-indicator");
     this.inventoryElement = document.getElementById("inventory");
+    this.healthBarElement = document.getElementById("health-bar-fill");
+    this.healthValueElement = document.getElementById("health-value");
 
     // Create weapon slots
     this.createWeaponSlots();
@@ -55,30 +59,10 @@ export class HUD {
   }
 
   private createUIOverlay(): HTMLElement {
-    const uiOverlay = document.createElement("div");
-    uiOverlay.className = "ui-overlay";
-    uiOverlay.style.position = "relative";
-    uiOverlay.style.width = "100%";
-    uiOverlay.style.height = "100%";
-    uiOverlay.style.pointerEvents = "none";
-    uiOverlay.style.background = "transparent";
-    uiOverlay.innerHTML = `
-      <div class="game-info" style="position: absolute; top: 10px; left: 10px; background: rgba(0, 0, 0, 0.6); padding: 10px; border-radius: 5px; pointer-events: auto;">
-        <h2>Bang bang</h2>
-        <p>FPS: <span id="fps">0</span></p>
-      </div>
-      <div class="ammo-display" style="position: absolute; bottom: 10px; left: 10px; background: rgba(0, 0, 0, 0.6); padding: 15px; border-radius: 5px; pointer-events: auto; min-height: 100px; display: flex; flex-direction: column; justify-content: space-between;">
-        <h3 style="margin: 0 0 10px 0; font-size: 24px; text-align: center;">Ammo</h3>
-        <div style="padding: 10px 0;">
-          <p style="font-size: 32px; margin: 0; text-align: center; font-weight: bold;"><span id="current-ammo">20</span> / <span id="total-ammo">250</span></p>
-        </div>
-        <div style="margin-top: 10px;">
-          <div id="reload-indicator" class="reload-indicator hidden" style="font-size: 20px; text-align: center;">RELOADING...</div>
-          <div id="empty-mag-indicator" class="empty-mag-indicator hidden" style="font-size: 20px; text-align: center;">PRESS R TO RELOAD</div>
-          <div id="no-ammo-indicator" class="no-ammo-indicator hidden" style="font-size: 20px; text-align: center;">OUT OF AMMO</div>
-        </div>
-      </div>
-      <div id="inventory" class="inventory-container" style="position: absolute; bottom: 10px; left: 0; right: 0; margin: 0 auto; width: fit-content; background: rgba(0, 0, 0, 0.6); padding: 10px; border-radius: 5px; text-align: center; pointer-events: auto;">
+    const overlay = document.createElement("div");
+    overlay.className = "ui-overlay";
+    overlay.innerHTML = `
+     <div id="inventory" class="inventory-container" style="position: absolute; bottom: 10px; left: 0; right: 0; margin: 0 auto; width: 400px; background: rgba(0, 0, 0, 0.6); padding: 15px; border-radius: 5px; text-align: center; pointer-events: auto;">
         <h3>Inventory</h3>
         <div class="weapon-slots">
           <div id="weapon-slot-0" class="weapon-slot"></div>
@@ -87,8 +71,31 @@ export class HUD {
         </div>
         <p class="inventory-tip">Press 1-3 to switch weapons, or Q/E to cycle</p>
       </div>
+
+      <div class="fps-counter" id="fps">FPS: 0</div>
+      
+      <div class="health-container">
+        <div class="health-bar">
+          <div class="health-bar-fill" id="health-bar-fill"></div>
+        </div>
+        <div class="health-value" id="health-value">100</div>
+      </div>
+      
+      <div class="ammo-display">
+        <span id="current-ammo">0</span>
+        <span class="ammo-separator">/</span>
+        <span id="total-ammo">0</span>
+      </div>
+      
+      <div id="reload-indicator" class="reload-indicator hidden">Reloading...</div>
+      <div id="empty-mag-indicator" class="empty-mag-indicator hidden">Magazine Empty - Press R to Reload</div>
+      <div id="no-ammo-indicator" class="no-ammo-indicator hidden">No Ammo Left!</div>
+      
+      <div class="inventory" id="inventory"></div>
+      
+      <div class="crosshair">+</div>
     `;
-    return uiOverlay;
+    return overlay;
   }
 
   private createWeaponSlots() {
@@ -180,14 +187,10 @@ export class HUD {
   }
 
   public update(): void {
-    // Update FPS counter
     this.updateFPS();
-
-    // Update ammo display
     this.updateAmmoDisplay();
-
-    // Update inventory display
     this.updateInventoryDisplay();
+    this.updateHealthDisplay();
   }
 
   private updateFPS(): void {
@@ -262,6 +265,37 @@ export class HUD {
           </div>
         `;
       }
+    }
+  }
+
+  private updateHealthDisplay(): void {
+    const healthInfo = this.controls.getHealth();
+
+    if (this.healthBarElement) {
+      const healthPercent = (healthInfo.current / healthInfo.max) * 100;
+      this.healthBarElement.style.width = `${healthPercent}%`;
+
+      // Change color based on health level
+      if (healthPercent > 60) {
+        this.healthBarElement.style.backgroundColor = "#44ff44"; // Green
+      } else if (healthPercent > 30) {
+        this.healthBarElement.style.backgroundColor = "#ffff44"; // Yellow
+      } else {
+        this.healthBarElement.style.backgroundColor = "#ff4444"; // Red
+      }
+    }
+
+    if (this.healthValueElement) {
+      this.healthValueElement.textContent = Math.ceil(
+        healthInfo.current
+      ).toString();
+    }
+
+    // Optional: Add visual effects when health is low
+    if (healthInfo.current < 30) {
+      document.body.classList.add("low-health");
+    } else {
+      document.body.classList.remove("low-health");
     }
   }
 

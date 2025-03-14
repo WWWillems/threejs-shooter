@@ -367,8 +367,89 @@ function animate() {
   cube2.rotation.x += 0.01;
   cube3.rotation.z += 0.01;
 
+  // Check for player collision with moving cars (player damage)
+  const playerPosition = player.position.clone();
+  const playerHeight = controls.getPlayerHeight();
+  const carColliders = controls.getCarColliders();
+
+  let playerCollidingWithCar = false;
+  for (const car of carColliders) {
+    // Create car collision box
+    const carBox = new THREE.Box3();
+    carBox.setFromCenterAndSize(
+      new THREE.Vector3(
+        car.carObj.position.x,
+        car.carObj.position.y + car.heightOffset,
+        car.carObj.position.z
+      ),
+      car.dimensions
+    );
+
+    // Create player collision box
+    const playerBox = new THREE.Box3();
+    playerBox.setFromCenterAndSize(
+      new THREE.Vector3(
+        playerPosition.x,
+        playerPosition.y + playerHeight / 2,
+        playerPosition.z
+      ),
+      new THREE.Vector3(1, playerHeight, 1)
+    );
+
+    // Check if player is colliding with car
+    if (playerBox.intersectsBox(carBox)) {
+      playerCollidingWithCar = true;
+
+      // Apply damage to player (20 damage per second while in contact with car)
+      const playerController = controls.getPlayerController();
+      if (playerController) {
+        playerController.takeDamage(20 * delta);
+      }
+
+      break;
+    }
+  }
+
   // Update controls
   controls.update();
+
+  // Check for health pickup collection
+  const healthPickups = scene.children.filter(
+    (obj) => obj.userData?.isHealthPickup === true
+  );
+
+  for (const pickup of healthPickups) {
+    // Calculate distance between player and pickup
+    const distance = player.position.distanceTo(pickup.position);
+
+    // If player is close enough, collect the pickup
+    if (distance < 1.5) {
+      // Apply healing to player
+      const playerController = controls.getPlayerController();
+      if (playerController) {
+        playerController.heal(pickup.userData.healAmount || 25);
+      }
+
+      // Create a simple pickup effect
+      const pickupEffect = new THREE.PointLight(0xff0000, 2, 5);
+      pickupEffect.position.copy(pickup.position);
+      scene.add(pickupEffect);
+
+      // Remove the light after a short delay
+      setTimeout(() => {
+        scene.remove(pickupEffect);
+      }, 300);
+
+      // Remove the pickup from the scene
+      scene.remove(pickup);
+    }
+
+    // Remove pickups that have been around too long (30 seconds)
+    const pickupAge = (Date.now() - pickup.userData.startTime) / 1000;
+    if (pickupAge > 30) {
+      scene.remove(pickup);
+    }
+  }
 
   // Update HUD
   if (hud) {

@@ -41,6 +41,11 @@ export class PlayerController {
   private direction = new THREE.Vector3();
   private prevTime = performance.now();
 
+  // Health system
+  private maxHealth = 100;
+  private currentHealth = 100;
+  private isDead = false;
+
   // Movement settings
   private speed: number;
   private crouchSpeed: number;
@@ -387,5 +392,37 @@ export class PlayerController {
    */
   public getPlayerHeight(): number {
     return this.isCrouching ? this.crouchHeight : this.normalHeight;
+  }
+
+  public getHealth(): { current: number; max: number; isDead: boolean } {
+    return {
+      current: this.currentHealth,
+      max: this.maxHealth,
+      isDead: this.isDead,
+    };
+  }
+
+  public takeDamage(amount: number): void {
+    if (this.isDead) return;
+
+    this.currentHealth = Math.max(0, this.currentHealth - amount);
+
+    if (this.currentHealth <= 0) {
+      this.isDead = true;
+      // Handle player death
+      console.log("Player died!");
+      // You could add more death handling logic here
+    }
+  }
+
+  public heal(amount: number): void {
+    if (this.isDead) return;
+
+    this.currentHealth = Math.min(this.maxHealth, this.currentHealth + amount);
+  }
+
+  public resurrect(): void {
+    this.currentHealth = this.maxHealth;
+    this.isDead = false;
   }
 }
