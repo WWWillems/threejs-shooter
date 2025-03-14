@@ -61,6 +61,9 @@ export class DebugVisualizer {
     // Create visualization for car colliders
     this.createCarColliderVisualizations();
 
+    // Create visualization for street light colliders
+    this.createStreetLightColliderVisualizations();
+
     // Create visualization for player collider
     this.createPlayerColliderVisualization(
       this.player.position,
@@ -106,13 +109,83 @@ export class DebugVisualizer {
    * Create visual representations of car colliders
    */
   private createCarColliderVisualizations(): void {
-    // This would need access to car colliders from CollisionSystem
-    // For now, we can assume it would visualize boxes around cars
-    // with correct rotations and dimensions
-    // Example line for creating a box visualization:
-    // const boxHelper = new THREE.BoxHelper(car, 0xff0000);
-    // this.scene.add(boxHelper);
-    // this.debugHelpers.push(boxHelper);
+    // Access car colliders from CollisionSystem
+    const carColliders = this.collisionSystem.getCarColliders();
+
+    if (!carColliders || carColliders.length === 0) return;
+
+    for (const carData of carColliders) {
+      // Create a box geometry based on the car's dimensions
+      const { dimensions } = carData;
+      const boxGeometry = new THREE.BoxGeometry(
+        dimensions.x,
+        dimensions.y,
+        dimensions.z
+      );
+
+      // Create a wireframe material
+      const boxMaterial = new THREE.MeshBasicMaterial({
+        color: 0xff0000, // Red for car colliders
+        wireframe: true,
+        transparent: true,
+        opacity: 0.5,
+      });
+
+      // Create mesh and position it to match the car
+      const boxMesh = new THREE.Mesh(boxGeometry, boxMaterial);
+      boxMesh.position.copy(carData.carObj.position);
+
+      // Adjust height based on heightOffset
+      boxMesh.position.y += carData.heightOffset;
+
+      // Match the car's rotation
+      boxMesh.rotation.y = carData.carObj.rotation.y;
+
+      // Add to scene and track for cleanup
+      this.scene.add(boxMesh);
+      this.debugHelpers.push(boxMesh);
+    }
+  }
+
+  /**
+   * Create visual representations of street light colliders
+   */
+  private createStreetLightColliderVisualizations(): void {
+    // Access street light colliders from CollisionSystem
+    const lightColliders = this.collisionSystem.getStreetLightColliders();
+
+    if (!lightColliders || lightColliders.length === 0) return;
+
+    for (const lightData of lightColliders) {
+      // Create a box geometry based on the light's dimensions
+      const { dimensions } = lightData;
+      const boxGeometry = new THREE.BoxGeometry(
+        dimensions.x,
+        dimensions.y,
+        dimensions.z
+      );
+
+      // Create a wireframe material
+      const boxMaterial = new THREE.MeshBasicMaterial({
+        color: 0x0000ff, // Blue for street light colliders
+        wireframe: true,
+        transparent: true,
+        opacity: 0.5,
+      });
+
+      // Create mesh and position it
+      const boxMesh = new THREE.Mesh(boxGeometry, boxMaterial);
+
+      // Position the box at the street light position
+      boxMesh.position.copy(lightData.lightObj.position);
+
+      // Adjust height based on heightOffset (half the height)
+      boxMesh.position.y += dimensions.y / 2;
+
+      // Add to scene and track for cleanup
+      this.scene.add(boxMesh);
+      this.debugHelpers.push(boxMesh);
+    }
   }
 
   /**

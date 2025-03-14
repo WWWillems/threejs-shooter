@@ -51,6 +51,20 @@ export class CollisionSystem implements CollisionDetector {
   constructor(private scene: THREE.Scene) {}
 
   /**
+   * Get car colliders for visualization
+   */
+  public getCarColliders(): CarCollider[] {
+    return this.carColliders;
+  }
+
+  /**
+   * Get street light colliders for visualization
+   */
+  public getStreetLightColliders(): StreetLightCollider[] {
+    return this.streetLightColliders;
+  }
+
+  /**
    * Add a car to the collision system
    */
   public addCar(car: THREE.Group): void {

@@ -402,12 +402,13 @@ function createCarModel(): THREE.Group {
 // Get optimal collision dimensions for the car
 function getCollisionDimensions(): CarCollisionInfo {
   // These dimensions are based on the actual car model
-  // Width (x), height (y), length (z)
-  // Since the car appears to be oriented along the X-axis by default,
-  // we'll swap width and length to align with the car's visual orientation
+  // When the car is rotated 90 degrees (Math.PI/2) around Y axis:
+  // - The car's length becomes its width (x-axis)
+  // - The car's width becomes its depth (z-axis)
   return {
-    // Swapping width(x) and length(z) to match the car's orientation
-    dimensions: new THREE.Vector3(5.0, 1.8, 2.4),
+    // Car is rotated 90 degrees, so we need to swap width and length
+    // to match the car's visual orientation after rotation
+    dimensions: new THREE.Vector3(2.4, 1.8, 5.0),
     heightOffset: 0.9, // Center of the collision box should be this height from the ground
   };
 }
