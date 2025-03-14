@@ -15,6 +15,12 @@ export class HUD {
   private weaponSlots: HTMLElement[] = [];
   private healthBarElement: HTMLElement | null = null;
   private healthValueElement: HTMLElement | null = null;
+  private crosshairElement: HTMLElement | null = null;
+
+  // Mouse position tracking
+  private mouseX = 0;
+  private mouseY = 0;
+  private isMousePositionDirty = false;
 
   // FPS tracking
   private frameCount = 0;
@@ -35,6 +41,7 @@ export class HUD {
     this.inventoryElement = document.getElementById("inventory");
     this.healthBarElement = document.getElementById("health-bar-fill");
     this.healthValueElement = document.getElementById("health-value");
+    this.crosshairElement = document.getElementById("crosshair");
 
     // Create weapon slots
     this.createWeaponSlots();
@@ -56,6 +63,12 @@ export class HUD {
         }
       }
     });
+
+    // Add mouse move event listener to track mouse position
+    this.container.addEventListener(
+      "mousemove",
+      this.trackMousePosition.bind(this)
+    );
   }
 
   private createUIOverlay(): HTMLElement {
@@ -93,7 +106,7 @@ export class HUD {
       
       <div class="inventory" id="inventory"></div>
       
-      <div class="crosshair">+</div>
+      <div id="crosshair" class="crosshair">+</div>
     `;
     return overlay;
   }
@@ -186,11 +199,28 @@ export class HUD {
     }
   }
 
+  // Track mouse position but don't update DOM directly
+  private trackMousePosition(event: MouseEvent): void {
+    this.mouseX = event.clientX;
+    this.mouseY = event.clientY;
+    this.isMousePositionDirty = true;
+  }
+
+  // Update crosshair position in the update loop instead of in the event handler
+  private updateCrosshairPosition(): void {
+    if (this.crosshairElement && this.isMousePositionDirty) {
+      // Use transform instead of setting top/left for better performance
+      this.crosshairElement.style.transform = `translate(${this.mouseX}px, ${this.mouseY}px) translate(-50%, -50%)`;
+      this.isMousePositionDirty = false;
+    }
+  }
+
   public update(): void {
     this.updateFPS();
     this.updateAmmoDisplay();
     this.updateInventoryDisplay();
     this.updateHealthDisplay();
+    this.updateCrosshairPosition(); // Update crosshair in main loop
   }
 
   private updateFPS(): void {
