@@ -19,6 +19,20 @@ interface MouseEvent {
   button: number;
 }
 
+// Define a Weapon interface
+interface Weapon {
+  name: string;
+  model: THREE.Group;
+  bulletsInMagazine: number;
+  totalBullets: number;
+  maxMagazineSize: number;
+  fireRate: number;
+  isReloading: boolean;
+  reloadTime: number;
+  reloadStartTime: number;
+  lastShotTime: number;
+}
+
 export class IsometricControls {
   private camera: THREE.Camera;
   private domElement: HTMLCanvasElement;
@@ -33,10 +47,6 @@ export class IsometricControls {
   private velocity = new THREE.Vector3();
   private direction = new THREE.Vector3();
   private prevTime = performance.now();
-
-  // Gun properties
-  private gun: THREE.Group;
-  private gunOffset = new THREE.Vector3(0.7, -0.1, -0.3); // Adjusted to position gun in front of the rotated player
 
   // Mouse control variables
   private mousePosition = new THREE.Vector2();
@@ -63,23 +73,14 @@ export class IsometricControls {
   private normalHeight = 2;
   private crouchHeight = 1;
 
+  // Weapon system
+  private weapons: Weapon[] = [];
+  private currentWeaponIndex = 0;
   private bullets: Bullet[] = [];
-  private lastShotTime = 0;
-  private fireRate = 0.25; // Time in seconds between shots
 
-  // Bullet inventory
-  private bulletsInMagazine = 20; // Current magazine
-  private totalBullets = 250; // Total ammo
-  private maxMagazineSize = 20; // Maximum magazine capacity
-  private isReloading = false;
-  private reloadTime = 1.5; // Time in seconds to reload
-  private reloadStartTime = 0;
-
-  // HUD elements
-  public ammoDisplay = {
-    current: this.bulletsInMagazine,
-    total: this.totalBullets,
-  };
+  // Inventory system
+  private inventorySize = 3;
+  private gunOffset = new THREE.Vector3(0.7, -0.1, -0.3); // Adjusted to position gun in front of the rotated player
 
   constructor(
     camera: THREE.Camera,
@@ -91,15 +92,65 @@ export class IsometricControls {
     this.player = player;
     this.scene = player.parent as THREE.Scene;
 
-    // Create the gun and add it to the scene
-    this.gun = this.createGun();
-    this.scene.add(this.gun);
+    // Initialize weapons
+    this.initializeWeapons();
 
     // Set up isometric camera view
     this.setupIsometricView();
 
     // Initialize controls
     this.initControls();
+  }
+
+  // Initialize available weapons
+  private initializeWeapons() {
+    // Create first weapon (pistol)
+    const pistol = {
+      name: "Pistol",
+      model: this.createPistol(),
+      bulletsInMagazine: 12,
+      totalBullets: 120,
+      maxMagazineSize: 12,
+      fireRate: 0.4, // Slower fire rate than rifle
+      isReloading: false,
+      reloadTime: 1.2,
+      reloadStartTime: 0,
+      lastShotTime: 0,
+    };
+
+    // Create second weapon (rifle)
+    const rifle = {
+      name: "Assault Rifle",
+      model: this.createRifle(),
+      bulletsInMagazine: 30,
+      totalBullets: 150,
+      maxMagazineSize: 30,
+      fireRate: 0.1, // Faster fire rate
+      isReloading: false,
+      reloadTime: 2.0,
+      reloadStartTime: 0,
+      lastShotTime: 0,
+    };
+
+    // Create third weapon (shotgun)
+    const shotgun = {
+      name: "Shotgun",
+      model: this.createShotgun(),
+      bulletsInMagazine: 6,
+      totalBullets: 30,
+      maxMagazineSize: 6,
+      fireRate: 0.8, // Slowest fire rate
+      isReloading: false,
+      reloadTime: 0.5, // Per shell reload
+      reloadStartTime: 0,
+      lastShotTime: 0,
+    };
+
+    // Add weapons to the inventory
+    this.weapons.push(pistol, rifle, shotgun);
+
+    // Initially set first weapon and add to scene
+    this.scene.add(this.getCurrentWeapon().model);
   }
 
   private setupIsometricView() {
@@ -130,7 +181,7 @@ export class IsometricControls {
 
       // Update player rotation immediately when mouse moves
       this.updatePlayerRotation();
-      this.updateGunPosition();
+      this.updateWeaponPosition();
     });
 
     // Key down events
@@ -169,6 +220,23 @@ export class IsometricControls {
           break;
         case "KeyR":
           this.reload();
+          break;
+        // Add weapon switching using number keys
+        case "Digit1":
+          this.switchToWeapon(0);
+          break;
+        case "Digit2":
+          this.switchToWeapon(1);
+          break;
+        case "Digit3":
+          this.switchToWeapon(2);
+          break;
+        // Scroll through weapons with Q and E
+        case "KeyQ":
+          this.previousWeapon();
+          break;
+        case "KeyE":
+          this.nextWeapon();
           break;
       }
     });
@@ -212,6 +280,55 @@ export class IsometricControls {
     });
   }
 
+  // Switch to previous weapon
+  private previousWeapon() {
+    const prevIndex =
+      (this.currentWeaponIndex - 1 + this.weapons.length) % this.weapons.length;
+    this.switchToWeapon(prevIndex);
+  }
+
+  // Switch to next weapon
+  private nextWeapon() {
+    const nextIndex = (this.currentWeaponIndex + 1) % this.weapons.length;
+    this.switchToWeapon(nextIndex);
+  }
+
+  // Switch to specific weapon by index
+  public switchToWeapon(index: number) {
+    if (
+      index >= 0 &&
+      index < this.weapons.length &&
+      index !== this.currentWeaponIndex
+    ) {
+      // Remove current weapon from scene
+      this.scene.remove(this.getCurrentWeapon().model);
+
+      // Update current weapon index
+      this.currentWeaponIndex = index;
+
+      // Add new weapon to scene
+      this.scene.add(this.getCurrentWeapon().model);
+
+      // Update weapon position
+      this.updateWeaponPosition();
+    }
+  }
+
+  // Get the current weapon
+  public getCurrentWeapon(): Weapon {
+    return this.weapons[this.currentWeaponIndex];
+  }
+
+  // Get all weapons in inventory
+  public getInventory(): Weapon[] {
+    return this.weapons;
+  }
+
+  // Get current weapon index
+  public getCurrentWeaponIndex(): number {
+    return this.currentWeaponIndex;
+  }
+
   private crouch() {
     if (this.player.geometry instanceof THREE.BoxGeometry) {
       this.player.geometry.dispose();
@@ -221,8 +338,8 @@ export class IsometricControls {
 
     this.player.position.y -= (this.normalHeight - this.crouchHeight) / 2;
 
-    // Update gun position when crouching
-    this.updateGunPosition();
+    // Update weapon position when crouching
+    this.updateWeaponPosition();
   }
 
   private standUp() {
@@ -234,8 +351,8 @@ export class IsometricControls {
 
     this.player.position.y += (this.normalHeight - this.crouchHeight) / 2;
 
-    // Update gun position when standing up
-    this.updateGunPosition();
+    // Update weapon position when standing up
+    this.updateWeaponPosition();
   }
 
   private updatePlayerRotation() {
@@ -273,10 +390,11 @@ export class IsometricControls {
     const time = performance.now();
     const delta = (time - this.prevTime) / 1000;
 
-    // Check if reloading is complete
-    if (this.isReloading) {
-      const reloadProgress = (time - this.reloadStartTime) / 1000;
-      if (reloadProgress >= this.reloadTime) {
+    // Check if reloading is complete for current weapon
+    const currentWeapon = this.getCurrentWeapon();
+    if (currentWeapon.isReloading) {
+      const reloadProgress = (time - currentWeapon.reloadStartTime) / 1000;
+      if (reloadProgress >= currentWeapon.reloadTime) {
         this.completeReload();
       }
     }
@@ -285,8 +403,8 @@ export class IsometricControls {
     // but we call it again here to ensure smooth rotation
     this.updatePlayerRotation();
 
-    // Make sure gun position is updated
-    this.updateGunPosition();
+    // Make sure weapon position is updated
+    this.updateWeaponPosition();
 
     // Apply gravity
     this.velocity.y -= this.gravity * delta;
@@ -379,12 +497,6 @@ export class IsometricControls {
       // e.g., check if bullet hit an enemy or obstacle
     }
 
-    // Update ammo display info
-    this.ammoDisplay = {
-      current: this.bulletsInMagazine,
-      total: this.totalBullets,
-    };
-
     this.prevTime = time;
   }
 
@@ -401,32 +513,78 @@ export class IsometricControls {
     );
   }
 
-  // Create a simple gun model using basic geometries
-  private createGun(): THREE.Group {
+  // Create pistol model
+  private createPistol(): THREE.Group {
     const gunGroup = new THREE.Group();
 
-    // Create gun barrel (cylinder)
-    const barrelGeometry = new THREE.CylinderGeometry(0.05, 0.05, 0.8, 8);
+    // Create gun barrel (shorter than rifle)
+    const barrelGeometry = new THREE.CylinderGeometry(0.04, 0.04, 0.5, 8);
     const barrelMaterial = new THREE.MeshStandardMaterial({ color: 0x333333 });
     const barrel = new THREE.Mesh(barrelGeometry, barrelMaterial);
-    // Position barrel to point forward (player's forward direction is negative Z)
     barrel.rotation.x = Math.PI / 2;
-    barrel.position.z = -0.4;
+    barrel.position.z = -0.3;
 
-    // Create gun body (box)
-    const bodyGeometry = new THREE.BoxGeometry(0.2, 0.2, 0.6);
+    // Create gun body (smaller than rifle)
+    const bodyGeometry = new THREE.BoxGeometry(0.15, 0.15, 0.4);
     const bodyMaterial = new THREE.MeshStandardMaterial({ color: 0x666666 });
     const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
     body.position.z = 0;
 
-    // Create gun handle (box)
+    // Create gun handle
+    const handleGeometry = new THREE.BoxGeometry(0.12, 0.35, 0.15);
+    const handleMaterial = new THREE.MeshStandardMaterial({ color: 0x444444 });
+    const handle = new THREE.Mesh(handleGeometry, handleMaterial);
+    handle.position.y = -0.25;
+    handle.position.z = 0.1;
+
+    // Add all parts to the gun group
+    gunGroup.add(barrel);
+    gunGroup.add(body);
+    gunGroup.add(handle);
+
+    // Add cast shadow for all parts
+    barrel.castShadow = true;
+    body.castShadow = true;
+    handle.castShadow = true;
+
+    // Rotate the entire gun group
+    gunGroup.rotation.z = Math.PI / 12;
+
+    return gunGroup;
+  }
+
+  // Create rifle model (larger than pistol)
+  private createRifle(): THREE.Group {
+    const gunGroup = new THREE.Group();
+
+    // Create gun barrel (longer than pistol)
+    const barrelGeometry = new THREE.CylinderGeometry(0.05, 0.05, 1.0, 8);
+    const barrelMaterial = new THREE.MeshStandardMaterial({ color: 0x333333 });
+    const barrel = new THREE.Mesh(barrelGeometry, barrelMaterial);
+    barrel.rotation.x = Math.PI / 2;
+    barrel.position.z = -0.5;
+
+    // Create gun body
+    const bodyGeometry = new THREE.BoxGeometry(0.2, 0.2, 0.8);
+    const bodyMaterial = new THREE.MeshStandardMaterial({ color: 0x666666 });
+    const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
+    body.position.z = 0;
+
+    // Create stock (extends behind body)
+    const stockGeometry = new THREE.BoxGeometry(0.15, 0.25, 0.4);
+    const stockMaterial = new THREE.MeshStandardMaterial({ color: 0x8b4513 });
+    const stock = new THREE.Mesh(stockGeometry, stockMaterial);
+    stock.position.z = 0.6;
+    stock.position.y = -0.1;
+
+    // Create gun handle
     const handleGeometry = new THREE.BoxGeometry(0.15, 0.4, 0.15);
     const handleMaterial = new THREE.MeshStandardMaterial({ color: 0x444444 });
     const handle = new THREE.Mesh(handleGeometry, handleMaterial);
     handle.position.y = -0.3;
-    handle.position.z = 0.15; // Position at back of gun
+    handle.position.z = 0.15;
 
-    // Add a sight/scope (small box on top)
+    // Add a sight/scope
     const sightGeometry = new THREE.BoxGeometry(0.05, 0.05, 0.2);
     const sightMaterial = new THREE.MeshStandardMaterial({ color: 0x222222 });
     const sight = new THREE.Mesh(sightGeometry, sightMaterial);
@@ -436,25 +594,74 @@ export class IsometricControls {
     // Add all parts to the gun group
     gunGroup.add(barrel);
     gunGroup.add(body);
+    gunGroup.add(stock);
     gunGroup.add(handle);
     gunGroup.add(sight);
 
     // Add cast shadow for all parts
     barrel.castShadow = true;
     body.castShadow = true;
+    stock.castShadow = true;
     handle.castShadow = true;
     sight.castShadow = true;
 
-    // Rotate the entire gun group to position it properly at the player's side
-    // This maintains the forward orientation while being held at the side
-    gunGroup.rotation.z = Math.PI / 12; // Slightly tilt the gun
+    // Rotate the entire gun group
+    gunGroup.rotation.z = Math.PI / 12;
 
     return gunGroup;
   }
 
-  // Update gun position based on player state
-  private updateGunPosition() {
-    if (!this.gun) return;
+  // Create shotgun model
+  private createShotgun(): THREE.Group {
+    const gunGroup = new THREE.Group();
+
+    // Create gun barrel (wider than rifle)
+    const barrelGeometry = new THREE.CylinderGeometry(0.08, 0.08, 0.8, 8);
+    const barrelMaterial = new THREE.MeshStandardMaterial({ color: 0x444444 });
+    const barrel = new THREE.Mesh(barrelGeometry, barrelMaterial);
+    barrel.rotation.x = Math.PI / 2;
+    barrel.position.z = -0.4;
+
+    // Create second barrel below first (double-barrel shotgun)
+    const barrel2 = barrel.clone();
+    barrel2.position.y = -0.1;
+
+    // Create gun body
+    const bodyGeometry = new THREE.BoxGeometry(0.25, 0.25, 0.7);
+    const bodyMaterial = new THREE.MeshStandardMaterial({ color: 0x8b4513 });
+    const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
+    body.position.z = 0.2;
+
+    // Create gun handle
+    const handleGeometry = new THREE.BoxGeometry(0.15, 0.35, 0.2);
+    const handleMaterial = new THREE.MeshStandardMaterial({ color: 0x8b4513 });
+    const handle = new THREE.Mesh(handleGeometry, handleMaterial);
+    handle.position.y = -0.25;
+    handle.position.z = 0.45;
+    handle.rotation.x = Math.PI / 6;
+
+    // Add all parts to the gun group
+    gunGroup.add(barrel);
+    gunGroup.add(barrel2);
+    gunGroup.add(body);
+    gunGroup.add(handle);
+
+    // Add cast shadow for all parts
+    barrel.castShadow = true;
+    barrel2.castShadow = true;
+    body.castShadow = true;
+    handle.castShadow = true;
+
+    // Rotate the entire gun group
+    gunGroup.rotation.z = Math.PI / 12;
+
+    return gunGroup;
+  }
+
+  // Update gun position based on player state (renamed from updateGunPosition)
+  private updateWeaponPosition() {
+    const currentWeapon = this.getCurrentWeapon();
+    if (!currentWeapon || !currentWeapon.model) return;
 
     // Set gun position with appropriate height based on crouch state
     const gunPositionY = this.isCrouching
@@ -483,46 +690,47 @@ export class IsometricControls {
     );
 
     // Update gun position
-    this.gun.position.copy(gunPosition);
+    currentWeapon.model.position.copy(gunPosition);
 
     // Update gun rotation to match player rotation
-    this.gun.rotation.y = this.player.rotation.y;
+    currentWeapon.model.rotation.y = this.player.rotation.y;
   }
 
   // Method to create and shoot a bullet
   private shoot() {
     const currentTime = performance.now() / 1000;
+    const currentWeapon = this.getCurrentWeapon();
 
     // Check if enough time has passed since last shot (fire rate control)
-    if (currentTime - this.lastShotTime < this.fireRate) {
+    if (currentTime - currentWeapon.lastShotTime < currentWeapon.fireRate) {
       return;
     }
 
     // Don't shoot if reloading
-    if (this.isReloading) {
+    if (currentWeapon.isReloading) {
       return;
     }
 
     // Check if we have bullets in the magazine
-    if (this.bulletsInMagazine <= 0) {
+    if (currentWeapon.bulletsInMagazine <= 0) {
       // Don't auto-reload anymore, just return
       return;
     }
 
     // Update last shot time
-    this.lastShotTime = currentTime;
+    currentWeapon.lastShotTime = currentTime;
 
     // Decrease bullets in magazine
-    this.bulletsInMagazine--;
+    currentWeapon.bulletsInMagazine--;
 
     // Get gun barrel position (front of the gun)
     const barrelPosition = new THREE.Vector3();
     // Get world position of the gun
-    this.gun.getWorldPosition(barrelPosition);
+    currentWeapon.model.getWorldPosition(barrelPosition);
 
     // Offset to the barrel tip
     const barrelTip = new THREE.Vector3(0, 0, -0.6); // Adjust based on your gun model
-    barrelTip.applyQuaternion(this.gun.quaternion);
+    barrelTip.applyQuaternion(currentWeapon.model.quaternion);
     barrelPosition.add(barrelTip);
 
     // Get direction based on player rotation
@@ -538,30 +746,32 @@ export class IsometricControls {
 
   // Start the reload process
   private reload() {
+    const currentWeapon = this.getCurrentWeapon();
+
     // Check if reloading is allowed
-    if (!this.canReload()) {
+    if (!this.canReload(currentWeapon)) {
       return;
     }
 
     // Start reloading
-    this.isReloading = true;
-    this.reloadStartTime = performance.now();
+    currentWeapon.isReloading = true;
+    currentWeapon.reloadStartTime = performance.now();
   }
 
   // Check if reload is allowed
-  private canReload(): boolean {
+  private canReload(weapon: Weapon): boolean {
     // Don't reload if already reloading
-    if (this.isReloading) {
+    if (weapon.isReloading) {
       return false;
     }
 
     // Don't reload if magazine is full
-    if (this.bulletsInMagazine >= this.maxMagazineSize) {
+    if (weapon.bulletsInMagazine >= weapon.maxMagazineSize) {
       return false;
     }
 
     // Don't reload if no bullets left
-    if (this.totalBullets <= 0) {
+    if (weapon.totalBullets <= 0) {
       return false;
     }
 
@@ -570,26 +780,35 @@ export class IsometricControls {
 
   // Complete the reload process
   private completeReload() {
+    const currentWeapon = this.getCurrentWeapon();
+
     // Calculate how many bullets are needed to fill the magazine
-    const bulletsNeeded = this.maxMagazineSize - this.bulletsInMagazine;
+    const bulletsNeeded =
+      currentWeapon.maxMagazineSize - currentWeapon.bulletsInMagazine;
 
     // Calculate how many bullets we can actually add (limited by total bullets)
-    const bulletsToAdd = Math.min(bulletsNeeded, this.totalBullets);
+    const bulletsToAdd = Math.min(bulletsNeeded, currentWeapon.totalBullets);
 
     // Add bullets to magazine and remove from total
-    this.bulletsInMagazine += bulletsToAdd;
-    this.totalBullets -= bulletsToAdd;
+    currentWeapon.bulletsInMagazine += bulletsToAdd;
+    currentWeapon.totalBullets -= bulletsToAdd;
 
     // End reloading state
-    this.isReloading = false;
+    currentWeapon.isReloading = false;
   }
 
   // Get ammo info for HUD
   public getAmmoInfo() {
+    const currentWeapon = this.getCurrentWeapon();
     return {
-      current: this.bulletsInMagazine,
-      total: this.totalBullets,
-      isReloading: this.isReloading,
+      current: currentWeapon.bulletsInMagazine,
+      total: currentWeapon.totalBullets,
+      isReloading: currentWeapon.isReloading,
     };
+  }
+
+  // Get current gun (for backwards compatibility)
+  get gun(): THREE.Group {
+    return this.getCurrentWeapon().model;
   }
 }

@@ -11,6 +11,8 @@ export class HUD {
   private noAmmoElement: HTMLElement | null = null;
   private emptyMagTimeout: number | null = null;
   private noAmmoTimeout: number | null = null;
+  private inventoryElement: HTMLElement | null = null;
+  private weaponSlots: HTMLElement[] = [];
 
   // FPS tracking
   private frameCount = 0;
@@ -28,6 +30,10 @@ export class HUD {
     this.reloadIndicatorElement = document.getElementById("reload-indicator");
     this.emptyMagElement = document.getElementById("empty-mag-indicator");
     this.noAmmoElement = document.getElementById("no-ammo-indicator");
+    this.inventoryElement = document.getElementById("inventory");
+
+    // Create weapon slots
+    this.createWeaponSlots();
 
     // Add click event listener to detect shooting when out of ammo
     this.container.addEventListener("mousedown", (event: MouseEvent) => {
@@ -60,8 +66,56 @@ export class HUD {
         <div id="empty-mag-indicator" class="empty-mag-indicator hidden">PRESS R TO RELOAD</div>
         <div id="no-ammo-indicator" class="no-ammo-indicator hidden">OUT OF AMMO</div>
       </div>
+      <div id="inventory" class="inventory-container">
+        <h3>Inventory</h3>
+        <div class="weapon-slots">
+          <div id="weapon-slot-0" class="weapon-slot"></div>
+          <div id="weapon-slot-1" class="weapon-slot"></div>
+          <div id="weapon-slot-2" class="weapon-slot"></div>
+        </div>
+        <p class="inventory-tip">Press 1-3 to switch weapons, or Q/E to cycle</p>
+      </div>
     `;
     return uiOverlay;
+  }
+
+  private createWeaponSlots() {
+    // Get inventory from controls
+    const inventory = this.controls.getInventory();
+    const currentWeaponIndex = this.controls.getCurrentWeaponIndex();
+
+    // Create weapon slots
+    for (let i = 0; i < 3; i++) {
+      const slotElement = document.getElementById(`weapon-slot-${i}`);
+      if (slotElement) {
+        // Save reference to slot
+        this.weaponSlots[i] = slotElement;
+
+        // Create slot content
+        if (i < inventory.length) {
+          const weapon = inventory[i];
+          slotElement.innerHTML = `
+            <div class="weapon-icon ${
+              i === currentWeaponIndex ? "selected" : ""
+            }">
+              <span class="weapon-name">${weapon.name}</span>
+              <span class="weapon-ammo">${weapon.bulletsInMagazine}/${
+            weapon.totalBullets
+          }</span>
+            </div>
+          `;
+        }
+
+        // Add click handler for slot
+        slotElement.addEventListener("click", () => {
+          // Only allow switching to valid weapons
+          if (i < inventory.length) {
+            // Switch weapon using the public method
+            this.controls.switchToWeapon(i);
+          }
+        });
+      }
+    }
   }
 
   private showEmptyMagIndicator(): void {
@@ -115,6 +169,9 @@ export class HUD {
 
     // Update ammo display
     this.updateAmmoDisplay();
+
+    // Update inventory display
+    this.updateInventoryDisplay();
   }
 
   private updateFPS(): void {
@@ -158,6 +215,32 @@ export class HUD {
         }
       } else {
         this.reloadIndicatorElement.classList.add("hidden");
+      }
+    }
+  }
+
+  private updateInventoryDisplay(): void {
+    // Get inventory from controls
+    const inventory = this.controls.getInventory();
+    const currentWeaponIndex = this.controls.getCurrentWeaponIndex();
+
+    // Update each weapon slot
+    for (let i = 0; i < this.weaponSlots.length; i++) {
+      const slotElement = this.weaponSlots[i];
+      if (slotElement && i < inventory.length) {
+        const weapon = inventory[i];
+
+        // Update slot content
+        slotElement.innerHTML = `
+          <div class="weapon-icon ${
+            i === currentWeaponIndex ? "selected" : ""
+          }">
+            <span class="weapon-name">${weapon.name}</span>
+            <span class="weapon-ammo">${weapon.bulletsInMagazine}/${
+          weapon.totalBullets
+        }</span>
+          </div>
+        `;
       }
     }
   }
