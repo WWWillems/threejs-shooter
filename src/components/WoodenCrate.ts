@@ -1,6 +1,4 @@
 import * as THREE from "three";
-import { HealthPickup } from "./HealthPickup";
-import { AmmoPickup } from "./AmmoPickup";
 import { WeaponType } from "./Weapon";
 import type { PickupManager } from "./PickupManager";
 

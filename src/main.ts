@@ -3,7 +3,6 @@ import * as THREE from "three";
 import { IsometricControls } from "./components/IsometricControls";
 import { HUD } from "./components/HUD";
 import { PickupManager } from "./components/PickupManager";
-import { WeaponType } from "./components/Weapon";
 
 // Initialize the scene
 const scene = new THREE.Scene();

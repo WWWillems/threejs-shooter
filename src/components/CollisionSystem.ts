@@ -37,6 +37,13 @@ interface WoodenCrateCollider {
 }
 
 /**
+ * Type for custom obstacle collision data
+ */
+interface CustomObstacleCollider {
+  box: THREE.Box3;
+}
+
+/**
  * Manages all collision detection in the game
  */
 export class CollisionSystem implements CollisionDetector {
@@ -46,6 +53,7 @@ export class CollisionSystem implements CollisionDetector {
   private streetLights: THREE.Group[] = [];
   private woodenCrateColliders: WoodenCrateCollider[] = [];
   private woodenCrates: DestructibleCrate[] = [];
+  private customObstacleColliders: CustomObstacleCollider[] = [];
   private playerCollider = new THREE.Box3();
   private tempBox = new THREE.Box3();
 
@@ -97,6 +105,15 @@ export class CollisionSystem implements CollisionDetector {
 
     // Create initial collision boxes
     this.updateWoodenCrateColliders();
+  }
+
+  /**
+   * Add a custom obstacle to the collision system
+   */
+  public addCustomObstacle(obstacleBox: THREE.Box3): void {
+    this.customObstacleColliders.push({
+      box: obstacleBox.clone(), // Clone to prevent outside modifications
+    });
   }
 
   /**
@@ -209,68 +226,53 @@ export class CollisionSystem implements CollisionDetector {
   }
 
   /**
-   * Check if the player collides with any objects at the given position
+   * Check player collision against all obstacles
    */
   public checkPlayerCollision(
     position: THREE.Vector3,
     playerHeight: number
   ): boolean {
-    // Update the player collider box
-    this.playerCollider.min.set(position.x - 0.4, position.y, position.z - 0.4);
-    this.playerCollider.max.set(
-      position.x + 0.4,
-      position.y + playerHeight,
-      position.z + 0.4
+    // Update player collider
+    this.playerCollider.setFromCenterAndSize(
+      new THREE.Vector3(position.x, position.y + playerHeight / 2, position.z),
+      new THREE.Vector3(0.9, playerHeight, 0.9)
     );
 
     // Check collision with cars
     for (const carData of this.carColliders) {
-      // Get the car's world-space box adjusted for rotation
-      const carBox = this.getRotatedCarBox(carData);
-
-      // Check if the player's box intersects with the car's box
-      if (this.playerCollider.intersectsBox(carBox)) {
+      // Get the car's collision box adjusted for rotation
+      const rotatedBox = this.getRotatedCarBox(carData);
+      if (this.playerCollider.intersectsBox(rotatedBox)) {
         return true;
       }
     }
 
     // Check collision with street lights
     for (const lightData of this.streetLightColliders) {
-      // Create a box for the street light using its dimensions and position
-      const lightPosition = lightData.lightObj.position;
-      this.tempBox.min.set(
-        lightPosition.x - lightData.dimensions.x / 2,
-        lightPosition.y,
-        lightPosition.z - lightData.dimensions.z / 2
-      );
-      this.tempBox.max.set(
-        lightPosition.x + lightData.dimensions.x / 2,
-        lightPosition.y + lightData.dimensions.y,
-        lightPosition.z + lightData.dimensions.z / 2
-      );
-
-      // Check if the player's box intersects with the light's box
-      if (this.playerCollider.intersectsBox(this.tempBox)) {
+      if (this.playerCollider.intersectsBox(lightData.box)) {
         return true;
       }
     }
 
     // Check collision with wooden crates
     for (const crateData of this.woodenCrateColliders) {
-      // No need to create a temporary box since we've already set up the proper box
-      // when we created the collider in updateWoodenCrateColliders
       if (this.playerCollider.intersectsBox(crateData.box)) {
         return true;
       }
     }
 
-    // No collision detected
+    // Check collision with custom obstacles
+    for (const obstacleData of this.customObstacleColliders) {
+      if (this.playerCollider.intersectsBox(obstacleData.box)) {
+        return true;
+      }
+    }
+
     return false;
   }
 
   /**
-   * Check for bullet collision with objects and apply damage
-   * @returns true if bullet hit something
+   * Check for bullet collision with any collidable object
    */
   public checkForBulletCollision(bulletPosition: THREE.Vector3): boolean {
     // Check for bullet-crate collisions first
@@ -320,6 +322,19 @@ export class CollisionSystem implements CollisionDetector {
 
       // Check if the bullet's position is inside the light's box
       if (this.tempBox.containsPoint(bulletPosition)) {
+        return true;
+      }
+    }
+
+    // Check collision with custom obstacles
+    for (const obstacleData of this.customObstacleColliders) {
+      // Create a small box around the bullet for collision check
+      this.tempBox.setFromCenterAndSize(
+        bulletPosition,
+        new THREE.Vector3(0.1, 0.1, 0.1)
+      );
+
+      if (this.tempBox.intersectsBox(obstacleData.box)) {
         return true;
       }
     }
