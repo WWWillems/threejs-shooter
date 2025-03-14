@@ -64,6 +64,9 @@ export class DebugVisualizer {
     // Create visualization for street light colliders
     this.createStreetLightColliderVisualizations();
 
+    // Create visualization for wooden crate colliders
+    this.createWoodenCrateColliderVisualizations();
+
     // Create visualization for player collider
     this.createPlayerColliderVisualization(
       this.player.position,
@@ -181,6 +184,50 @@ export class DebugVisualizer {
 
       // Adjust height based on heightOffset (half the height)
       boxMesh.position.y += dimensions.y / 2;
+
+      // Add to scene and track for cleanup
+      this.scene.add(boxMesh);
+      this.debugHelpers.push(boxMesh);
+    }
+  }
+
+  /**
+   * Create visual representations of wooden crate colliders
+   */
+  private createWoodenCrateColliderVisualizations(): void {
+    // Access wooden crate colliders from CollisionSystem
+    const crateColliders = this.collisionSystem.getWoodenCrateColliders();
+
+    if (!crateColliders || crateColliders.length === 0) return;
+
+    for (const crateData of crateColliders) {
+      // Create a box geometry based on the crate's dimensions
+      const { dimensions } = crateData;
+      const boxGeometry = new THREE.BoxGeometry(
+        dimensions.x,
+        dimensions.y,
+        dimensions.z
+      );
+
+      // Create a wireframe material
+      const boxMaterial = new THREE.MeshBasicMaterial({
+        color: 0xffa500, // Orange for wooden crate colliders
+        wireframe: true,
+        transparent: true,
+        opacity: 0.5,
+      });
+
+      // Create mesh and position it
+      const boxMesh = new THREE.Mesh(boxGeometry, boxMaterial);
+
+      // Copy the crate position exactly for accurate visualization
+      boxMesh.position.copy(crateData.crateObj.position);
+
+      // The crate model's origin is at its center (due to THREE.BoxGeometry)
+      // No need for additional y-offset as the collision box and model should match exactly
+
+      // Match the crate's rotation
+      boxMesh.rotation.y = crateData.crateObj.rotation.y;
 
       // Add to scene and track for cleanup
       this.scene.add(boxMesh);

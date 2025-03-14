@@ -120,7 +120,7 @@ export class IsometricControls implements CollisionDetector {
     rotation = 0
   ): THREE.Group {
     const crate = WoodenCrate.addToScene(this.scene, position, size, rotation);
-    this.collisionSystem.addWoodenCrate(crate);
+    this.collisionSystem.addWoodenCrate(crate, size);
     return crate;
   }
 

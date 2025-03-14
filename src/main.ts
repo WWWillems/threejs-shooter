@@ -128,99 +128,223 @@ function createCube(
 }
 
 // Add some cubes to the scene
-const cube1 = createCube(2, 0xff4444, -3, 0, 0);
-const cube2 = createCube(2, 0x44ff44, 0, 0, 0);
-const cube3 = createCube(2, 0x4444ff, 3, 0, 0);
+const cube1 = createCube(2, 0xff4444, -8, 0, -12);
+const cube2 = createCube(2, 0x44ff44, 10, 0, 14);
+const cube3 = createCube(2, 0x4444ff, 15, 0, -10);
 scene.add(cube1, cube2, cube3);
 
-// Add a car to the scene
-const carPosition = new THREE.Vector3(10, 0, 5);
-const car = controls.addCarToScene(carPosition);
-// Rotate the car to face a different direction
-car.rotation.y = -Math.PI / 4; // 45 degrees
+// CREATING A CINEMATIC SCENE LAYOUT:
 
-// Add a street light pole near the car
-const streetLightPosition = new THREE.Vector3(12, 0, 7);
-const streetLight = controls.addStreetLightToScene(streetLightPosition);
+// 1. CAR PLACEMENT - Create a small crashed/abandoned car scene
+// First car - slightly tilted as if crashed
+const carPosition1 = new THREE.Vector3(8, 0, 9);
+const car1 = controls.addCarToScene(carPosition1);
+car1.rotation.y = -Math.PI / 5; // Angled
+car1.rotation.z = Math.PI / 30; // Slightly tilted
 
-// Add wooden crates to the scene
-// A small cluster of crates near the starting area
-const crate1 = controls.addWoodenCrateToScene(
-  new THREE.Vector3(-5, 0.5, -5),
-  1,
-  Math.PI / 6
-);
-const crate2 = controls.addWoodenCrateToScene(
-  new THREE.Vector3(-6.5, 0.5, -4.5),
-  1,
-  -Math.PI / 8
-);
-const crate3 = controls.addWoodenCrateToScene(
-  new THREE.Vector3(-5.5, 0.6, -6.5),
-  1.2,
-  Math.PI / 3
-);
+// Second car - positioned near the first like a roadblock/barrier
+const carPosition2 = new THREE.Vector3(12, 0, 15);
+const car2 = controls.addCarToScene(carPosition2);
+car2.rotation.y = Math.PI / 3;
 
-// A stack of crates (smaller one on top of larger one)
-const largeCrate = controls.addWoodenCrateToScene(
-  new THREE.Vector3(8, 0.6, -7),
-  1.2,
-  Math.PI / 5
-);
-const smallCrate = controls.addWoodenCrateToScene(
-  new THREE.Vector3(8, 1.8, -7),
-  0.8,
-  Math.PI / 2
-);
+// Third car - positioned farther away to create shooting lanes
+const carPosition3 = new THREE.Vector3(-15, 0, -12);
+const car3 = controls.addCarToScene(carPosition3);
+car3.rotation.y = Math.PI / 8;
 
-// Some scattered crates in different areas
-const crate4 = controls.addWoodenCrateToScene(
-  new THREE.Vector3(15, 0.5, 2),
-  1,
-  Math.PI / 4
-);
-const crate5 = controls.addWoodenCrateToScene(
-  new THREE.Vector3(-12, 0.55, 9),
-  1.1,
-  -Math.PI / 7
-);
-const crate6 = controls.addWoodenCrateToScene(
-  new THREE.Vector3(3, 0.5, -15),
-  1,
-  Math.PI / 9
-);
+// 2. STREET LIGHT PLACEMENT - Create atmospheric lighting
+// First street light - near the crashed car scene
+const streetLightPosition1 = new THREE.Vector3(10, 0, 12);
+const streetLight1 = controls.addStreetLightToScene(streetLightPosition1);
 
-// Add a more interesting grouping of crates (wall-like arrangement)
-const crateWall1 = controls.addWoodenCrateToScene(
-  new THREE.Vector3(-10, 0.5, -10),
+// Create a second street light on the opposite side for contrast
+const streetLightPosition2 = new THREE.Vector3(-10, 0, -8);
+const streetLight2 = controls.addStreetLightToScene(streetLightPosition2);
+
+// Create a third street light to illuminate another play area
+const streetLightPosition3 = new THREE.Vector3(-12, 0, 15);
+const streetLight3 = controls.addStreetLightToScene(streetLightPosition3);
+
+// Fourth street light - to create shadows and atmosphere
+const streetLightPosition4 = new THREE.Vector3(15, 0, -15);
+const streetLight4 = controls.addStreetLightToScene(streetLightPosition4);
+
+// 3. CRATE PLACEMENT - Create strategic cover opportunities
+// A) Main battle area - pyramid formation - moved away from player spawn
+const mainPyramidBase = new THREE.Vector3(5, 0, 5); // Changed from (0,0,0) to avoid player spawn
+// Bottom layer of 4 crates
+const cratePyramid1 = controls.addWoodenCrateToScene(
+  new THREE.Vector3(mainPyramidBase.x - 1.1, 0.5, mainPyramidBase.z - 1.1),
   1,
   0
 );
-const crateWall2 = controls.addWoodenCrateToScene(
-  new THREE.Vector3(-10, 0.5, -11),
-  1,
-  Math.PI / 4
-);
-const crateWall3 = controls.addWoodenCrateToScene(
-  new THREE.Vector3(-10, 0.5, -12),
-  1,
-  Math.PI / 8
-);
-const crateWall4 = controls.addWoodenCrateToScene(
-  new THREE.Vector3(-10, 1.5, -10.5),
+const cratePyramid2 = controls.addWoodenCrateToScene(
+  new THREE.Vector3(mainPyramidBase.x + 1.1, 0.5, mainPyramidBase.z - 1.1),
   1,
   Math.PI / 6
 );
-const crateWall5 = controls.addWoodenCrateToScene(
-  new THREE.Vector3(-10, 1.5, -11.5),
+const cratePyramid3 = controls.addWoodenCrateToScene(
+  new THREE.Vector3(mainPyramidBase.x - 1.1, 0.5, mainPyramidBase.z + 1.1),
   1,
-  -Math.PI / 10
+  -Math.PI / 8
 );
-const crateWall6 = controls.addWoodenCrateToScene(
-  new THREE.Vector3(-10, 2.5, -11),
+const cratePyramid4 = controls.addWoodenCrateToScene(
+  new THREE.Vector3(mainPyramidBase.x + 1.1, 0.5, mainPyramidBase.z + 1.1),
   1,
   Math.PI / 3
 );
+// Middle layer of 2 crates
+const cratePyramid5 = controls.addWoodenCrateToScene(
+  new THREE.Vector3(mainPyramidBase.x, 1.5, mainPyramidBase.z - 0.5),
+  1,
+  Math.PI / 4
+);
+const cratePyramid6 = controls.addWoodenCrateToScene(
+  new THREE.Vector3(mainPyramidBase.x, 1.5, mainPyramidBase.z + 0.5),
+  1,
+  -Math.PI / 4
+);
+// Top crate
+const cratePyramid7 = controls.addWoodenCrateToScene(
+  new THREE.Vector3(mainPyramidBase.x, 2.5, mainPyramidBase.z),
+  1,
+  Math.PI / 10
+);
+
+// B) Create a defensive wall of crates for cover near one of the cars
+const wallStart = new THREE.Vector3(-8, 0, 6);
+for (let i = 0; i < 5; i++) {
+  const crateWall = controls.addWoodenCrateToScene(
+    new THREE.Vector3(wallStart.x + i * 1.2, 0.5, wallStart.z),
+    1,
+    i % 2 === 0 ? Math.PI / 8 : -Math.PI / 8
+  );
+}
+// Add some height to the wall for better cover
+for (let i = 1; i < 4; i++) {
+  const crateWallTop = controls.addWoodenCrateToScene(
+    new THREE.Vector3(wallStart.x + i * 1.2, 1.5, wallStart.z),
+    1,
+    i % 2 === 0 ? -Math.PI / 6 : Math.PI / 6
+  );
+}
+
+// C) Create scattered crates in a semi-circle pattern for a tactical play area
+const circleCenter = new THREE.Vector3(5, 0, -12);
+const radius = 5;
+for (let i = 0; i < 8; i++) {
+  const angle = (i / 8) * Math.PI; // Half-circle
+  const x = circleCenter.x + Math.cos(angle) * radius;
+  const z = circleCenter.z + Math.sin(angle) * radius;
+  const crate = controls.addWoodenCrateToScene(
+    new THREE.Vector3(x, 0.5, z),
+    0.9 + Math.random() * 0.3, // Slightly varied sizes
+    Math.random() * Math.PI // Random rotations
+  );
+}
+
+// D) Create a sniper tower with stacked crates
+const towerBase = new THREE.Vector3(-15, 0, 10);
+// Level 1 - 4 crates as base
+const towerBaseSize = 1.2;
+const towerBase1 = controls.addWoodenCrateToScene(
+  new THREE.Vector3(
+    towerBase.x - towerBaseSize / 2,
+    0.6,
+    towerBase.z - towerBaseSize / 2
+  ),
+  towerBaseSize,
+  0
+);
+const towerBase2 = controls.addWoodenCrateToScene(
+  new THREE.Vector3(
+    towerBase.x + towerBaseSize / 2,
+    0.6,
+    towerBase.z - towerBaseSize / 2
+  ),
+  towerBaseSize,
+  0
+);
+const towerBase3 = controls.addWoodenCrateToScene(
+  new THREE.Vector3(
+    towerBase.x - towerBaseSize / 2,
+    0.6,
+    towerBase.z + towerBaseSize / 2
+  ),
+  towerBaseSize,
+  0
+);
+const towerBase4 = controls.addWoodenCrateToScene(
+  new THREE.Vector3(
+    towerBase.x + towerBaseSize / 2,
+    0.6,
+    towerBase.z + towerBaseSize / 2
+  ),
+  towerBaseSize,
+  0
+);
+// Level 2 - Add platform
+const towerMid1 = controls.addWoodenCrateToScene(
+  new THREE.Vector3(
+    towerBase.x - towerBaseSize / 4,
+    towerBaseSize + 0.6,
+    towerBase.z
+  ),
+  towerBaseSize,
+  Math.PI / 4
+);
+const towerMid2 = controls.addWoodenCrateToScene(
+  new THREE.Vector3(
+    towerBase.x + towerBaseSize / 4,
+    towerBaseSize + 0.6,
+    towerBase.z
+  ),
+  towerBaseSize,
+  -Math.PI / 4
+);
+// Level 3 - Top platform
+const towerTop = controls.addWoodenCrateToScene(
+  new THREE.Vector3(towerBase.x, towerBaseSize * 2 + 0.6, towerBase.z),
+  towerBaseSize * 1.2,
+  Math.PI / 5
+);
+
+// E) Create some decorative clustered crates in corner areas
+const corner1 = new THREE.Vector3(18, 0, 18);
+for (let i = 0; i < 3; i++) {
+  for (let j = 0; j < 3; j++) {
+    if (Math.random() > 0.3) {
+      // Occasionally skip to create gaps
+      const cornerCrate = controls.addWoodenCrateToScene(
+        new THREE.Vector3(
+          corner1.x - i * 1.1 - Math.random() * 0.2,
+          0.5,
+          corner1.z - j * 1.1 - Math.random() * 0.2
+        ),
+        0.8 + Math.random() * 0.4,
+        Math.random() * Math.PI
+      );
+    }
+  }
+}
+
+const corner2 = new THREE.Vector3(-18, 0, -18);
+for (let i = 0; i < 4; i++) {
+  for (let j = 0; j < 3; j++) {
+    if (Math.random() > 0.4) {
+      // Occasionally skip to create gaps
+      const cornerCrate = controls.addWoodenCrateToScene(
+        new THREE.Vector3(
+          corner2.x + i * 1.1 + Math.random() * 0.2,
+          0.5,
+          corner2.z + j * 1.1 + Math.random() * 0.2
+        ),
+        0.8 + Math.random() * 0.4,
+        Math.random() * Math.PI
+      );
+    }
+  }
+}
 
 // Handle window resize
 window.addEventListener("resize", () => {
