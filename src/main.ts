@@ -30,6 +30,27 @@ if (appElement) {
   appElement.appendChild(renderer.domElement);
 }
 
+// Load concrete texture for the ground
+const textureLoader = new THREE.TextureLoader();
+const concreteBaseColor = textureLoader.load(
+  "/textures/concrete/concrete_diffuse.jpg"
+);
+const concreteNormalMap = textureLoader.load(
+  "/textures/concrete/concrete_normal.jpg"
+);
+const concreteRoughnessMap = textureLoader.load(
+  "/textures/concrete/concrete_roughness.jpg"
+);
+
+// Set texture repeat for a realistic scale
+const textureRepeat = 30; // Increased repeat for more subtle texture appearance
+concreteBaseColor.wrapS = concreteBaseColor.wrapT = THREE.RepeatWrapping;
+concreteBaseColor.repeat.set(textureRepeat, textureRepeat);
+concreteNormalMap.wrapS = concreteNormalMap.wrapT = THREE.RepeatWrapping;
+concreteNormalMap.repeat.set(textureRepeat, textureRepeat);
+concreteRoughnessMap.wrapS = concreteRoughnessMap.wrapT = THREE.RepeatWrapping;
+concreteRoughnessMap.repeat.set(textureRepeat, textureRepeat);
+
 // Create a player object
 const playerGeometry = new THREE.BoxGeometry(1, 2, 1); // A bit taller than wide
 const playerMaterial = new THREE.MeshStandardMaterial({ color: 0xffaa00 }); // Orange-yellow color
@@ -75,8 +96,12 @@ scene.add(directionalLight);
 // Create a ground plane
 const groundGeometry = new THREE.PlaneGeometry(100, 100);
 const groundMaterial = new THREE.MeshStandardMaterial({
-  color: 0x444444,
-  roughness: 1.0,
+  map: concreteBaseColor,
+  normalMap: concreteNormalMap,
+  roughnessMap: concreteRoughnessMap,
+  color: 0x888888, // Slightly darker gray for a more concrete-like appearance
+  roughness: 0.8,
+  normalScale: new THREE.Vector2(0.5, 0.5), // Reduce normal map intensity for subtlety
 });
 const ground = new THREE.Mesh(groundGeometry, groundMaterial);
 ground.rotation.x = -Math.PI / 2; // Rotate to be horizontal
