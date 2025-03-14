@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { Bullet } from "./Bullet";
+import type { CollisionDetector } from "./CollisionInterface";
 
 // Define the Weapon interface
 export interface Weapon {
@@ -315,7 +316,7 @@ export class WeaponSystem {
   }
 
   // Update all bullets
-  public updateBullets(delta: number) {
+  public updateBullets(delta: number, collisionDetector?: CollisionDetector) {
     for (let i = this.bullets.length - 1; i >= 0; i--) {
       const bullet = this.bullets[i];
 
@@ -325,10 +326,20 @@ export class WeaponSystem {
         bullet.remove(this.scene);
         // Remove from bullets array
         this.bullets.splice(i, 1);
+        continue;
       }
 
-      // Here you could add collision detection for bullets
-      // e.g., check if bullet hit an enemy or obstacle
+      // Check for collision with cars if collision detector is provided
+      if (collisionDetector?.checkBulletCarCollision(bullet.getPosition())) {
+        // Bullet hit a car - remove it
+        bullet.remove(this.scene);
+        // Remove from bullets array
+        this.bullets.splice(i, 1);
+        // Could add effects here (sound, visual impact, etc.)
+      }
+
+      // Here you could add more collision detection for bullets
+      // e.g., check if bullet hit other obstacles or enemies
     }
   }
 

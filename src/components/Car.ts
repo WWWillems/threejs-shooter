@@ -1,5 +1,11 @@
 import * as THREE from "three";
 
+// Define car collision dimensions for accurate collision detection
+export interface CarCollisionInfo {
+  dimensions: THREE.Vector3;
+  heightOffset: number;
+}
+
 // Create a car model using basic geometry
 function createCarModel(): THREE.Group {
   const carGroup = new THREE.Group();
@@ -393,6 +399,19 @@ function createCarModel(): THREE.Group {
   return carGroup;
 }
 
+// Get optimal collision dimensions for the car
+function getCollisionDimensions(): CarCollisionInfo {
+  // These dimensions are based on the actual car model
+  // Width (x), height (y), length (z)
+  // Since the car appears to be oriented along the X-axis by default,
+  // we'll swap width and length to align with the car's visual orientation
+  return {
+    // Swapping width(x) and length(z) to match the car's orientation
+    dimensions: new THREE.Vector3(5.0, 1.8, 2.4),
+    heightOffset: 0.9, // Center of the collision box should be this height from the ground
+  };
+}
+
 // Add a car to the scene at the specified position
 export function addToScene(
   scene: THREE.Scene,
@@ -400,6 +419,10 @@ export function addToScene(
 ): THREE.Group {
   const car = createCarModel();
   car.position.copy(position);
+
+  // Rotate the car 90 degrees around the Y-axis to align with the X-axis
+  car.rotation.y = Math.PI / 2;
+
   scene.add(car);
   return car;
 }
@@ -407,4 +430,5 @@ export function addToScene(
 export const Car = {
   createCarModel,
   addToScene,
+  getCollisionDimensions,
 };

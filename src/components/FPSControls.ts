@@ -3,6 +3,7 @@ import { Bullet } from "./Bullet";
 import { WeaponSystem } from "./Weapon";
 import type { Weapon } from "./Weapon";
 import { Car } from "./Car";
+import type { CollisionDetector } from "./CollisionInterface";
 
 // Add type extensions for pointer lock
 interface Document {
@@ -22,7 +23,7 @@ interface MouseEvent {
   button: number;
 }
 
-export class IsometricControls {
+export class IsometricControls implements CollisionDetector {
   private camera: THREE.Camera;
   private domElement: HTMLCanvasElement;
   private player: THREE.Mesh;
@@ -64,6 +65,20 @@ export class IsometricControls {
 
   // Weapon system
   private weaponSystem: WeaponSystem;
+
+  // Collision detection
+  private cars: THREE.Group[] = [];
+  private playerCollider = new THREE.Box3();
+  private tempBox = new THREE.Box3();
+  private carColliders: {
+    box: THREE.Box3;
+    carObj: THREE.Group;
+    dimensions: THREE.Vector3;
+    heightOffset: number;
+  }[] = [];
+  private bulletRadius = 0.1; // Match the radius used in Bullet.ts
+  private debugHelpers: THREE.Object3D[] = []; // For visualizing collision boxes
+  private debugMode = false; // Toggle for debug visualization
 
   constructor(
     camera: THREE.Camera,
@@ -170,6 +185,11 @@ export class IsometricControls {
         case "KeyE":
           this.weaponSystem.nextWeapon();
           break;
+        case "KeyB":
+          // Toggle debug mode to visualize collision boxes
+          this.debugMode = !this.debugMode;
+          this.toggleDebugVisualization();
+          break;
       }
     });
 
@@ -267,6 +287,156 @@ export class IsometricControls {
     this.targetPoint.copy(targetPoint);
   }
 
+  // Check for car collisions and return true if there's a collision
+  private checkCarCollision(position: THREE.Vector3): boolean {
+    // Update player collider at the test position
+    const playerHeight = this.isCrouching
+      ? this.crouchHeight
+      : this.normalHeight;
+
+    // Create a more accurate player hitbox
+    this.playerCollider.min.set(
+      position.x - 0.5, // Half width
+      position.y - playerHeight / 2, // Bottom of player
+      position.z - 0.5 // Half depth
+    );
+    this.playerCollider.max.set(
+      position.x + 0.5, // Half width
+      position.y + playerHeight / 2, // Top of player
+      position.z + 0.5 // Half depth
+    );
+
+    // Check for collision with any car
+    for (const carData of this.carColliders) {
+      // Create a box that's correctly aligned with the car's rotation
+      const carBox = this.getRotatedCarBox(carData);
+
+      if (this.playerCollider.intersectsBox(carBox)) {
+        return true; // Collision detected
+      }
+    }
+
+    return false; // No collision
+  }
+
+  // Check if a bullet collides with any car and return true if there's a collision
+  public checkBulletCarCollision(bulletPosition: THREE.Vector3): boolean {
+    // Create a small sphere to represent the bullet
+    const bulletSphere = new THREE.Sphere(bulletPosition, this.bulletRadius);
+
+    // Check collision with each car
+    for (const carData of this.carColliders) {
+      // Create a box that's correctly aligned with the car's rotation
+      const carBox = this.getRotatedCarBox(carData);
+
+      // Check if the bullet sphere intersects with the car box
+      if (carBox.intersectsSphere(bulletSphere)) {
+        return true; // Collision detected
+      }
+    }
+
+    return false; // No collision
+  }
+
+  // Create a rotated bounding box aligned with the car's orientation
+  private getRotatedCarBox(carData: {
+    box: THREE.Box3;
+    carObj: THREE.Group;
+    dimensions: THREE.Vector3;
+    heightOffset: number;
+  }): THREE.Box3 {
+    // Extract data from carData
+    const carPos = carData.carObj.position;
+    const carRotY = carData.carObj.rotation.y;
+    const dims = carData.dimensions;
+    const heightOffset = carData.heightOffset;
+
+    // Half-dimensions
+    const halfWidth = dims.x / 2;
+    const halfHeight = dims.y / 2;
+    const halfLength = dims.z / 2;
+
+    // Create local corner coordinates (relative to car's own coordinate system)
+    const localCorners = [
+      // Bottom face
+      new THREE.Vector3(halfWidth, -halfHeight, halfLength), // front-right-bottom
+      new THREE.Vector3(-halfWidth, -halfHeight, halfLength), // front-left-bottom
+      new THREE.Vector3(-halfWidth, -halfHeight, -halfLength), // back-left-bottom
+      new THREE.Vector3(halfWidth, -halfHeight, -halfLength), // back-right-bottom
+
+      // Top face
+      new THREE.Vector3(halfWidth, halfHeight, halfLength), // front-right-top
+      new THREE.Vector3(-halfWidth, halfHeight, halfLength), // front-left-top
+      new THREE.Vector3(-halfWidth, halfHeight, -halfLength), // back-left-top
+      new THREE.Vector3(halfWidth, halfHeight, -halfLength), // back-right-top
+    ];
+
+    // Create a bounding box to hold the result
+    const rotatedBox = new THREE.Box3();
+
+    // Transform first corner to initialize the box
+    const firstCorner = localCorners[0];
+    const rotatedX =
+      firstCorner.x * Math.cos(carRotY) - firstCorner.z * Math.sin(carRotY);
+    const rotatedZ =
+      firstCorner.x * Math.sin(carRotY) + firstCorner.z * Math.cos(carRotY);
+
+    const worldFirstCorner = new THREE.Vector3(
+      carPos.x + rotatedX,
+      carPos.y + heightOffset + firstCorner.y,
+      carPos.z + rotatedZ
+    );
+
+    // Initialize the box with the first corner
+    rotatedBox.min.copy(worldFirstCorner);
+    rotatedBox.max.copy(worldFirstCorner);
+
+    // Process remaining corners (starting from index 1)
+    for (let i = 1; i < localCorners.length; i++) {
+      const corner = localCorners[i];
+
+      // Apply Y-axis rotation
+      const rotX = corner.x * Math.cos(carRotY) - corner.z * Math.sin(carRotY);
+      const rotZ = corner.x * Math.sin(carRotY) + corner.z * Math.cos(carRotY);
+
+      // Translate to world position
+      const worldCorner = new THREE.Vector3(
+        carPos.x + rotX,
+        carPos.y + heightOffset + corner.y,
+        carPos.z + rotZ
+      );
+
+      // Expand the bounding box to include this corner
+      rotatedBox.expandByPoint(worldCorner);
+    }
+
+    return rotatedBox;
+  }
+
+  // Update car collision boxes
+  private updateCarColliders() {
+    this.carColliders = [];
+    for (const car of this.cars) {
+      // Get car's accurate collision dimensions from the Car module
+      const collisionInfo = Car.getCollisionDimensions();
+
+      // Get the car's dimensions and position
+      const carDimensions = collisionInfo.dimensions;
+      const heightOffset = collisionInfo.heightOffset;
+
+      // Get the original bounding box for reference only
+      const tempBox = new THREE.Box3().setFromObject(car);
+
+      // Store car data for collision detection
+      this.carColliders.push({
+        box: tempBox, // Keep original box for reference
+        carObj: car,
+        dimensions: carDimensions,
+        heightOffset: heightOffset,
+      });
+    }
+  }
+
   public update() {
     if (!this.enabled) return;
 
@@ -340,10 +510,38 @@ export class IsometricControls {
     this.velocity.x = this.direction.x * currentSpeed;
     this.velocity.z = this.direction.z * currentSpeed;
 
-    // Update player position
-    this.player.position.x += this.velocity.x * delta;
+    // Update car colliders first
+    this.updateCarColliders();
+
+    // Store original position for collision detection
+    const originalPosition = this.player.position.clone();
+
+    // Test X movement
+    const newPositionX = new THREE.Vector3(
+      originalPosition.x + this.velocity.x * delta,
+      originalPosition.y,
+      originalPosition.z
+    );
+
+    // Apply X movement only if there's no collision
+    if (!this.checkCarCollision(newPositionX)) {
+      this.player.position.x = newPositionX.x;
+    }
+
+    // Apply Y movement (gravity/jumping)
     this.player.position.y += this.velocity.y * delta;
-    this.player.position.z += this.velocity.z * delta;
+
+    // Test Z movement
+    const newPositionZ = new THREE.Vector3(
+      this.player.position.x,
+      this.player.position.y,
+      originalPosition.z + this.velocity.z * delta
+    );
+
+    // Apply Z movement only if there's no collision
+    if (!this.checkCarCollision(newPositionZ)) {
+      this.player.position.z = newPositionZ.z;
+    }
 
     // Simple ground collision detection
     const playerHeight = this.isCrouching
@@ -362,8 +560,13 @@ export class IsometricControls {
     // Make the camera look at the player
     this.camera.lookAt(this.player.position);
 
-    // Update bullets
-    this.weaponSystem.updateBullets(delta);
+    // Update bullets with car collision detection
+    this.weaponSystem.updateBullets(delta, this);
+
+    // Update debug visualization if enabled
+    if (this.debugMode) {
+      this.updateDebugVisualization();
+    }
 
     this.prevTime = time;
   }
@@ -401,8 +604,132 @@ export class IsometricControls {
     return this.weaponSystem.getCurrentWeapon().model;
   }
 
-  // Update the addCarToScene method
+  // Update the addCarToScene method to track cars for collision detection
   public addCarToScene(position: THREE.Vector3): THREE.Group {
-    return Car.addToScene(this.scene, position);
+    const car = Car.addToScene(this.scene, position);
+    this.cars.push(car);
+
+    // Initialize car colliders
+    this.updateCarColliders();
+
+    // Update debug visualization if enabled
+    if (this.debugMode) {
+      this.toggleDebugVisualization();
+    }
+
+    return car;
+  }
+
+  // Toggle visualization of collision boxes for debugging
+  private toggleDebugVisualization() {
+    // Clear existing helpers
+    for (const helper of this.debugHelpers) {
+      this.scene.remove(helper);
+    }
+    this.debugHelpers = [];
+
+    // If debug mode is off, we're done
+    if (!this.debugMode) return;
+
+    // Create new helpers for each car
+    for (const carData of this.carColliders) {
+      // Get car data
+      const carPos = carData.carObj.position;
+      const carRotY = carData.carObj.rotation.y;
+      const dims = carData.dimensions;
+      const heightOffset = carData.heightOffset;
+
+      // Half-dimensions
+      const halfWidth = dims.x / 2;
+      const halfHeight = dims.y / 2;
+      const halfLength = dims.z / 2;
+
+      // Create a car-aligned coordinate system
+      // These are the local coordinates of the corners in the car's own coordinate system
+      const localCorners = [
+        // Bottom face corners (counter-clockwise when viewed from above)
+        new THREE.Vector3(halfWidth, -halfHeight, halfLength), // front-right-bottom
+        new THREE.Vector3(-halfWidth, -halfHeight, halfLength), // front-left-bottom
+        new THREE.Vector3(-halfWidth, -halfHeight, -halfLength), // back-left-bottom
+        new THREE.Vector3(halfWidth, -halfHeight, -halfLength), // back-right-bottom
+
+        // Top face corners (counter-clockwise when viewed from above)
+        new THREE.Vector3(halfWidth, halfHeight, halfLength), // front-right-top
+        new THREE.Vector3(-halfWidth, halfHeight, halfLength), // front-left-top
+        new THREE.Vector3(-halfWidth, halfHeight, -halfLength), // back-left-top
+        new THREE.Vector3(halfWidth, halfHeight, -halfLength), // back-right-top
+      ];
+
+      // Transform local corners to world space by applying rotation and translation
+      const worldCorners = localCorners.map((corner) => {
+        // First rotate around Y axis
+        const rotatedX =
+          corner.x * Math.cos(carRotY) - corner.z * Math.sin(carRotY);
+        const rotatedZ =
+          corner.x * Math.sin(carRotY) + corner.z * Math.cos(carRotY);
+
+        // Then translate to car's position (adding height offset)
+        return new THREE.Vector3(
+          carPos.x + rotatedX,
+          carPos.y + heightOffset + corner.y,
+          carPos.z + rotatedZ
+        );
+      });
+
+      // Create the 12 edges of the box
+      const edges = [
+        // Bottom face
+        [worldCorners[0], worldCorners[1]],
+        [worldCorners[1], worldCorners[2]],
+        [worldCorners[2], worldCorners[3]],
+        [worldCorners[3], worldCorners[0]],
+
+        // Top face
+        [worldCorners[4], worldCorners[5]],
+        [worldCorners[5], worldCorners[6]],
+        [worldCorners[6], worldCorners[7]],
+        [worldCorners[7], worldCorners[4]],
+
+        // Vertical edges
+        [worldCorners[0], worldCorners[4]],
+        [worldCorners[1], worldCorners[5]],
+        [worldCorners[2], worldCorners[6]],
+        [worldCorners[3], worldCorners[7]],
+      ];
+
+      // Create line segments for each edge
+      for (const [start, end] of edges) {
+        const geometry = new THREE.BufferGeometry().setFromPoints([start, end]);
+        const material = new THREE.LineBasicMaterial({ color: 0xff0000 });
+        const line = new THREE.Line(geometry, material);
+        this.scene.add(line);
+        this.debugHelpers.push(line);
+      }
+    }
+
+    // Add player collision box visualization
+    const playerHeight = this.isCrouching
+      ? this.crouchHeight
+      : this.normalHeight;
+    const playerGeometry = new THREE.BoxGeometry(1, playerHeight, 1);
+    const playerMesh = new THREE.Mesh(
+      playerGeometry,
+      new THREE.MeshBasicMaterial({
+        color: 0x00ff00,
+        wireframe: true,
+        transparent: true,
+        opacity: 0.5,
+      })
+    );
+    playerMesh.position.copy(this.player.position);
+    this.scene.add(playerMesh);
+    this.debugHelpers.push(playerMesh);
+  }
+
+  // Update the debug visualization to match current object positions
+  private updateDebugVisualization() {
+    // Only recreate the visualization if something has changed
+    // For now, just toggle it off and on again
+    this.toggleDebugVisualization();
   }
 }
