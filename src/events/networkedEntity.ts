@@ -3,7 +3,7 @@ import type { BaseEvent } from "./types";
 
 export abstract class NetworkedEntity {
   protected eventEmitter: EventEmitter;
-  private isHandlingRemoteEvent: boolean = false;
+  private isHandlingRemoteEvent = false;
 
   constructor() {
     this.eventEmitter = EventEmitter.getInstance();
