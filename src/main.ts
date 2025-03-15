@@ -4,9 +4,10 @@ import { IsometricControls } from "./components/IsometricControls";
 import { HUD } from "./components/HUD";
 import { PickupManager } from "./components/PickupManager";
 import { ShopBuilding } from "./components/ShopBuilding";
-import socket from "./api/socket";
 
 import { RemotePlayerManager } from "./components/RemotePlayerManager";
+import { EventEmitter } from "./events/eventEmitter";
+import { GAME_EVENTS } from "./events/constants";
 
 // Initialize the scene
 const scene = new THREE.Scene();
@@ -524,10 +525,10 @@ animate();
 // const ammoPickupPosition = new THREE.Vector3(7, 0.5, 5);
 // pickupManager.createAmmoPickup(ammoPickupPosition, WeaponType.RIFLE, 30);
 
-// Get current player position and send to server
+const eventEmitter = EventEmitter.getInstance();
+
 setInterval(() => {
-  // Broadcast this player's position to other players
-  socket.emit("player position", {
+  eventEmitter.emit(GAME_EVENTS.PLAYER.POSITION, {
     position: {
       x: player.position.x,
       y: player.position.y,
@@ -535,6 +536,6 @@ setInterval(() => {
     },
     rotation: player.rotation.y,
   });
-}, 100); // Send position updates 10 times per second
+}, 100);
 
 //socket.emit("ping", "Ja hallo zeg");

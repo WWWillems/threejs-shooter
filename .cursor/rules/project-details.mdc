@@ -1,0 +1,15 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+# Project Details
+
+## Summary
+We're making an isometric multiplayer shooter game using real time sockets
+
+## Technologies
+- [networking.mdc](mdc:.cursor/rules/networking.mdc)
+- Typescript
+- Three.js
+- Javascript & CSS

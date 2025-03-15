@@ -1,0 +1,9 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+# Networking
+
+## Technologies
+- socket.io-client

@@ -3,6 +3,9 @@ import { Bullet } from "./Bullet";
 import type { CollisionDetector } from "./CollisionInterface";
 import { WeaponPickup } from "./WeaponPickup";
 import type { PickupManager } from "./PickupManager";
+import { NetworkedEntity } from "../events/networkedEntity";
+import type { WeaponEvent } from "../events/types";
+import { GAME_EVENTS } from "../events/constants";
 
 // Define the Weapon interface
 export interface Weapon {
@@ -37,7 +40,7 @@ declare global {
   }
 }
 
-export class WeaponSystem {
+export class WeaponSystem extends NetworkedEntity {
   private weapons: Weapon[] = [];
   private currentWeaponIndex = 0;
   private scene: THREE.Scene;
@@ -56,6 +59,8 @@ export class WeaponSystem {
     player: THREE.Mesh,
     pickupManager?: PickupManager
   ) {
+    super();
+
     this.scene = scene;
     this.player = player;
     this.pickupManager = pickupManager || null;
@@ -381,6 +386,26 @@ export class WeaponSystem {
     // Create muzzle flash
     this.createMuzzleFlash(barrelPosition, this.player.rotation.y);
 
+    // Emit weapon event
+    this.emit<WeaponEvent>("weapon:shoot", {
+      weaponType: currentWeapon.name,
+      action: "shoot",
+      data: {
+        ammo: currentWeapon.bulletsInMagazine,
+        totalAmmo: currentWeapon.totalBullets,
+        position: {
+          x: barrelPosition.x,
+          y: barrelPosition.y,
+          z: barrelPosition.z,
+        },
+        direction: {
+          x: direction.x,
+          y: direction.y,
+          z: direction.z,
+        },
+      },
+    });
+
     // Return the primary bullet for further processing if needed
     return primaryBullet;
   }
@@ -639,6 +664,15 @@ export class WeaponSystem {
     // Start reloading
     currentWeapon.isReloading = true;
     currentWeapon.reloadStartTime = performance.now();
+
+    this.emit<WeaponEvent>(GAME_EVENTS.WEAPON.RELOAD, {
+      weaponType: currentWeapon.name,
+      action: "reload",
+      data: {
+        ammo: currentWeapon.bulletsInMagazine,
+        totalAmmo: currentWeapon.totalBullets,
+      },
+    });
   }
 
   // Check if reload is allowed

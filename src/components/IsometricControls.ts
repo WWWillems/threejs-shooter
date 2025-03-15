@@ -1,4 +1,4 @@
-import * as THREE from "three";
+import type * as THREE from "three";
 import { WeaponSystem } from "./Weapon";
 import type { Weapon } from "./Weapon";
 import { Car } from "./Car";

@@ -2,6 +2,7 @@ import * as THREE from "three";
 import socket from "../api/socket";
 import type { HUD } from "./HUD";
 import { WeaponSystem } from "./Weapon";
+import { GAME_EVENTS } from "../events/constants";
 
 interface RemotePlayer {
   id: string;
@@ -34,7 +35,7 @@ export class RemotePlayerManager {
    */
   private setupSocketListeners(): void {
     // Listen for new player connections
-    socket.on("user connected", ({ message, userId }) => {
+    socket.on(GAME_EVENTS.USER.CONNECTED, ({ message, userId }) => {
       console.log("New player connected:", userId, message);
       this.addPlayer(userId);
 
@@ -47,7 +48,7 @@ export class RemotePlayerManager {
     });
 
     // Listen for player disconnections
-    socket.on("user disconnected", ({ message, userId }) => {
+    socket.on(GAME_EVENTS.USER.DISCONNECTED, ({ message, userId }) => {
       console.log("Player disconnected:", userId, message);
       this.removePlayer(userId);
 
@@ -60,7 +61,7 @@ export class RemotePlayerManager {
     });
 
     // Listen for player position updates
-    socket.on("player position", ({ userId, position, rotation }) => {
+    socket.on(GAME_EVENTS.PLAYER.POSITION, ({ userId, position, rotation }) => {
       this.updatePlayerPosition(userId, position, rotation);
     });
   }
