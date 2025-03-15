@@ -6,6 +6,7 @@ import { GAME_EVENTS } from "../events/constants";
 import type { WeaponEvent } from "../events/types";
 import type { CollisionDetector } from "./CollisionInterface";
 import { PlayerCollider, PLAYER_DIMENSIONS } from "./PlayerCollider";
+import { PlayerUtils } from "./PlayerController";
 
 interface RemotePlayer {
   id: string;
@@ -15,6 +16,7 @@ interface RemotePlayer {
   rotation: number;
 
   currentHealth: number;
+  isDead: boolean;
 
   weaponSystem: WeaponSystem;
 }
@@ -188,6 +190,7 @@ export class RemotePlayerManager {
       position: playerMesh.position.clone(),
       rotation: 0,
       currentHealth: 100,
+      isDead: false,
       weaponSystem,
     });
 
@@ -341,7 +344,7 @@ export class RemotePlayerManager {
    */
   public takeDamage(playerId: string, amount: number): void {
     const player = this.players.get(playerId);
-    if (!player) return;
+    if (!player || player.isDead) return;
 
     player.currentHealth = Math.max(0, player.currentHealth - amount);
 
@@ -355,7 +358,12 @@ export class RemotePlayerManager {
 
     // If player is dead, you could add death handling here
     if (player.currentHealth <= 0) {
-      // Optional: Add death effects, ragdoll physics, etc.
+      // Apply death animation
+      PlayerUtils.handlePlayerDeath(player.mesh);
+
+      // Mark player as dead
+      player.isDead = true;
+
       console.log(`Remote player ${playerId} died`);
 
       // Show damage indicator in HUD

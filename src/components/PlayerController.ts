@@ -7,6 +7,23 @@ import { WeaponType } from "./Weapon";
 import type { Weapon } from "./Weapon";
 
 /**
+ * Utility class for handling common player behaviors
+ */
+export class PlayerUtils {
+  /**
+   * Apply death animation to a player mesh
+   * @param playerMesh The player mesh to animate
+   */
+  public static handlePlayerDeath(playerMesh: THREE.Object3D): void {
+    // Make player fall over on the floor
+    // Rotate 90 degrees around the X axis to lay flat on the ground
+    playerMesh.rotation.x = Math.PI / 2;
+    // Lower position to ground level
+    playerMesh.position.y = 0.5;
+  }
+}
+
+/**
  * Player movement settings
  */
 interface PlayerMovementSettings {
@@ -426,11 +443,8 @@ export class PlayerController {
       // Force player to stop moving
       this.velocity.set(0, 0, 0);
 
-      // Make player fall over on the floor
-      // Rotate 90 degrees around the X axis to lay flat on the ground
-      this.player.rotation.x = Math.PI / 2;
-      // Lower position to ground level
-      this.player.position.y = 0.5;
+      // Apply death animation
+      PlayerUtils.handlePlayerDeath(this.player);
 
       // Dispatch death event
       const deathEvent = new CustomEvent("player-death");
