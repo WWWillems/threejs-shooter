@@ -4,6 +4,7 @@ import { StreetLight } from "./StreetLight";
 import { WoodenCrate } from "./WoodenCrate";
 import type { DestructibleCrate } from "./WoodenCrate";
 import type { CollisionDetector } from "./CollisionInterface";
+import type { RemotePlayerManager } from "./RemotePlayerManager";
 
 /**
  * Type for car collision data
@@ -56,8 +57,15 @@ export class CollisionSystem implements CollisionDetector {
   private customObstacleColliders: CustomObstacleCollider[] = [];
   private playerCollider = new THREE.Box3();
   private tempBox = new THREE.Box3();
+  private remotePlayerManager?: RemotePlayerManager;
+  private player?: THREE.Mesh;
 
   private bulletDamage = 25; // Damage per bullet hit
+
+  constructor(remotePlayerManager?: RemotePlayerManager, player?: THREE.Mesh) {
+    this.remotePlayerManager = remotePlayerManager;
+    this.player = player;
+  }
 
   /**
    * Get car colliders for visualization
@@ -275,22 +283,114 @@ export class CollisionSystem implements CollisionDetector {
    * Check for bullet collision with any collidable object
    */
   public checkForBulletCollision(bulletPosition: THREE.Vector3): boolean {
+    console.log("Checking bullet collision at position:", {
+      x: bulletPosition.x.toFixed(2),
+      y: bulletPosition.y.toFixed(2),
+      z: bulletPosition.z.toFixed(2),
+    });
+
     // Check for bullet-crate collisions first
     for (const crate of this.woodenCrateColliders) {
       if (crate.crateObj.isDestroyed) continue;
 
       // Check if bullet position is inside or close to the crate box
       if (crate.box.containsPoint(bulletPosition)) {
+        console.log("Bullet hit crate");
         // Apply damage to the crate
         const wasDestroyed =
           crate.crateObj.takeDamage?.(this.bulletDamage) ?? false;
 
         // If the crate was destroyed, update colliders
         if (wasDestroyed) {
+          console.log("Crate was destroyed by bullet");
           this.updateWoodenCrateColliders();
         }
 
         return true; // Bullet hit the crate
+      }
+    }
+
+    // Check collision with local player first
+    if (this.player) {
+      console.log("Checking local player collision");
+      // Get player height from userData or use default
+      const playerHeight =
+        this.player.userData.controller?.getPlayerHeight() || 2;
+      const playerController = this.player.userData.controller;
+
+      // Create player collision box at current position
+      const playerBox = new THREE.Box3();
+      const playerPosition = new THREE.Vector3(
+        this.player.position.x,
+        this.player.position.y + playerHeight / 2,
+        this.player.position.z
+      );
+      playerBox.setFromCenterAndSize(
+        playerPosition,
+        new THREE.Vector3(1, playerHeight, 1)
+      );
+
+      console.log("Bullet vs Player collision check:", {
+        bulletPosition: {
+          x: bulletPosition.x.toFixed(2),
+          y: bulletPosition.y.toFixed(2),
+          z: bulletPosition.z.toFixed(2),
+        },
+        playerPosition: {
+          x: playerPosition.x.toFixed(2),
+          y: playerPosition.y.toFixed(2),
+          z: playerPosition.z.toFixed(2),
+        },
+        playerBox: {
+          min: {
+            x: playerBox.min.x.toFixed(2),
+            y: playerBox.min.y.toFixed(2),
+            z: playerBox.min.z.toFixed(2),
+          },
+          max: {
+            x: playerBox.max.x.toFixed(2),
+            y: playerBox.max.y.toFixed(2),
+            z: playerBox.max.z.toFixed(2),
+          },
+        },
+        playerHeight,
+        hasController: !!playerController,
+      });
+
+      if (playerBox.containsPoint(bulletPosition)) {
+        console.log("Bullet hit local player!");
+        if (playerController) {
+          const healthBefore = playerController.getHealth();
+          playerController.takeDamage(this.bulletDamage);
+          const healthAfter = playerController.getHealth();
+          console.log("Player health changed:", {
+            before: healthBefore,
+            after: healthAfter,
+            damage: this.bulletDamage,
+          });
+        } else {
+          console.warn("No player controller found in userData");
+        }
+        return true;
+      } else {
+        const distance = bulletPosition.distanceTo(playerPosition);
+        console.log(
+          "Bullet missed local player - distance:",
+          distance.toFixed(2)
+        );
+      }
+    } else {
+      console.warn("No local player reference in CollisionSystem");
+    }
+
+    // Check collision with remote players (if remotePlayerManager is available)
+    if (this.remotePlayerManager) {
+      console.log("Checking remote player collision");
+      if (this.remotePlayerManager.checkBulletCollision(bulletPosition)) {
+        console.log("Bullet hit remote player");
+        return true;
+      } else {
+        console.log("Bullet missed remote players");
       }
     }
 
@@ -301,6 +401,7 @@ export class CollisionSystem implements CollisionDetector {
 
       // Check if the bullet's position is inside the car's box
       if (carBox.containsPoint(bulletPosition)) {
+        console.log("Bullet hit car");
         return true;
       }
     }
@@ -322,6 +423,7 @@ export class CollisionSystem implements CollisionDetector {
 
       // Check if the bullet's position is inside the light's box
       if (this.tempBox.containsPoint(bulletPosition)) {
+        console.log("Bullet hit street light");
         return true;
       }
     }
@@ -335,11 +437,13 @@ export class CollisionSystem implements CollisionDetector {
       );
 
       if (this.tempBox.intersectsBox(obstacleData.box)) {
+        console.log("Bullet hit custom obstacle");
         return true;
       }
     }
 
     // No collision detected
+    console.log("No collision detected for bullet");
     return false;
   }
 

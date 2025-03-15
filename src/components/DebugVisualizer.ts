@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import type { CollisionSystem } from "./CollisionSystem";
+import type { RemotePlayerManager } from "./RemotePlayerManager";
 
 /**
  * Handles debug visualization for the game
@@ -11,24 +12,28 @@ export class DebugVisualizer {
   private debugMode = false;
   private player: THREE.Object3D;
   private playerHeight = 2; // Default player height
+  private remotePlayerManager?: RemotePlayerManager;
 
   constructor(
     scene: THREE.Scene,
     collisionSystem: CollisionSystem,
-    player: THREE.Object3D
+    player: THREE.Object3D,
+    remotePlayerManager?: RemotePlayerManager
   ) {
     this.scene = scene;
     this.collisionSystem = collisionSystem;
     this.player = player;
+    this.remotePlayerManager = remotePlayerManager;
   }
 
   /**
    * Toggle debug visualization mode
    */
-  public toggleDebugMode(): boolean {
+  public toggleDebugMode(): void {
     this.debugMode = !this.debugMode;
-    this.updateDebugVisualization();
-    return this.debugMode;
+    if (!this.debugMode) {
+      this.clearDebugHelpers();
+    }
   }
 
   /**
@@ -49,29 +54,47 @@ export class DebugVisualizer {
   }
 
   /**
+   * Update the collision system reference
+   */
+  public updateCollisionSystem(collisionSystem: CollisionSystem): void {
+    this.collisionSystem = collisionSystem;
+  }
+
+  /**
+   * Update the RemotePlayerManager reference
+   */
+  public updateRemotePlayerManager(
+    remotePlayerManager: RemotePlayerManager
+  ): void {
+    this.remotePlayerManager = remotePlayerManager;
+  }
+
+  /**
    * Update debug visualization
    */
   public updateDebugVisualization(): void {
-    // Clear existing helpers
+    // Remove existing debug helpers
     this.clearDebugHelpers();
 
-    // If debug mode is off, we're done
     if (!this.debugMode) return;
 
-    // Create visualization for car colliders
-    this.createCarColliderVisualizations();
-
-    // Create visualization for street light colliders
-    this.createStreetLightColliderVisualizations();
-
-    // Create visualization for wooden crate colliders
-    this.createWoodenCrateColliderVisualizations();
-
-    // Create visualization for player collider
+    // Create player collider visualization
     this.createPlayerColliderVisualization(
       this.player.position,
       this.playerHeight
     );
+
+    // Create car collider visualizations
+    this.createCarColliderVisualizations();
+
+    // Create street light collider visualizations
+    this.createStreetLightColliderVisualizations();
+
+    // Create wooden crate collider visualizations
+    this.createWoodenCrateColliderVisualizations();
+
+    // Create remote player collider visualizations
+    this.createRemotePlayerColliderVisualizations();
   }
 
   /**
@@ -257,5 +280,51 @@ export class DebugVisualizer {
     playerMesh.position.copy(playerPosition);
     this.scene.add(playerMesh);
     this.debugHelpers.push(playerMesh);
+  }
+
+  /**
+   * Create visual representations of remote player colliders
+   */
+  private createRemotePlayerColliderVisualizations(): void {
+    if (!this.remotePlayerManager) return;
+
+    const remotePlayers = this.remotePlayerManager.getPlayers();
+    if (!remotePlayers) return;
+
+    for (const player of remotePlayers.values()) {
+      // Get exact height from the actual player mesh geometry
+      // This ensures the collision box matches the visual model exactly
+      let playerHeight = 2; // Default fallback
+
+      if (player.mesh.geometry instanceof THREE.BoxGeometry) {
+        // Extract height directly from the mesh geometry parameters
+        playerHeight = player.mesh.geometry.parameters.height;
+      } else if (player.mesh.userData.height) {
+        // Fallback to userData if available
+        playerHeight = player.mesh.userData.height;
+      }
+
+      // Create wireframe box representing remote player hitbox that exactly matches the player model
+      const playerGeometry = new THREE.BoxGeometry(1, playerHeight, 1);
+      const playerMesh = new THREE.Mesh(
+        playerGeometry,
+        new THREE.MeshBasicMaterial({
+          color: 0xff0000, // Red for remote players
+          wireframe: true,
+          transparent: true,
+          opacity: 0.5,
+        })
+      );
+
+      // Position the collision box to perfectly match the player
+      // Copy exact position without any adjustments
+      playerMesh.position.copy(player.mesh.position);
+
+      // The player mesh's origin is already properly positioned in the game,
+      // no need for additional Y adjustment
+
+      this.scene.add(playerMesh);
+      this.debugHelpers.push(playerMesh);
+    }
   }
 }

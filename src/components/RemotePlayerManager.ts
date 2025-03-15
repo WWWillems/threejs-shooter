@@ -87,8 +87,12 @@ export class RemotePlayerManager {
     socket.on(
       GAME_EVENTS.WEAPON.SHOOT,
       ({ userId, data }: { userId: string } & WeaponEvent) => {
+        console.log("Remote player shoot event received:", { userId, data });
         const player = this.players.get(userId);
-        if (!player || !data?.position || !data?.direction) return;
+        if (!player || !data?.position || !data?.direction) {
+          console.warn("Invalid remote shoot data:", { player, data });
+          return;
+        }
 
         const position = new THREE.Vector3(
           data.position.x,
@@ -100,6 +104,19 @@ export class RemotePlayerManager {
           data.direction.y,
           data.direction.z
         );
+
+        console.log("Creating remote bullet:", {
+          position: {
+            x: position.x.toFixed(2),
+            y: position.y.toFixed(2),
+            z: position.z.toFixed(2),
+          },
+          direction: {
+            x: direction.x.toFixed(2),
+            y: direction.y.toFixed(2),
+            z: direction.z.toFixed(2),
+          },
+        });
 
         player.weaponSystem.handleRemoteEvent(() => {
           // Create bullet at the remote player's position with the correct direction
@@ -134,6 +151,9 @@ export class RemotePlayerManager {
     });
 
     const playerMesh = new THREE.Mesh(playerGeometry, playerMaterial);
+
+    // Set initial height in userData
+    playerMesh.userData.height = 1; // Set to a lower height that matches the visual model
 
     // Set initial position (random position within reasonable bounds)
     const randomX = (Math.random() - 0.5) * 10;
@@ -302,5 +322,72 @@ export class RemotePlayerManager {
     for (const playerId of this.players.keys()) {
       this.removePlayer(playerId);
     }
+  }
+
+  /**
+   * Set the collision detector
+   */
+  public setCollisionDetector(detector: CollisionDetector): void {
+    this.collisionDetector = detector;
+  }
+
+  /**
+   * Handle damage taken by a remote player
+   */
+  public takeDamage(playerId: string, amount: number): void {
+    const player = this.players.get(playerId);
+    if (!player) return;
+
+    player.currentHealth = Math.max(0, player.currentHealth - amount);
+
+    // Show damage indicator in HUD
+    this.hud.showNotification(
+      `damage-${playerId}`,
+      "Player Hit",
+      `Dealt ${amount} damage`,
+      "💥"
+    );
+
+    // If player is dead, you could add death handling here
+    if (player.currentHealth <= 0) {
+      // Optional: Add death effects, ragdoll physics, etc.
+      console.log(`Remote player ${playerId} died`);
+
+      // Show damage indicator in HUD
+      this.hud.showNotification(
+        `death-${playerId}`,
+        "Player Died",
+        `Player has died`,
+        "💀"
+      );
+    }
+  }
+
+  /**
+   * Check if a bullet collides with any remote player
+   */
+  public checkBulletCollision(bulletPosition: THREE.Vector3): boolean {
+    for (const [playerId, player] of this.players) {
+      // Create a collision box for the player
+      const playerBox = new THREE.Box3();
+      // The actual mesh height is 2 units (from BoxGeometry)
+      const playerHeight = 2;
+      playerBox.setFromCenterAndSize(
+        new THREE.Vector3(
+          player.mesh.position.x,
+          player.mesh.position.y, // Position at the actual mesh center
+          player.mesh.position.z
+        ),
+        new THREE.Vector3(1, playerHeight, 1) // Use the actual mesh dimensions
+      );
+
+      // Check if bullet hits player
+      if (playerBox.containsPoint(bulletPosition)) {
+        // Apply damage to the hit player
+        this.takeDamage(playerId, 25); // Using same damage as CollisionSystem
+        return true;
+      }
+    }
+    return false;
   }
 }

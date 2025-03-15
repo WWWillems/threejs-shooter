@@ -486,7 +486,10 @@ export class WeaponSystem extends NetworkedEntity {
   }
 
   // Update all bullets
-  public updateBullets(delta: number, collisionDetector?: CollisionDetector) {
+  public updateBullets(
+    delta: number,
+    collisionDetector?: CollisionDetector
+  ): void {
     // Update muzzle flash timer and remove if expired
     if (this.muzzleFlash && this.muzzleFlashTimer > 0) {
       this.muzzleFlashTimer -= delta;
@@ -505,8 +508,11 @@ export class WeaponSystem extends NetworkedEntity {
       }
     }
 
+    // Log number of active bullets
+
     for (let i = this.bullets.length - 1; i >= 0; i--) {
       const bullet = this.bullets[i];
+      const position = bullet.getPosition();
 
       // Update bullet and check if it's still alive
       if (!bullet.update(delta)) {
@@ -518,14 +524,18 @@ export class WeaponSystem extends NetworkedEntity {
       }
 
       // Check for collision with cars if collision detector is provided
-      if (collisionDetector?.checkForBulletCollision(bullet.getPosition())) {
-        // Create impact effect at the bullet's position
-        this.createImpactEffect(bullet.getPosition());
+      if (collisionDetector) {
+        console.log(`Checking collision for bullet ${i}`);
+        if (collisionDetector.checkForBulletCollision(position)) {
+          console.log(`Bullet ${i} collided with an object`);
+          // Create impact effect at the bullet's position
+          this.createImpactEffect(position);
 
-        // Remove bullet from scene
-        bullet.remove(this.scene);
-        // Remove from bullets array
-        this.bullets.splice(i, 1);
+          // Remove bullet from scene
+          bullet.remove(this.scene);
+          // Remove from bullets array
+          this.bullets.splice(i, 1);
+        }
       }
 
       // Here you could add more collision detection for bullets

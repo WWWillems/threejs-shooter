@@ -66,33 +66,35 @@ player.castShadow = true;
 player.receiveShadow = true;
 scene.add(player);
 
-// Add isometric controls and pass the player object
+// Initialize controls
 const controls = new IsometricControls(camera, renderer.domElement, player);
 
 // Initialize HUD
-let hud: HUD | null = null;
-if (appElement) {
-  hud = new HUD(appElement, controls);
-}
+const hud = new HUD(document.body, controls);
 
-// Initialize PickupManager
+// Store HUD reference in scene.userData
+scene.userData.hud = hud;
+
+// Initialize RemotePlayerManager
+const remotePlayerManager = new RemotePlayerManager(scene, hud);
+
+// Update controls with RemotePlayerManager
+controls.updateCollisionSystem(remotePlayerManager);
+
+// Set collision detector for RemotePlayerManager
+remotePlayerManager.setCollisionDetector(controls.getCollisionSystem());
+
+// Initialize pickup manager
 const pickupManager = new PickupManager(
   scene,
   player,
   controls.getPlayerController(),
-  hud || undefined,
+  hud,
   controls.getCollisionSystem()
 );
 
 // Set pickup manager in controls
 controls.setPickupManager(pickupManager);
-
-// Initialize RemotePlayerManager
-const remotePlayerManager = new RemotePlayerManager(
-  scene,
-  hud as HUD,
-  controls.getCollisionSystem()
-);
 
 // Add ambient light
 const ambientLight = new THREE.AmbientLight(0x404040);

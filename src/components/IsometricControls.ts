@@ -11,6 +11,7 @@ import { DebugVisualizer } from "./DebugVisualizer";
 import { StreetLight } from "./StreetLight";
 import { WoodenCrate } from "./WoodenCrate";
 import type { PickupManager } from "./PickupManager";
+import type { RemotePlayerManager } from "./RemotePlayerManager";
 
 /**
  * Main game controls class using composition pattern to integrate all systems
@@ -29,6 +30,7 @@ export class IsometricControls implements CollisionDetector {
   private playerController: PlayerController;
   private debugVisualizer: DebugVisualizer;
   private pickupManager?: PickupManager;
+  private remotePlayerManager?: RemotePlayerManager;
 
   // Track if controls are enabled
   private enabled = true;
@@ -36,15 +38,20 @@ export class IsometricControls implements CollisionDetector {
   constructor(
     camera: THREE.Camera,
     domElement: HTMLCanvasElement,
-    player: THREE.Mesh
+    player: THREE.Mesh,
+    remotePlayerManager?: RemotePlayerManager
   ) {
     this.camera = camera;
     this.player = player;
     this.scene = player.parent as THREE.Scene;
+    this.remotePlayerManager = remotePlayerManager;
 
     // Initialize component systems
     this.inputManager = new InputManager(domElement);
-    this.collisionSystem = new CollisionSystem();
+    this.collisionSystem = new CollisionSystem(
+      remotePlayerManager,
+      this.player
+    );
     this.cameraController = new CameraController(camera, player);
     this.weaponSystem = new WeaponSystem(this.scene, this.player);
     this.playerController = new PlayerController(
@@ -55,10 +62,15 @@ export class IsometricControls implements CollisionDetector {
       this.cameraController,
       this.weaponSystem
     );
+
+    // Store reference to the player controller in player's userData
+    this.player.userData.controller = this.playerController;
+
     this.debugVisualizer = new DebugVisualizer(
       this.scene,
       this.collisionSystem,
-      player
+      player,
+      remotePlayerManager
     );
 
     // Set up debug visualization toggle
@@ -220,5 +232,24 @@ export class IsometricControls implements CollisionDetector {
     if (this.weaponSystem) {
       this.weaponSystem.setPickupManager(pickupManager);
     }
+  }
+
+  /**
+   * Update the collision system with a new RemotePlayerManager
+   */
+  public updateCollisionSystem(remotePlayerManager: RemotePlayerManager): void {
+    this.remotePlayerManager = remotePlayerManager;
+    this.collisionSystem = new CollisionSystem(
+      remotePlayerManager,
+      this.player
+    );
+
+    // Update references to the new collision system
+    this.playerController.updateCollisionSystem(this.collisionSystem);
+    this.debugVisualizer.updateCollisionSystem(this.collisionSystem);
+    this.debugVisualizer.updateRemotePlayerManager(remotePlayerManager);
+
+    // Ensure the player's userData.controller is updated
+    this.player.userData.controller = this.playerController;
   }
 }

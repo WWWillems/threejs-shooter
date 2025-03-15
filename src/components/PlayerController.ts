@@ -45,7 +45,7 @@ export class PlayerController {
 
   // Health system
   private maxHealth = 100;
-  private currentHealth = 10;
+  private currentHealth = 100;
   private isDead = false;
 
   // Movement settings
@@ -85,6 +85,9 @@ export class PlayerController {
 
     // Get the camera from the CameraController
     this.camera = this.cameraController.camera;
+
+    // Store reference to this controller in player's userData
+    this.player.userData.controller = this;
 
     // Setup input callbacks
     this.setupInputCallbacks();
@@ -396,18 +399,24 @@ export class PlayerController {
     return this.isCrouching ? this.crouchHeight : this.normalHeight;
   }
 
-  public getHealth(): { current: number; max: number; isDead: boolean } {
-    return {
-      current: this.currentHealth,
-      max: this.maxHealth,
-      isDead: this.isDead,
-    };
-  }
-
+  /**
+   * Take damage from an attack
+   */
   public takeDamage(amount: number): void {
     if (this.isDead) return;
 
     this.currentHealth = Math.max(0, this.currentHealth - amount);
+
+    // Show damage notification in HUD
+    const hud = this.scene.userData.hud;
+    if (hud) {
+      hud.showNotification(
+        "damage-taken",
+        "Damage Taken",
+        `Took ${amount} damage`,
+        "💥"
+      );
+    }
 
     if (this.currentHealth <= 0) {
       this.isDead = true;
@@ -415,6 +424,17 @@ export class PlayerController {
       console.log("Player died!");
       // You could add more death handling logic here
     }
+  }
+
+  /**
+   * Get the player's current health
+   */
+  public getHealth(): { current: number; max: number; isDead: boolean } {
+    return {
+      current: this.currentHealth,
+      max: this.maxHealth,
+      isDead: this.isDead,
+    };
   }
 
   public heal(amount: number): void {
@@ -488,5 +508,12 @@ export class PlayerController {
    */
   public selectWeapon(index: number): void {
     this.weaponSystem.switchToWeapon(index);
+  }
+
+  /**
+   * Update the collision system reference
+   */
+  public updateCollisionSystem(collisionSystem: CollisionSystem): void {
+    this.collisionSystem = collisionSystem;
   }
 }
