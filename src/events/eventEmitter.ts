@@ -37,13 +37,8 @@ export class EventEmitter {
     // Emit grouped events
     for (const [eventName, events] of Object.entries(groupedEvents)) {
       if (eventName !== GAME_EVENTS.PLAYER.POSITION) {
-        console.log(`> Emitting event: ${eventName}`, {
-          eventData: events.length === 1 ? events[0] : events,
-          socketConnected: socket.connected,
-        });
+        socket.emit(eventName, events.length === 1 ? events[0] : events);
       }
-
-      socket.emit(eventName, events.length === 1 ? events[0] : events);
     }
 
     // Clear buffer

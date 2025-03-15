@@ -47,7 +47,6 @@ export class RemotePlayerManager {
   private setupSocketListeners(): void {
     // Listen for new player connections
     socket.on(GAME_EVENTS.USER.CONNECTED, ({ message, userId }) => {
-      console.log("New player connected:", userId, message);
       this.addPlayer(userId);
 
       this.hud.showNotification(
@@ -60,7 +59,6 @@ export class RemotePlayerManager {
 
     // Listen for player disconnections
     socket.on(GAME_EVENTS.USER.DISCONNECTED, ({ message, userId }) => {
-      console.log("Player disconnected:", userId, message);
       this.removePlayer(userId);
 
       this.hud.showNotification(
@@ -90,7 +88,6 @@ export class RemotePlayerManager {
     socket.on(
       GAME_EVENTS.WEAPON.SHOOT,
       ({ userId, data }: { userId: string } & WeaponEvent) => {
-        console.log("Remote player shoot event received:", { userId, data });
         const player = this.players.get(userId);
         if (!player || !data?.position || !data?.direction) {
           console.warn("Invalid remote shoot data:", { player, data });
@@ -107,19 +104,6 @@ export class RemotePlayerManager {
           data.direction.y,
           data.direction.z
         );
-
-        console.log("Creating remote bullet:", {
-          position: {
-            x: position.x.toFixed(2),
-            y: position.y.toFixed(2),
-            z: position.z.toFixed(2),
-          },
-          direction: {
-            x: direction.x.toFixed(2),
-            y: direction.y.toFixed(2),
-            z: direction.z.toFixed(2),
-          },
-        });
 
         player.weaponSystem.handleRemoteEvent(() => {
           // Create bullet at the remote player's position with the correct direction
@@ -182,7 +166,7 @@ export class RemotePlayerManager {
     // Immediately update the weapon position
     weaponSystem.updateWeaponPosition(false);
 
-    // Store the player
+    // Add to players map
     this.players.set(userId, {
       id: userId,
       mesh: playerMesh,
@@ -193,8 +177,6 @@ export class RemotePlayerManager {
       isDead: false,
       weaponSystem,
     });
-
-    console.log(`Added remote player: ${userId}`);
   }
 
   /**
@@ -212,8 +194,6 @@ export class RemotePlayerManager {
 
     // Remove from players map
     this.players.delete(userId);
-
-    console.log(`Removed remote player: ${userId}`);
   }
 
   /**
@@ -277,7 +257,6 @@ export class RemotePlayerManager {
     if (!player) {
       return;
     }
-    console.log(`> ${userId} switched to weapon ${weaponIndex}`);
     player.weaponSystem.handleRemoteEvent(() => {
       player.weaponSystem.switchToWeapon(weaponIndex);
     });
@@ -363,8 +342,6 @@ export class RemotePlayerManager {
 
       // Mark player as dead
       player.isDead = true;
-
-      console.log(`Remote player ${playerId} died`);
 
       // Show damage indicator in HUD
       this.hud.showNotification(

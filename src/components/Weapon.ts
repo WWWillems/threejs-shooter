@@ -525,9 +525,7 @@ export class WeaponSystem extends NetworkedEntity {
 
       // Check for collision with cars if collision detector is provided
       if (collisionDetector) {
-        console.log(`Checking collision for bullet ${i}`);
         if (collisionDetector.checkForBulletCollision(position)) {
-          console.log(`Bullet ${i} collided with an object`);
           // Create impact effect at the bullet's position
           this.createImpactEffect(position);
 
@@ -996,9 +994,6 @@ export class WeaponSystem extends NetworkedEntity {
         this.updateWeaponPosition(false);
       }
 
-      console.log(
-        `Added ${weapon.name} to inventory at slot ${emptySlotIndex}`
-      );
       return true;
     }
 
@@ -1028,12 +1023,10 @@ export class WeaponSystem extends NetworkedEntity {
       // Add the weapon to the inventory
       this.weapons.push(weapon);
 
-      console.log(`Added ${weapon.name} to inventory as new weapon`);
       return true;
     }
 
     // If we get here, we couldn't add the weapon
-    console.log("Could not add weapon - inventory full");
     return false;
   }
 

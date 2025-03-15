@@ -438,7 +438,6 @@ export class PlayerController {
     if (this.currentHealth <= 0) {
       this.isDead = true;
       // Handle player death - make player fall to the floor
-      console.log("Player died!");
 
       // Force player to stop moving
       this.velocity.set(0, 0, 0);
@@ -522,9 +521,6 @@ export class PlayerController {
     if (weapon) {
       // Add ammo to the weapon's total bullets
       weapon.totalBullets += amount;
-      console.log(
-        `Added ${amount} ammo to ${weaponName}. Total: ${weapon.totalBullets}`
-      );
     } else {
       console.warn(`No weapon found with name: ${weaponName}`);
     }
