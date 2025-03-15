@@ -426,8 +426,11 @@ export class PlayerController {
       // Force player to stop moving
       this.velocity.set(0, 0, 0);
 
-      // Make player fall to the floor
-      this.player.position.y = 0.5; // Set player close to ground
+      // Make player fall over on the floor
+      // Rotate 90 degrees around the X axis to lay flat on the ground
+      this.player.rotation.x = Math.PI / 2;
+      // Lower position to ground level
+      this.player.position.y = 0.5;
 
       // Dispatch death event
       const deathEvent = new CustomEvent("player-death");
@@ -464,8 +467,9 @@ export class PlayerController {
     this.inputManager.enableKeyboardInput();
     this.inputManager.enableMouseInput();
 
-    // Reset position (stand up)
+    // Reset position and rotation (stand up)
     this.player.position.y = 1;
+    this.player.rotation.x = 0;
   }
 
   /**
