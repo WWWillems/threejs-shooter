@@ -1,5 +1,4 @@
 import socket from "../api/socket";
-import { GAME_EVENTS } from "./constants";
 import type { BaseEvent } from "./types";
 
 export class EventEmitter {
@@ -36,9 +35,7 @@ export class EventEmitter {
 
     // Emit grouped events
     for (const [eventName, events] of Object.entries(groupedEvents)) {
-      if (eventName !== GAME_EVENTS.PLAYER.POSITION) {
-        socket.emit(eventName, events.length === 1 ? events[0] : events);
-      }
+      socket.emit(eventName, events.length === 1 ? events[0] : events);
     }
 
     // Clear buffer

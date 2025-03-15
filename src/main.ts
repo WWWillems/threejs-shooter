@@ -109,15 +109,22 @@ gameLoop.start();
 // Setup event emission for player position
 const eventEmitter = EventEmitter.getInstance();
 
-setInterval(() => {
-  eventEmitter.emit(GAME_EVENTS.PLAYER.POSITION, {
-    position: {
-      x: player.position.x,
-      y: player.position.y,
-      z: player.position.z,
-    },
-    rotation: player.rotation.y,
-  });
-}, 100);
+// Store EventEmitter in scene.userData for access elsewhere
+scene.userData.eventEmitter = eventEmitter;
 
-//socket.emit("ping", "Ja hallo zeg");
+setInterval(() => {
+  // Get player controller
+  const playerController = controls.getPlayerController();
+
+  // Only emit position updates if the player is alive
+  if (playerController && !playerController.getHealth().isDead) {
+    eventEmitter.emit(GAME_EVENTS.PLAYER.POSITION, {
+      position: {
+        x: player.position.x,
+        y: player.position.y,
+        z: player.position.z,
+      },
+      rotation: player.rotation.y,
+    });
+  }
+}, 100);

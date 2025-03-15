@@ -74,6 +74,11 @@ export class RemotePlayerManager {
       this.updatePlayerPosition(userId, position, rotation);
     });
 
+    // Listen for player status updates (death/respawn)
+    socket.on(GAME_EVENTS.PLAYER.STATUS, ({ userId, status, position }) => {
+      this.handlePlayerStatusChange(userId, status, position);
+    });
+
     // Listen for player weapon updates
     socket.on(
       GAME_EVENTS.WEAPON.SWITCH,
@@ -150,6 +155,15 @@ export class RemotePlayerManager {
     const randomX = (Math.random() - 0.5) * 10;
     const randomZ = (Math.random() - 0.5) * 10;
     playerMesh.position.set(randomX, 1, randomZ);
+
+    // Ensure the mesh is in the default upright position
+    playerMesh.quaternion.identity(); // Reset quaternion to identity first
+    playerMesh.rotation.set(0, 0, 0); // Then set all rotation components to zero
+    playerMesh.updateMatrix(); // Update the transformation matrix
+
+    console.log(
+      `Created new player mesh for ${userId}, rotation: (${playerMesh.rotation.x}, ${playerMesh.rotation.y}, ${playerMesh.rotation.z})`
+    );
 
     // Configure shadow settings
     playerMesh.castShadow = true;
@@ -342,14 +356,6 @@ export class RemotePlayerManager {
 
       // Mark player as dead
       player.isDead = true;
-
-      // Show damage indicator in HUD
-      this.hud.showNotification(
-        `death-${playerId}`,
-        "Player Died",
-        `Player has died`,
-        "💀"
-      );
     }
   }
 
@@ -375,5 +381,94 @@ export class RemotePlayerManager {
       }
     }
     return false;
+  }
+
+  /**
+   * Handle player status changes (death, respawn)
+   */
+  private handlePlayerStatusChange(
+    userId: string,
+    status: "dead" | "alive",
+    position?: { x: number; y: number; z: number }
+  ): void {
+    console.log(`Player status change: ${userId}, status: ${status}`); // Debug log
+
+    const player = this.players.get(userId);
+
+    if (!player) {
+      // Player doesn't exist yet, create them if they're alive
+      if (status === "alive" && position) {
+        console.log(`Creating new player on status change: ${userId}`); // Debug log
+        this.addPlayer(userId);
+        // Update their position
+        this.updatePlayerPosition(userId, position, 0);
+      }
+      return;
+    }
+
+    if (status === "dead") {
+      // Apply death animation to existing player
+      PlayerUtils.handlePlayerDeath(player.mesh);
+      player.isDead = true;
+
+      this.hud.showNotification(
+        `status-${userId}`,
+        "Player Dieddddddd",
+        `Player has dieddddddddd`,
+        "💀"
+      );
+    } else if (status === "alive") {
+      // Handle player respawn
+      if (player.isDead) {
+        console.log(`Respawning dead player: ${userId}`); // Debug log
+
+        // Remove the dead player mesh
+        this.scene.remove(player.mesh);
+        this.removePlayer(userId);
+
+        // Add the player back with a new mesh
+        if (position) {
+          this.addPlayer(userId);
+          this.updatePlayerPosition(userId, position, 0);
+
+          // Ensure the rotation is properly reset for the new player
+          const newPlayer = this.players.get(userId);
+          if (newPlayer) {
+            console.log(`Resetting rotation for respawned player: ${userId}`); // Debug log
+
+            // Use quaternion to reset rotation completely
+            newPlayer.mesh.quaternion.identity();
+
+            // Then set rotation explicitly to ensure all axes are reset
+            newPlayer.mesh.rotation.set(0, 0, 0);
+            newPlayer.rotation = 0;
+
+            // Force update matrix to ensure changes take effect
+            newPlayer.mesh.updateMatrix();
+            newPlayer.mesh.updateMatrixWorld(true);
+
+            // Double-check rotation values after reset
+            console.log(
+              `Player rotation after reset: x=${newPlayer.mesh.rotation.x}, y=${newPlayer.mesh.rotation.y}, z=${newPlayer.mesh.rotation.z}`
+            );
+          }
+
+          this.hud.showNotification(
+            `status-${userId}`,
+            "Player Respawned",
+            `Player has respawned`,
+            "🔄"
+          );
+        }
+      } else {
+        // Player was already alive, just ensure rotation is correct
+        console.log(`Updating already-alive player: ${userId}`); // Debug log
+        player.mesh.quaternion.identity();
+        player.mesh.rotation.set(0, 0, 0);
+        player.rotation = 0;
+        player.mesh.updateMatrix();
+        player.mesh.updateMatrixWorld(true);
+      }
+    }
   }
 }

@@ -5,6 +5,7 @@ import type { CameraController } from "./CameraController";
 import type { WeaponSystem } from "./Weapon";
 import { WeaponType } from "./Weapon";
 import type { Weapon } from "./Weapon";
+import { GAME_EVENTS } from "../events/constants";
 
 /**
  * Utility class for handling common player behaviors
@@ -144,6 +145,9 @@ export class PlayerController {
    * Update player state and position
    */
   public update(): void {
+    // Skip updates if player is dead
+    if (this.isDead) return;
+
     const time = performance.now();
     const delta = (time - this.prevTime) / 1000;
 
@@ -445,6 +449,15 @@ export class PlayerController {
       // Apply death animation
       PlayerUtils.handlePlayerDeath(this.player);
 
+      // Emit player status event for death
+      const eventEmitter =
+        (window as any).eventEmitter || this.scene.userData.eventEmitter;
+      if (eventEmitter) {
+        eventEmitter.emit(GAME_EVENTS.PLAYER.STATUS, {
+          status: "dead",
+        });
+      }
+
       // Dispatch death event
       const deathEvent = new CustomEvent("player-death");
       document.dispatchEvent(deathEvent);
@@ -482,7 +495,28 @@ export class PlayerController {
 
     // Reset position and rotation (stand up)
     this.player.position.y = 1;
-    this.player.rotation.x = 0;
+
+    // Completely reset rotation
+    this.player.quaternion.identity(); // Reset quaternion to identity
+    this.player.rotation.set(0, 0, 0); // Reset all rotation components
+    this.player.updateMatrix(); // Force matrix update
+
+    // Emit player status event for respawn
+    const eventEmitter =
+      (window as any).eventEmitter || this.scene.userData.eventEmitter;
+    if (eventEmitter) {
+      console.log("Emitting player alive status event"); // Debug log
+      eventEmitter.emit(GAME_EVENTS.PLAYER.STATUS, {
+        status: "alive",
+        position: {
+          x: this.player.position.x,
+          y: this.player.position.y,
+          z: this.player.position.z,
+        },
+      });
+    } else {
+      console.warn("No event emitter found for player status event");
+    }
   }
 
   /**

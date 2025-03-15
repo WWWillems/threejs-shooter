@@ -43,4 +43,13 @@ export interface CombatEvent extends BaseEvent {
   };
 }
 
+export interface PlayerStatusEvent extends BaseEvent {
+  status: "dead" | "alive";
+  position?: {
+    x: number;
+    y: number;
+    z: number;
+  };
+}
+
 // Add more event interfaces as needed
