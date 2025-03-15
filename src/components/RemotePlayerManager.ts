@@ -4,6 +4,7 @@ import type { HUD } from "./HUD";
 import { WeaponSystem } from "./Weapon";
 import { GAME_EVENTS } from "../events/constants";
 import type { WeaponEvent } from "../events/types";
+import type { CollisionDetector } from "./CollisionInterface";
 
 interface RemotePlayer {
   id: string;
@@ -24,10 +25,16 @@ export class RemotePlayerManager {
   private players: Map<string, RemotePlayer> = new Map();
   private scene: THREE.Scene;
   private hud: HUD;
+  private collisionDetector?: CollisionDetector;
 
-  constructor(scene: THREE.Scene, hud: HUD) {
+  constructor(
+    scene: THREE.Scene,
+    hud: HUD,
+    collisionDetector?: CollisionDetector
+  ) {
     this.scene = scene;
     this.hud = hud;
+    this.collisionDetector = collisionDetector;
     this.setupSocketListeners();
   }
 
@@ -229,8 +236,8 @@ export class RemotePlayerManager {
       // Update the weapon position to match the player's new position and rotation
       player.weaponSystem.updateWeaponPosition(false);
 
-      // Update bullets
-      player.weaponSystem.updateBullets(delta);
+      // Update bullets with collision detection
+      player.weaponSystem.updateBullets(delta, this.collisionDetector);
     }
   }
 

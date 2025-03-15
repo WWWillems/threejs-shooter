@@ -88,7 +88,11 @@ const pickupManager = new PickupManager(
 controls.setPickupManager(pickupManager);
 
 // Initialize RemotePlayerManager
-const remotePlayerManager = new RemotePlayerManager(scene, hud as HUD);
+const remotePlayerManager = new RemotePlayerManager(
+  scene,
+  hud as HUD,
+  controls.getCollisionSystem()
+);
 
 // Add ambient light
 const ambientLight = new THREE.AmbientLight(0x404040);
