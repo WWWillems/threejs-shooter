@@ -526,27 +526,153 @@ new TrafficCone(
   controls.getCollisionSystem()
 );
 
+// Helper function to check if a position overlaps with existing elements
+function isPositionClear(position: THREE.Vector3, radius: number): boolean {
+  // Check distance from cars
+  const carPositions = [
+    new THREE.Vector3(8, 0, 9), // car1
+    new THREE.Vector3(12, 0, 15), // car2
+    new THREE.Vector3(-15, 0, -12), // car3
+  ];
+
+  for (const carPos of carPositions) {
+    if (position.distanceTo(carPos) < radius + 2.5) {
+      // Car radius ~2.5
+      return false;
+    }
+  }
+
+  // Check distance from street lights
+  const streetLightPositions = [
+    new THREE.Vector3(10, 0, 12),
+    new THREE.Vector3(-10, 0, -8),
+    new THREE.Vector3(-5, 0, 15),
+    new THREE.Vector3(15, 0, -15),
+  ];
+
+  for (const lightPos of streetLightPositions) {
+    if (position.distanceTo(lightPos) < radius + 1.5) {
+      // Street light radius ~1.5
+      return false;
+    }
+  }
+
+  // Check distance from shop building
+  const shopPos = new THREE.Vector3(0, 0, -20);
+  if (position.distanceTo(shopPos) < radius + 10) {
+    // Shop building radius ~10
+    return false;
+  }
+
+  // Check distance from sniper tower
+  const towerPos = new THREE.Vector3(-15, 0, 10);
+  if (position.distanceTo(towerPos) < radius + 3) {
+    // Tower radius ~3
+    return false;
+  }
+
+  // Check distance from pyramid of crates
+  const pyramidPos = new THREE.Vector3(5, 0, 5);
+  if (position.distanceTo(pyramidPos) < radius + 3) {
+    // Pyramid radius ~3
+    return false;
+  }
+
+  // Check distance from wall of crates
+  const wallStart = new THREE.Vector3(-8, 0, 6);
+  const wallEnd = new THREE.Vector3(-8 + 5 * 1.2, 0, 6);
+  // Check if position is near any part of the wall
+  for (let t = 0; t <= 1; t += 0.1) {
+    const pointOnWall = new THREE.Vector3().lerpVectors(wallStart, wallEnd, t);
+    if (position.distanceTo(pointOnWall) < radius + 1.5) {
+      // Wall width ~1.5
+      return false;
+    }
+  }
+
+  // Check distance from semi-circle crates
+  const circleCenter = new THREE.Vector3(5, 0, -12);
+  if (position.distanceTo(circleCenter) < radius + 6) {
+    // Circle radius ~6
+    return false;
+  }
+
+  // Existing cubes
+  const cubePositions = [
+    new THREE.Vector3(-8, 1.5, -12),
+    new THREE.Vector3(10, 1.5, 14),
+    new THREE.Vector3(15, 1.5, -10),
+  ];
+
+  for (const cubePos of cubePositions) {
+    if (position.distanceTo(cubePos) < radius + 1) {
+      // Cube radius ~1
+      return false;
+    }
+  }
+
+  // If we got here, position is clear
+  return true;
+}
+
+// Function to find a clear position near a target position
+function findClearPosition(
+  targetPos: THREE.Vector3,
+  radius: number,
+  maxAttempts: number = 10,
+  maxOffset: number = 3
+): THREE.Vector3 | null {
+  // First try the exact position
+  if (isPositionClear(targetPos, radius)) {
+    return targetPos.clone();
+  }
+
+  // If exact position isn't clear, try random offsets
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    const randomOffsetX = (Math.random() * 2 - 1) * maxOffset;
+    const randomOffsetZ = (Math.random() * 2 - 1) * maxOffset;
+
+    const testPosition = new THREE.Vector3(
+      targetPos.x + randomOffsetX,
+      targetPos.y,
+      targetPos.z + randomOffsetZ
+    );
+
+    if (isPositionClear(testPosition, radius)) {
+      return testPosition;
+    }
+  }
+
+  // Couldn't find a clear position
+  return null;
+}
+
 // 4. TREE PLACEMENT - Add trees to create natural scenery
 // Create a small forest area in one corner of the map
 for (let i = 0; i < 5; i++) {
+  const basePosition = new THREE.Vector3(-18, 0, -18);
   const randomOffsetX = Math.random() * 4 - 2;
   const randomOffsetZ = Math.random() * 4 - 2;
-  const randomRotation = Math.random() * Math.PI * 2;
-  const randomScale = 0.8 + Math.random() * 0.4; // Scale between 0.8 and 1.2
 
-  const treePosition = new THREE.Vector3(
-    -18 + randomOffsetX,
+  const targetPosition = new THREE.Vector3(
+    basePosition.x + randomOffsetX,
     0,
-    -18 + randomOffsetZ
+    basePosition.z + randomOffsetZ
   );
 
-  new Tree(
-    treePosition,
-    scene,
-    controls.getCollisionSystem(),
-    randomRotation,
-    randomScale
-  );
+  const clearPosition = findClearPosition(targetPosition, 1.2);
+
+  if (clearPosition) {
+    const randomRotation = Math.random() * Math.PI * 2;
+    const randomScale = 0.8 + Math.random() * 0.4; // Scale between 0.8 and 1.2
+    new Tree(
+      clearPosition,
+      scene,
+      controls.getCollisionSystem(),
+      randomRotation,
+      randomScale
+    );
+  }
 }
 
 // Create a few more individual trees around the map
@@ -558,31 +684,45 @@ const treePositions = [
 ];
 
 treePositions.forEach((position) => {
-  const randomRotation = Math.random() * Math.PI * 2;
-  const randomScale = 0.9 + Math.random() * 0.3;
-  new Tree(
-    position,
-    scene,
-    controls.getCollisionSystem(),
-    randomRotation,
-    randomScale
-  );
+  const clearPosition = findClearPosition(position, 1.2);
+
+  if (clearPosition) {
+    const randomRotation = Math.random() * Math.PI * 2;
+    const randomScale = 0.9 + Math.random() * 0.3;
+    new Tree(
+      clearPosition,
+      scene,
+      controls.getCollisionSystem(),
+      randomRotation,
+      randomScale
+    );
+  }
 });
 
 // 5. BUSH PLACEMENT - Add bushes around the map
 // Place some bushes near trees
 for (let i = 0; i < 8; i++) {
+  const basePosition = new THREE.Vector3(-18, 0, -18);
   const randomOffsetX = Math.random() * 6 - 3;
   const randomOffsetZ = Math.random() * 6 - 3;
-  const randomRotation = Math.random() * Math.PI * 2;
 
-  const bushPosition = new THREE.Vector3(
-    -18 + randomOffsetX,
+  const targetPosition = new THREE.Vector3(
+    basePosition.x + randomOffsetX,
     0,
-    -18 + randomOffsetZ
+    basePosition.z + randomOffsetZ
   );
 
-  new Bush(bushPosition, scene, controls.getCollisionSystem(), randomRotation);
+  const clearPosition = findClearPosition(targetPosition, 0.8);
+
+  if (clearPosition) {
+    const randomRotation = Math.random() * Math.PI * 2;
+    new Bush(
+      clearPosition,
+      scene,
+      controls.getCollisionSystem(),
+      randomRotation
+    );
+  }
 }
 
 // Add more bushes around the map for cover
@@ -598,8 +738,17 @@ const bushPositions = [
 ];
 
 bushPositions.forEach((position) => {
-  const randomRotation = Math.random() * Math.PI * 2;
-  new Bush(position, scene, controls.getCollisionSystem(), randomRotation);
+  const clearPosition = findClearPosition(position, 0.8);
+
+  if (clearPosition) {
+    const randomRotation = Math.random() * Math.PI * 2;
+    new Bush(
+      clearPosition,
+      scene,
+      controls.getCollisionSystem(),
+      randomRotation
+    );
+  }
 });
 
 // Create a few bush clusters (3-5 bushes close together)
@@ -609,19 +758,55 @@ const bushClusterCenters = [
 ];
 
 bushClusterCenters.forEach((center) => {
-  const clusterSize = 3 + Math.floor(Math.random() * 3); // 3-5 bushes per cluster
+  // First check if the center position is clear for a cluster
+  if (isPositionClear(center, 2.5)) {
+    const clusterSize = 3 + Math.floor(Math.random() * 3); // 3-5 bushes per cluster
 
-  for (let i = 0; i < clusterSize; i++) {
-    const offsetX = Math.random() * 2 - 1; // -1 to 1
-    const offsetZ = Math.random() * 2 - 1; // -1 to 1
-    const position = new THREE.Vector3(
-      center.x + offsetX,
-      0,
-      center.z + offsetZ
-    );
+    for (let i = 0; i < clusterSize; i++) {
+      const offsetX = Math.random() * 2 - 1; // -1 to 1
+      const offsetZ = Math.random() * 2 - 1; // -1 to 1
+      const position = new THREE.Vector3(
+        center.x + offsetX,
+        0,
+        center.z + offsetZ
+      );
 
-    const randomRotation = Math.random() * Math.PI * 2;
-    new Bush(position, scene, controls.getCollisionSystem(), randomRotation);
+      if (isPositionClear(position, 0.6)) {
+        const randomRotation = Math.random() * Math.PI * 2;
+        new Bush(
+          position,
+          scene,
+          controls.getCollisionSystem(),
+          randomRotation
+        );
+      }
+    }
+  } else {
+    // Try to find an alternative clear position for the cluster
+    const clearPosition = findClearPosition(center, 2.5, 15, 5);
+    if (clearPosition) {
+      const clusterSize = 3 + Math.floor(Math.random() * 3); // 3-5 bushes per cluster
+
+      for (let i = 0; i < clusterSize; i++) {
+        const offsetX = Math.random() * 2 - 1; // -1 to 1
+        const offsetZ = Math.random() * 2 - 1; // -1 to 1
+        const position = new THREE.Vector3(
+          clearPosition.x + offsetX,
+          0,
+          clearPosition.z + offsetZ
+        );
+
+        if (isPositionClear(position, 0.6)) {
+          const randomRotation = Math.random() * Math.PI * 2;
+          new Bush(
+            position,
+            scene,
+            controls.getCollisionSystem(),
+            randomRotation
+          );
+        }
+      }
+    }
   }
 });
 
