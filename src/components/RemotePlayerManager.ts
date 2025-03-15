@@ -3,6 +3,7 @@ import socket from "../api/socket";
 import type { HUD } from "./HUD";
 import { WeaponSystem } from "./Weapon";
 import { GAME_EVENTS } from "../events/constants";
+import type { WeaponEvent } from "../events/types";
 
 interface RemotePlayer {
   id: string;
@@ -64,6 +65,16 @@ export class RemotePlayerManager {
     socket.on(GAME_EVENTS.PLAYER.POSITION, ({ userId, position, rotation }) => {
       this.updatePlayerPosition(userId, position, rotation);
     });
+
+    // Listen for player weapon updates
+    socket.on(
+      GAME_EVENTS.WEAPON.SWITCH,
+      ({ userId, weaponType, action }: { userId: string } & WeaponEvent) => {
+        if (action === "switch") {
+          this.updatePlayerWeapon(userId, this.getWeaponIndex(weaponType));
+        }
+      }
+    );
   }
 
   /**
@@ -105,7 +116,9 @@ export class RemotePlayerManager {
     this.scene.add(playerMesh);
 
     const weaponSystem = new WeaponSystem(this.scene, playerMesh);
-    weaponSystem.switchToWeapon(0);
+    weaponSystem.handleRemoteEvent(() => {
+      weaponSystem.switchToWeapon(0);
+    });
 
     // Immediately update the weapon position
     weaponSystem.updateWeaponPosition(false);
@@ -194,6 +207,20 @@ export class RemotePlayerManager {
   }
 
   /**
+   * Update a remote player's weapon
+   */
+  private updatePlayerWeapon(userId: string, weaponIndex: number): void {
+    const player = this.players.get(userId);
+    if (!player) {
+      return;
+    }
+    console.log(`> ${userId} switched to weapon ${weaponIndex}`);
+    player.weaponSystem.handleRemoteEvent(() => {
+      player.weaponSystem.switchToWeapon(weaponIndex);
+    });
+  }
+
+  /**
    * Generate a hue value (0-1) from a string consistently
    */
   private getHueFromString(str: string): number {
@@ -208,6 +235,22 @@ export class RemotePlayerManager {
       hash = str.charCodeAt(i) + ((hash << 5) - hash);
     }
     return (hash % 360) / 360;
+  }
+
+  /**
+   * Convert weapon type to index
+   */
+  private getWeaponIndex(weaponType: string): number {
+    switch (weaponType.toLowerCase()) {
+      case "pistol":
+        return 0;
+      case "assault rifle":
+        return 1;
+      case "shotgun":
+        return 2;
+      default:
+        return 0; // Default to pistol
+    }
   }
 
   /**

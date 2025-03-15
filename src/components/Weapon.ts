@@ -387,7 +387,7 @@ export class WeaponSystem extends NetworkedEntity {
     this.createMuzzleFlash(barrelPosition, this.player.rotation.y);
 
     // Emit weapon event
-    this.emit<WeaponEvent>("weapon:shoot", {
+    this.emit<WeaponEvent>(GAME_EVENTS.WEAPON.SHOOT, {
       weaponType: currentWeapon.name,
       action: "shoot",
       data: {
@@ -767,6 +767,16 @@ export class WeaponSystem extends NetworkedEntity {
         // Update weapon position
         this.updateWeaponPosition(false);
       }
+
+      // Emit weapon switch event
+      this.emit<WeaponEvent>(GAME_EVENTS.WEAPON.SWITCH, {
+        weaponType: newWeapon.name,
+        action: "switch",
+        data: {
+          ammo: newWeapon.bulletsInMagazine,
+          totalAmmo: newWeapon.totalBullets,
+        },
+      });
     }
   }
 

@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { InputManager } from "./InputManager";
+import type { InputManager } from "./InputManager";
 import type { CollisionSystem } from "./CollisionSystem";
 import type { CameraController } from "./CameraController";
 import type { WeaponSystem } from "./Weapon";
