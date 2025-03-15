@@ -5,9 +5,12 @@ import { PickupManager } from "../components/PickupManager";
 import { RemotePlayerManager } from "../components/RemotePlayerManager";
 
 // Define window augmentation for impact animations
+type ImpactAnimationFn = (delta: number) => void;
+
+// Add window interface augmentation
 declare global {
   interface Window {
-    __impactAnimations?: Array<(delta: number) => void>;
+    __impactAnimations: ImpactAnimationFn[];
   }
 }
 
