@@ -5,6 +5,8 @@ import { HUD } from "./components/HUD";
 import { PickupManager } from "./components/PickupManager";
 import { ShopBuilding } from "./components/ShopBuilding";
 import { TrafficCone } from "./components/TrafficCone";
+import { Tree } from "./components/Tree";
+import { Bush } from "./components/Bush";
 
 import { RemotePlayerManager } from "./components/RemotePlayerManager";
 import { EventEmitter } from "./events/eventEmitter";
@@ -243,7 +245,7 @@ const streetLightPosition2 = new THREE.Vector3(-10, 0, -8);
 controls.addStreetLightToScene(streetLightPosition2);
 
 // Create a third street light to illuminate another play area
-const streetLightPosition3 = new THREE.Vector3(-12, 0, 15);
+const streetLightPosition3 = new THREE.Vector3(-5, 0, 15);
 controls.addStreetLightToScene(streetLightPosition3);
 
 // Fourth street light - to create shadows and atmosphere
@@ -523,6 +525,105 @@ new TrafficCone(
   scene,
   controls.getCollisionSystem()
 );
+
+// 4. TREE PLACEMENT - Add trees to create natural scenery
+// Create a small forest area in one corner of the map
+for (let i = 0; i < 5; i++) {
+  const randomOffsetX = Math.random() * 4 - 2;
+  const randomOffsetZ = Math.random() * 4 - 2;
+  const randomRotation = Math.random() * Math.PI * 2;
+  const randomScale = 0.8 + Math.random() * 0.4; // Scale between 0.8 and 1.2
+
+  const treePosition = new THREE.Vector3(
+    -18 + randomOffsetX,
+    0,
+    -18 + randomOffsetZ
+  );
+
+  new Tree(
+    treePosition,
+    scene,
+    controls.getCollisionSystem(),
+    randomRotation,
+    randomScale
+  );
+}
+
+// Create a few more individual trees around the map
+const treePositions = [
+  new THREE.Vector3(15, 0, -15),
+  new THREE.Vector3(-12, 0, 10),
+  new THREE.Vector3(18, 0, 5),
+  new THREE.Vector3(5, 0, 18),
+];
+
+treePositions.forEach((position) => {
+  const randomRotation = Math.random() * Math.PI * 2;
+  const randomScale = 0.9 + Math.random() * 0.3;
+  new Tree(
+    position,
+    scene,
+    controls.getCollisionSystem(),
+    randomRotation,
+    randomScale
+  );
+});
+
+// 5. BUSH PLACEMENT - Add bushes around the map
+// Place some bushes near trees
+for (let i = 0; i < 8; i++) {
+  const randomOffsetX = Math.random() * 6 - 3;
+  const randomOffsetZ = Math.random() * 6 - 3;
+  const randomRotation = Math.random() * Math.PI * 2;
+
+  const bushPosition = new THREE.Vector3(
+    -18 + randomOffsetX,
+    0,
+    -18 + randomOffsetZ
+  );
+
+  new Bush(bushPosition, scene, controls.getCollisionSystem(), randomRotation);
+}
+
+// Add more bushes around the map for cover
+const bushPositions = [
+  new THREE.Vector3(10, 0, -8),
+  new THREE.Vector3(-5, 0, 5),
+  new THREE.Vector3(0, 0, 12),
+  new THREE.Vector3(15, 0, 0),
+  new THREE.Vector3(-15, 0, -5),
+  new THREE.Vector3(5, 0, -15),
+  new THREE.Vector3(-8, 0, -3),
+  new THREE.Vector3(3, 0, 8),
+];
+
+bushPositions.forEach((position) => {
+  const randomRotation = Math.random() * Math.PI * 2;
+  new Bush(position, scene, controls.getCollisionSystem(), randomRotation);
+});
+
+// Create a few bush clusters (3-5 bushes close together)
+const bushClusterCenters = [
+  new THREE.Vector3(12, 0, 12),
+  new THREE.Vector3(-10, 0, -10),
+];
+
+bushClusterCenters.forEach((center) => {
+  const clusterSize = 3 + Math.floor(Math.random() * 3); // 3-5 bushes per cluster
+
+  for (let i = 0; i < clusterSize; i++) {
+    const offsetX = Math.random() * 2 - 1; // -1 to 1
+    const offsetZ = Math.random() * 2 - 1; // -1 to 1
+    const position = new THREE.Vector3(
+      center.x + offsetX,
+      0,
+      center.z + offsetZ
+    );
+
+    const randomRotation = Math.random() * Math.PI * 2;
+    new Bush(position, scene, controls.getCollisionSystem(), randomRotation);
+  }
+});
 
 // Handle window resize
 window.addEventListener("resize", () => {
