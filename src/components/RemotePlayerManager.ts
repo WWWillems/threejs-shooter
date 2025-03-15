@@ -75,6 +75,31 @@ export class RemotePlayerManager {
         }
       }
     );
+
+    // Listen for weapon shoot events
+    socket.on(
+      GAME_EVENTS.WEAPON.SHOOT,
+      ({ userId, data }: { userId: string } & WeaponEvent) => {
+        const player = this.players.get(userId);
+        if (!player || !data?.position || !data?.direction) return;
+
+        const position = new THREE.Vector3(
+          data.position.x,
+          data.position.y,
+          data.position.z
+        );
+        const direction = new THREE.Vector3(
+          data.direction.x,
+          data.direction.y,
+          data.direction.z
+        );
+
+        player.weaponSystem.handleRemoteEvent(() => {
+          // Create bullet at the remote player's position with the correct direction
+          player.weaponSystem.shootRemote(this.scene, position, direction);
+        });
+      }
+    );
   }
 
   /**
@@ -190,7 +215,7 @@ export class RemotePlayerManager {
   /**
    * Update all remote players (smoothly interpolate positions)
    */
-  public update(_delta: number): void {
+  public update(delta: number): void {
     // Update each player's visual representation
     for (const player of this.players.values()) {
       // Smoothly interpolate position
@@ -203,6 +228,9 @@ export class RemotePlayerManager {
 
       // Update the weapon position to match the player's new position and rotation
       player.weaponSystem.updateWeaponPosition(false);
+
+      // Update bullets
+      player.weaponSystem.updateBullets(delta);
     }
   }
 

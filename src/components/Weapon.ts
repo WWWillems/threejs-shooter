@@ -354,39 +354,10 @@ export class WeaponSystem extends NetworkedEntity {
     const direction = new THREE.Vector3(0, 0, -1);
     direction.applyQuaternion(this.player.quaternion);
 
-    let primaryBullet: Bullet | null = null;
+    // Create the bullet
+    const bullet = this.createBullet(scene, barrelPosition, direction);
 
-    // Check if current weapon is shotgun
-    if (currentWeapon.name === "Shotgun") {
-      // Shotgun spread - create 3 bullets with different angles
-      // Parameters for spread
-      const spreadAngle = 0.1; // Angle in radians for the spread (about 5.7 degrees)
-
-      // Create main bullet (straight ahead)
-      primaryBullet = new Bullet(barrelPosition, direction, scene);
-      this.bullets.push(primaryBullet);
-
-      // Create bullet with spread to the right
-      const rightDirection = direction.clone();
-      rightDirection.applyAxisAngle(new THREE.Vector3(0, 1, 0), -spreadAngle);
-      const rightBullet = new Bullet(barrelPosition, rightDirection, scene);
-      this.bullets.push(rightBullet);
-
-      // Create bullet with spread to the left
-      const leftDirection = direction.clone();
-      leftDirection.applyAxisAngle(new THREE.Vector3(0, 1, 0), spreadAngle);
-      const leftBullet = new Bullet(barrelPosition, leftDirection, scene);
-      this.bullets.push(leftBullet);
-    } else {
-      // For all other weapons, create a single bullet
-      primaryBullet = new Bullet(barrelPosition, direction, scene);
-      this.bullets.push(primaryBullet);
-    }
-
-    // Create muzzle flash
-    this.createMuzzleFlash(barrelPosition, this.player.rotation.y);
-
-    // Emit weapon event
+    // Emit weapon event for network synchronization
     this.emit<WeaponEvent>(GAME_EVENTS.WEAPON.SHOOT, {
       weaponType: currentWeapon.name,
       action: "shoot",
@@ -406,7 +377,71 @@ export class WeaponSystem extends NetworkedEntity {
       },
     });
 
-    // Return the primary bullet for further processing if needed
+    return bullet;
+  }
+
+  // Method to create a bullet for remote players
+  public shootRemote(
+    scene: THREE.Scene,
+    position: THREE.Vector3,
+    direction: THREE.Vector3
+  ): Bullet | null {
+    const currentTime = performance.now() / 1000;
+    const currentWeapon = this.getCurrentWeapon();
+
+    // Update last shot time
+    currentWeapon.lastShotTime = currentTime;
+
+    // Create the bullet
+    return this.createBullet(scene, position, direction);
+  }
+
+  // Helper method to create a bullet with given position and direction
+  private createBullet(
+    scene: THREE.Scene,
+    position: THREE.Vector3,
+    direction: THREE.Vector3
+  ): Bullet | null {
+    const currentWeapon = this.getCurrentWeapon();
+    let primaryBullet: Bullet | null = null;
+
+    // Normalize the direction vector to ensure consistent speed
+    const normalizedDirection = direction.clone().normalize();
+
+    // Check if current weapon is shotgun
+    if (currentWeapon.name === "Shotgun") {
+      // Shotgun spread - create 3 bullets with different angles
+      // Parameters for spread
+      const spreadAngle = 0.1; // Angle in radians for the spread (about 5.7 degrees)
+
+      // Create main bullet (straight ahead)
+      primaryBullet = new Bullet(
+        position.clone(),
+        normalizedDirection.clone(),
+        scene
+      );
+      this.bullets.push(primaryBullet);
+
+      // Create bullet with spread to the right
+      const rightDirection = normalizedDirection.clone();
+      rightDirection.applyAxisAngle(new THREE.Vector3(0, 1, 0), -spreadAngle);
+      const rightBullet = new Bullet(position.clone(), rightDirection, scene);
+      this.bullets.push(rightBullet);
+
+      // Create bullet with spread to the left
+      const leftDirection = normalizedDirection.clone();
+      leftDirection.applyAxisAngle(new THREE.Vector3(0, 1, 0), spreadAngle);
+      const leftBullet = new Bullet(position.clone(), leftDirection, scene);
+      this.bullets.push(leftBullet);
+    } else {
+      // For all other weapons, create a single bullet
+      primaryBullet = new Bullet(position.clone(), normalizedDirection, scene);
+      this.bullets.push(primaryBullet);
+    }
+
+    // Create muzzle flash
+    this.createMuzzleFlash(position, Math.atan2(direction.x, direction.z));
+
     return primaryBullet;
   }
 
