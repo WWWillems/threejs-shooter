@@ -18,6 +18,8 @@ export class HUD {
     string,
     { element: HTMLElement; timeoutId: number }
   > = new Map();
+  // Death overlay
+  private deathOverlay: HTMLElement | null = null;
 
   private weaponSlots: HTMLElement[] = [];
   private healthBarElement: HTMLElement | null = null;
@@ -48,6 +50,7 @@ export class HUD {
     this.notificationContainer = document.getElementById(
       "notification-container"
     );
+    this.deathOverlay = document.getElementById("death-overlay");
 
     this.healthBarElement = document.getElementById("health-bar-fill");
     this.healthValueElement = document.getElementById("health-value");
@@ -92,6 +95,20 @@ export class HUD {
         }
       }
     });
+
+    // Listen for player death event
+    document.addEventListener("player-death", () => {
+      this.showDeathOverlay();
+    });
+
+    // Add restart button click handler
+    document.addEventListener("click", (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
+      if (target.id === "restart-button") {
+        this.hideDeathOverlay();
+        this.restartGame();
+      }
+    });
   }
 
   private createUIOverlay(): HTMLElement {
@@ -133,9 +150,15 @@ export class HUD {
 
       <!-- Add notification container -->
       <div id="notification-container" class="notification-container"></div>
+      
+      <!-- Death overlay -->
+      <div id="death-overlay" class="death-overlay hidden">
+        <div class="death-message">You Died</div>
+        <button id="restart-button" class="restart-button">Restart Game</button>
+      </div>
     `;
 
-    // Add CSS for notifications
+    // Add CSS for notifications and death overlay
     const style = document.createElement("style");
     style.textContent = `
       .notification-container {
@@ -168,18 +191,6 @@ export class HUD {
         pointer-events: none;
       }
       
-      .notification.health {
-        border-left-color: #ff4444;
-      }
-      
-      .notification.ammo {
-        border-left-color: #cccc00;
-      }
-      
-      .notification.weapon {
-        border-left-color: #3399ff;
-      }
-      
       .notification.show {
         transform: translateX(0);
         opacity: 1;
@@ -208,6 +219,18 @@ export class HUD {
         opacity: 0.9;
       }
       
+      .notification.health {
+        border-left-color: #ff4444;
+      }
+      
+      .notification.ammo {
+        border-left-color: #cccc00;
+      }
+      
+      .notification.weapon {
+        border-left-color: #3399ff;
+      }
+      
       /* Style for empty weapon slots */
       .weapon-icon.empty {
         opacity: 0.6;
@@ -221,9 +244,62 @@ export class HUD {
       .weapon-icon.empty .weapon-ammo {
         color: rgba(255, 255, 255, 0.4);
       }
+      
+      /* Death overlay styles */
+      .death-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(139, 0, 0, 0.7);
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        z-index: 2000;
+        pointer-events: auto;
+        transition: opacity 1s ease;
+      }
+      
+      .death-overlay.hidden {
+        display: none;
+        opacity: 0;
+      }
+      
+      .death-message {
+        font-size: 64px;
+        color: #ffffff;
+        margin-bottom: 40px;
+        text-shadow: 0 0 10px #000000;
+        font-family: Arial, sans-serif;
+        font-weight: bold;
+      }
+      
+      .restart-button {
+        background-color: #ffffff;
+        color: #880000;
+        font-size: 24px;
+        padding: 15px 30px;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+        transition: background-color 0.3s ease, transform 0.2s ease;
+        font-family: Arial, sans-serif;
+        font-weight: bold;
+      }
+      
+      .restart-button:hover {
+        background-color: #eeeeee;
+        transform: scale(1.05);
+      }
+      
+      .restart-button:active {
+        transform: scale(0.95);
+      }
     `;
-    document.head.appendChild(style);
 
+    document.head.appendChild(style);
     return overlay;
   }
 
@@ -670,6 +746,35 @@ export class HUD {
         return "Sniper";
       default:
         return "Unknown";
+    }
+  }
+
+  /**
+   * Show the death overlay
+   */
+  private showDeathOverlay(): void {
+    if (this.deathOverlay) {
+      this.deathOverlay.classList.remove("hidden");
+    }
+  }
+
+  /**
+   * Hide the death overlay
+   */
+  private hideDeathOverlay(): void {
+    if (this.deathOverlay) {
+      this.deathOverlay.classList.add("hidden");
+    }
+  }
+
+  /**
+   * Restart the game
+   */
+  private restartGame(): void {
+    // Get player controller and resurrect the player
+    const playerController = this.controls.getPlayerController();
+    if (playerController) {
+      playerController.resurrect();
     }
   }
 }

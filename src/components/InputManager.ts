@@ -28,8 +28,42 @@ export class InputManager {
   private onWeaponSwitchCallbacks: ((index: number) => void)[] = [];
   private onMouseMoveCallbacks: ((mousePos: THREE.Vector2) => void)[] = [];
 
+  // Input state
+  private keyboardEnabled = true;
+  private mouseEnabled = true;
+
   constructor(private domElement: HTMLCanvasElement) {
     this.initControls();
+  }
+
+  /**
+   * Disable keyboard input
+   */
+  public disableKeyboardInput(): void {
+    this.keyboardEnabled = false;
+    // Clear all currently pressed keys
+    this.keys = {};
+  }
+
+  /**
+   * Enable keyboard input
+   */
+  public enableKeyboardInput(): void {
+    this.keyboardEnabled = true;
+  }
+
+  /**
+   * Disable mouse input
+   */
+  public disableMouseInput(): void {
+    this.mouseEnabled = false;
+  }
+
+  /**
+   * Enable mouse input
+   */
+  public enableMouseInput(): void {
+    this.mouseEnabled = true;
   }
 
   /**
@@ -43,6 +77,8 @@ export class InputManager {
 
     // Mouse move event
     this.domElement.addEventListener("mousemove", (event: Event) => {
+      if (!this.mouseEnabled) return;
+
       const mouseEvent = event as unknown as MouseEvent;
       // Calculate mouse position in normalized device coordinates (-1 to +1)
       this.mousePosition.x = (mouseEvent.clientX / window.innerWidth) * 2 - 1;
@@ -56,6 +92,8 @@ export class InputManager {
 
     // Key down events
     document.addEventListener("keydown", (event) => {
+      if (!this.keyboardEnabled) return;
+
       this.keys[event.code] = true;
 
       // Handle special key events
@@ -95,11 +133,15 @@ export class InputManager {
 
     // Key up events
     document.addEventListener("keyup", (event) => {
+      if (!this.keyboardEnabled) return;
+
       this.keys[event.code] = false;
     });
 
     // Mouse click event for shooting
     this.domElement.addEventListener("mousedown", (event: Event) => {
+      if (!this.mouseEnabled) return;
+
       const mouseEvent = event as unknown as MouseEvent;
       if (mouseEvent.button === 0) {
         // Left mouse button

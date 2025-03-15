@@ -420,9 +420,22 @@ export class PlayerController {
 
     if (this.currentHealth <= 0) {
       this.isDead = true;
-      // Handle player death
+      // Handle player death - make player fall to the floor
       console.log("Player died!");
-      // You could add more death handling logic here
+
+      // Force player to stop moving
+      this.velocity.set(0, 0, 0);
+
+      // Make player fall to the floor
+      this.player.position.y = 0.5; // Set player close to ground
+
+      // Dispatch death event
+      const deathEvent = new CustomEvent("player-death");
+      document.dispatchEvent(deathEvent);
+
+      // Disable input
+      this.inputManager.disableKeyboardInput();
+      this.inputManager.disableMouseInput();
     }
   }
 
@@ -446,6 +459,13 @@ export class PlayerController {
   public resurrect(): void {
     this.currentHealth = this.maxHealth;
     this.isDead = false;
+
+    // Re-enable input
+    this.inputManager.enableKeyboardInput();
+    this.inputManager.enableMouseInput();
+
+    // Reset position (stand up)
+    this.player.position.y = 1;
   }
 
   /**
