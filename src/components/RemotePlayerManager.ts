@@ -161,10 +161,6 @@ export class RemotePlayerManager {
     playerMesh.rotation.set(0, 0, 0); // Then set all rotation components to zero
     playerMesh.updateMatrix(); // Update the transformation matrix
 
-    console.log(
-      `Created new player mesh for ${userId}, rotation: (${playerMesh.rotation.x}, ${playerMesh.rotation.y}, ${playerMesh.rotation.z})`
-    );
-
     // Configure shadow settings
     playerMesh.castShadow = true;
     playerMesh.receiveShadow = true;
@@ -391,14 +387,11 @@ export class RemotePlayerManager {
     status: "dead" | "alive",
     position?: { x: number; y: number; z: number }
   ): void {
-    console.log(`Player status change: ${userId}, status: ${status}`); // Debug log
-
     const player = this.players.get(userId);
 
     if (!player) {
       // Player doesn't exist yet, create them if they're alive
       if (status === "alive" && position) {
-        console.log(`Creating new player on status change: ${userId}`); // Debug log
         this.addPlayer(userId);
         // Update their position
         this.updatePlayerPosition(userId, position, 0);
@@ -413,15 +406,13 @@ export class RemotePlayerManager {
 
       this.hud.showNotification(
         `status-${userId}`,
-        "Player Dieddddddd",
-        `Player has dieddddddddd`,
+        "Player Died",
+        `Player has died`,
         "💀"
       );
     } else if (status === "alive") {
       // Handle player respawn
       if (player.isDead) {
-        console.log(`Respawning dead player: ${userId}`); // Debug log
-
         // Remove the dead player mesh
         this.scene.remove(player.mesh);
         this.removePlayer(userId);
@@ -434,8 +425,6 @@ export class RemotePlayerManager {
           // Ensure the rotation is properly reset for the new player
           const newPlayer = this.players.get(userId);
           if (newPlayer) {
-            console.log(`Resetting rotation for respawned player: ${userId}`); // Debug log
-
             // Use quaternion to reset rotation completely
             newPlayer.mesh.quaternion.identity();
 
@@ -446,11 +435,6 @@ export class RemotePlayerManager {
             // Force update matrix to ensure changes take effect
             newPlayer.mesh.updateMatrix();
             newPlayer.mesh.updateMatrixWorld(true);
-
-            // Double-check rotation values after reset
-            console.log(
-              `Player rotation after reset: x=${newPlayer.mesh.rotation.x}, y=${newPlayer.mesh.rotation.y}, z=${newPlayer.mesh.rotation.z}`
-            );
           }
 
           this.hud.showNotification(
