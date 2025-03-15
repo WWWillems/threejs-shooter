@@ -322,9 +322,10 @@ export class CollisionSystem implements CollisionDetector {
       const playerBox = new THREE.Box3();
       const playerPosition = new THREE.Vector3(
         this.player.position.x,
-        this.player.position.y + playerHeight / 2,
+        this.player.position.y,
         this.player.position.z
       );
+
       playerBox.setFromCenterAndSize(
         playerPosition,
         new THREE.Vector3(1, playerHeight, 1)
