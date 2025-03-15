@@ -5,6 +5,7 @@ import { WoodenCrate } from "./WoodenCrate";
 import type { DestructibleCrate } from "./WoodenCrate";
 import type { CollisionDetector } from "./CollisionInterface";
 import type { RemotePlayerManager } from "./RemotePlayerManager";
+import { PlayerCollider } from "./PlayerCollider";
 
 /**
  * Type for car collision data
@@ -240,10 +241,10 @@ export class CollisionSystem implements CollisionDetector {
     position: THREE.Vector3,
     playerHeight: number
   ): boolean {
-    // Update player collider
-    this.playerCollider.setFromCenterAndSize(
-      new THREE.Vector3(position.x, position.y + playerHeight / 2, position.z),
-      new THREE.Vector3(0.9, playerHeight, 0.9)
+    // Update player collider using the PlayerCollider utility
+    this.playerCollider = PlayerCollider.createCollisionBox(
+      position,
+      playerHeight
     );
 
     // Check collision with cars
@@ -313,22 +314,14 @@ export class CollisionSystem implements CollisionDetector {
     // Check collision with local player first
     if (this.player) {
       console.log("Checking local player collision");
-      // Get player height from userData or use default
-      const playerHeight =
-        this.player.userData.controller?.getPlayerHeight() || 2;
+      // Get player height using PlayerCollider utility
+      const playerHeight = PlayerCollider.getPlayerHeight(this.player);
       const playerController = this.player.userData.controller;
 
-      // Create player collision box at current position
-      const playerBox = new THREE.Box3();
-      const playerPosition = new THREE.Vector3(
-        this.player.position.x,
-        this.player.position.y,
-        this.player.position.z
-      );
-
-      playerBox.setFromCenterAndSize(
-        playerPosition,
-        new THREE.Vector3(1, playerHeight, 1)
+      // Create player collision box at current position using PlayerCollider
+      const playerBox = PlayerCollider.createCollisionBox(
+        this.player.position,
+        playerHeight
       );
 
       console.log("Bullet vs Player collision check:", {
@@ -338,9 +331,9 @@ export class CollisionSystem implements CollisionDetector {
           z: bulletPosition.z.toFixed(2),
         },
         playerPosition: {
-          x: playerPosition.x.toFixed(2),
-          y: playerPosition.y.toFixed(2),
-          z: playerPosition.z.toFixed(2),
+          x: this.player.position.x.toFixed(2),
+          y: this.player.position.y.toFixed(2),
+          z: this.player.position.z.toFixed(2),
         },
         playerBox: {
           min: {
@@ -374,7 +367,7 @@ export class CollisionSystem implements CollisionDetector {
         }
         return true;
       } else {
-        const distance = bulletPosition.distanceTo(playerPosition);
+        const distance = bulletPosition.distanceTo(this.player.position);
         console.log(
           "Bullet missed local player - distance:",
           distance.toFixed(2)

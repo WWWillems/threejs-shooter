@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import type { CollisionSystem } from "./CollisionSystem";
 import type { RemotePlayerManager } from "./RemotePlayerManager";
+import { PlayerCollider } from "./PlayerCollider";
 
 /**
  * Handles debug visualization for the game
@@ -265,19 +266,14 @@ export class DebugVisualizer {
     playerPosition: THREE.Vector3,
     playerHeight: number
   ): void {
-    // Create wireframe box representing player hitbox
-    const playerGeometry = new THREE.BoxGeometry(1, playerHeight, 1);
-    const playerMesh = new THREE.Mesh(
-      playerGeometry,
-      new THREE.MeshBasicMaterial({
-        color: 0x00ff00,
-        wireframe: true,
-        transparent: true,
-        opacity: 0.5,
-      })
+    // Create player debug mesh using the PlayerCollider utility
+    const playerMesh = PlayerCollider.createDebugMesh(
+      playerPosition,
+      playerHeight,
+      0x00ff00, // Green for local player
+      0.5
     );
 
-    playerMesh.position.copy(playerPosition);
     this.scene.add(playerMesh);
     this.debugHelpers.push(playerMesh);
   }
@@ -292,36 +288,16 @@ export class DebugVisualizer {
     if (!remotePlayers) return;
 
     for (const player of remotePlayers.values()) {
-      // Get exact height from the actual player mesh geometry
-      // This ensures the collision box matches the visual model exactly
-      let playerHeight = 2; // Default fallback
+      // Get player height using the PlayerCollider utility
+      const playerHeight = PlayerCollider.getPlayerHeight(player.mesh);
 
-      if (player.mesh.geometry instanceof THREE.BoxGeometry) {
-        // Extract height directly from the mesh geometry parameters
-        playerHeight = player.mesh.geometry.parameters.height;
-      } else if (player.mesh.userData.height) {
-        // Fallback to userData if available
-        playerHeight = player.mesh.userData.height;
-      }
-
-      // Create wireframe box representing remote player hitbox that exactly matches the player model
-      const playerGeometry = new THREE.BoxGeometry(1, playerHeight, 1);
-      const playerMesh = new THREE.Mesh(
-        playerGeometry,
-        new THREE.MeshBasicMaterial({
-          color: 0xff0000, // Red for remote players
-          wireframe: true,
-          transparent: true,
-          opacity: 0.5,
-        })
+      // Create remote player debug mesh using the PlayerCollider utility
+      const playerMesh = PlayerCollider.createDebugMesh(
+        player.mesh.position,
+        playerHeight,
+        0xff0000, // Red for remote players
+        0.5
       );
-
-      // Position the collision box to perfectly match the player
-      // Copy exact position without any adjustments
-      playerMesh.position.copy(player.mesh.position);
-
-      // The player mesh's origin is already properly positioned in the game,
-      // no need for additional Y adjustment
 
       this.scene.add(playerMesh);
       this.debugHelpers.push(playerMesh);

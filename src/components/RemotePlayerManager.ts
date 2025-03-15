@@ -5,6 +5,7 @@ import { WeaponSystem } from "./Weapon";
 import { GAME_EVENTS } from "../events/constants";
 import type { WeaponEvent } from "../events/types";
 import type { CollisionDetector } from "./CollisionInterface";
+import { PlayerCollider, PLAYER_DIMENSIONS } from "./PlayerCollider";
 
 interface RemotePlayer {
   id: string;
@@ -143,7 +144,11 @@ export class RemotePlayerManager {
     }
 
     // Create a player mesh with a different color from the local player
-    const playerGeometry = new THREE.BoxGeometry(1, 2, 1);
+    const playerGeometry = new THREE.BoxGeometry(
+      PLAYER_DIMENSIONS.width,
+      PLAYER_DIMENSIONS.height,
+      PLAYER_DIMENSIONS.depth
+    );
     // Generate a unique but consistent color based on userId
     const hue = this.getHueFromString(userId);
     const playerMaterial = new THREE.MeshStandardMaterial({
@@ -368,17 +373,13 @@ export class RemotePlayerManager {
    */
   public checkBulletCollision(bulletPosition: THREE.Vector3): boolean {
     for (const [playerId, player] of this.players) {
-      // Create a collision box for the player
-      const playerBox = new THREE.Box3();
-      // The actual mesh height is 2 units (from BoxGeometry)
-      const playerHeight = 2;
-      playerBox.setFromCenterAndSize(
-        new THREE.Vector3(
-          player.mesh.position.x,
-          player.mesh.position.y, // Position at the actual mesh center
-          player.mesh.position.z
-        ),
-        new THREE.Vector3(1, playerHeight, 1) // Use the actual mesh dimensions
+      // Get player height using PlayerCollider utility
+      const playerHeight = PlayerCollider.getPlayerHeight(player.mesh);
+
+      // Create a collision box for the player using PlayerCollider
+      const playerBox = PlayerCollider.createCollisionBox(
+        player.mesh.position,
+        playerHeight
       );
 
       // Check if bullet hits player
