@@ -11,6 +11,9 @@ A 3D first-person shooter game vibe coded with Three.js and Vite.
 - Sound effects
 - Score tracking
 
+## Objects to be added
+
+
 ## Prerequisites
 
 - Node.js (v14.x or higher)

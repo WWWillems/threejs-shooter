@@ -4,6 +4,7 @@ import { IsometricControls } from "./components/IsometricControls";
 import { HUD } from "./components/HUD";
 import { PickupManager } from "./components/PickupManager";
 import { ShopBuilding } from "./components/ShopBuilding";
+import { TrafficCone } from "./components/TrafficCone";
 
 import { RemotePlayerManager } from "./components/RemotePlayerManager";
 import { EventEmitter } from "./events/eventEmitter";
@@ -429,6 +430,99 @@ for (let i = 0; i < 4; i++) {
 // Add a shop building to the scene
 const shopPosition = new THREE.Vector3(0, 0, -20);
 new ShopBuilding(shopPosition, scene, controls.getCollisionSystem());
+
+// 4. TRAFFIC CONE PLACEMENT - Add traffic cones for realism and environment storytelling
+// A) Create a line of traffic cones as a barrier near one of the cars
+const trafficConeLineStart = new THREE.Vector3(10, 0, 11);
+const trafficConeCount = 7;
+const trafficConeSpacing = 0.8;
+for (let i = 0; i < trafficConeCount; i++) {
+  const conePosition = new THREE.Vector3(
+    trafficConeLineStart.x + i * trafficConeSpacing,
+    0,
+    trafficConeLineStart.z
+  );
+  new TrafficCone(conePosition, scene, controls.getCollisionSystem());
+}
+
+// B) Create a curved line of cones around a dangerous area
+const coneCenterPoint = new THREE.Vector3(-5, 0, -8);
+const coneRadius = 4;
+const coneCount = 9;
+for (let i = 0; i < coneCount; i++) {
+  const angle = (i / (coneCount - 1)) * Math.PI; // Creates a semi-circle
+  const x = coneCenterPoint.x + Math.cos(angle) * coneRadius;
+  const z = coneCenterPoint.z + Math.sin(angle) * coneRadius;
+  // Slight random rotation for more natural placement
+  const rotation = Math.random() * 0.5 - 0.25;
+  new TrafficCone(
+    new THREE.Vector3(x, 0, z),
+    scene,
+    controls.getCollisionSystem(),
+    rotation
+  );
+}
+
+// C) Scattered cones near car crash scene to suggest recent accident/emergency
+const crashSite = new THREE.Vector3(8, 0, 9); // Location of first car
+const scatteredConeCount = 5;
+for (let i = 0; i < scatteredConeCount; i++) {
+  // Random positions within a radius of the crash site
+  const angle = Math.random() * Math.PI * 2;
+  const distance = 2 + Math.random() * 3; // Between 2 and 5 units away
+  const x = crashSite.x + Math.cos(angle) * distance;
+  const z = crashSite.z + Math.sin(angle) * distance;
+
+  // Random rotation for fallen cones
+  const rotation = Math.random() * Math.PI * 2;
+  new TrafficCone(
+    new THREE.Vector3(x, 0, z),
+    scene,
+    controls.getCollisionSystem(),
+    rotation
+  );
+}
+
+// D) Place cones to block entrance to sniper tower
+const towerBaseCones = new THREE.Vector3(-15, 0, 10);
+new TrafficCone(
+  new THREE.Vector3(towerBaseCones.x - 1.5, 0, towerBaseCones.z - 1.5),
+  scene,
+  controls.getCollisionSystem()
+);
+new TrafficCone(
+  new THREE.Vector3(towerBaseCones.x + 1.5, 0, towerBaseCones.z - 1.5),
+  scene,
+  controls.getCollisionSystem()
+);
+new TrafficCone(
+  new THREE.Vector3(towerBaseCones.x, 0, towerBaseCones.z - 2),
+  scene,
+  controls.getCollisionSystem()
+);
+
+// E) Use cones to direct player movement near shop
+const shopEntrance = new THREE.Vector3(0, 0, -15);
+new TrafficCone(
+  new THREE.Vector3(shopEntrance.x - 3, 0, shopEntrance.z),
+  scene,
+  controls.getCollisionSystem()
+);
+new TrafficCone(
+  new THREE.Vector3(shopEntrance.x + 3, 0, shopEntrance.z),
+  scene,
+  controls.getCollisionSystem()
+);
+new TrafficCone(
+  new THREE.Vector3(shopEntrance.x - 2, 0, shopEntrance.z - 2),
+  scene,
+  controls.getCollisionSystem()
+);
+new TrafficCone(
+  new THREE.Vector3(shopEntrance.x + 2, 0, shopEntrance.z - 2),
+  scene,
+  controls.getCollisionSystem()
+);
 
 // Handle window resize
 window.addEventListener("resize", () => {
