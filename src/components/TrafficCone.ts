@@ -96,7 +96,7 @@ export class TrafficCone {
   }
 
   private addReflectiveStripes(
-    cone: THREE.Mesh,
+    _cone: THREE.Mesh,
     baseRadius: number,
     topRadius: number,
     height: number
