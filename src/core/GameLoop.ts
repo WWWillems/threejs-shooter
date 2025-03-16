@@ -67,13 +67,6 @@ export class GameLoop {
     const delta = (time - this.lastFrameTime) / 1000; // Convert to seconds
     this.lastFrameTime = time;
 
-    // Rotate the decoration cubes
-    if (this.decorationCubes.length > 0) {
-      this.decorationCubes[0].rotation.y += 0.01;
-      this.decorationCubes[1].rotation.x += 0.01;
-      this.decorationCubes[2].rotation.z += 0.01;
-    }
-
     // Check for player collision with moving cars (player damage)
     const playerPosition = this.player.position.clone();
     const playerHeight = this.controls.getPlayerHeight();

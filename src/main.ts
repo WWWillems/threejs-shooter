@@ -63,33 +63,6 @@ controls.setPickupManager(pickupManager);
 const environmentBuilder = new EnvironmentBuilder(scene, controls);
 environmentBuilder.buildEnvironment();
 
-// Store decoration cubes for animation
-// These will be handled by the environment builder in the future
-// For now, we'll keep them separate for the animation
-const cube1 = createCube(1, 0xff4444, -8, 1.5, -12);
-const cube2 = createCube(1, 0x44ff44, 10, 1.5, 14);
-const cube3 = createCube(1, 0x4444ff, 15, 1.5, -10);
-scene.add(cube1, cube2, cube3);
-
-const decorationCubes = [cube1, cube2, cube3];
-
-// Create a helper function for cubes
-function createCube(
-  size: number,
-  color: number,
-  x: number,
-  y: number,
-  z: number
-): THREE.Mesh {
-  const geometry = new THREE.BoxGeometry(size, size, size);
-  const material = new THREE.MeshStandardMaterial({ color });
-  const cube = new THREE.Mesh(geometry, material);
-  cube.position.set(x, y, z);
-  cube.castShadow = true;
-  cube.receiveShadow = true;
-  return cube;
-}
-
 // Initialize the game loop
 const gameLoop = new GameLoop(
   scene,
@@ -100,7 +73,7 @@ const gameLoop = new GameLoop(
   pickupManager,
   remotePlayerManager,
   player,
-  decorationCubes
+  []
 );
 
 // Start the game loop

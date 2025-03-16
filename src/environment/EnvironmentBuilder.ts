@@ -23,7 +23,6 @@ export class EnvironmentBuilder {
    * Build all environment objects
    */
   public buildEnvironment(): void {
-    this.createDecorationCubes();
     this.placeCars();
     this.placeStreetLights();
     this.placeShopBuilding();
@@ -31,22 +30,6 @@ export class EnvironmentBuilder {
     this.placeTrafficCones();
     this.placeTrees();
     this.placeBushes();
-  }
-
-  /**
-   * Create decoration cubes around the scene
-   */
-  private createDecorationCubes(): void {
-    MapLayout.DECORATION_CUBES.forEach((data) => {
-      const cube = this.createCube(
-        data.scale || 1,
-        this.getRandomColor(),
-        data.position.x,
-        data.position.y,
-        data.position.z
-      );
-      this.scene.add(cube);
-    });
   }
 
   /**
