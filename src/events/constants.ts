@@ -1,6 +1,7 @@
 export const GAME_EVENTS = {
   USER: {
     CONNECTED: "user:connected",
+    JOINED: "user:joined",
     DISCONNECTED: "user:disconnected",
   },
   PLAYER: {

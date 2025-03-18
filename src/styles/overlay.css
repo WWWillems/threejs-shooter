@@ -1,0 +1,94 @@
+.start-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+  font-family: Arial, sans-serif;
+  pointer-events: auto;
+}
+
+.start-content {
+  background-color: rgba(20, 20, 30, 0.8);
+  border-radius: 8px;
+  padding: 20px;
+  text-align: center;
+  max-width: 350px;
+  box-shadow: 0 0 20px rgba(0, 0, 255, 0.2);
+  border: 1px solid rgba(50, 50, 255, 0.3);
+}
+
+.logo-container {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 15px;
+}
+
+.game-logo {
+  max-width: 200px;
+  max-height: 80px;
+}
+
+.controls-info {
+  text-align: left;
+  margin: 15px 0;
+  background-color: rgba(0, 0, 0, 0.3);
+  border-radius: 5px;
+  padding: 10px;
+}
+
+.controls-title {
+  text-align: center;
+  font-weight: bold;
+  margin-bottom: 5px;
+  color: #4a90e2;
+  font-size: 14px;
+}
+
+.controls-info ul {
+  list-style-type: none;
+  padding: 0;
+  margin: 0;
+}
+
+.controls-info li {
+  margin-bottom: 5px;
+  color: #e0e0e0;
+  font-size: 12px;
+}
+
+.controls-info strong {
+  color: #4a90e2;
+  display: inline-block;
+  min-width: 60px;
+}
+
+.start-button {
+  background-color: #4a90e2;
+  color: white;
+  border: none;
+  padding: 8px 20px;
+  font-size: 16px;
+  font-weight: bold;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 0 #2a70c2;
+  margin-top: 10px;
+}
+
+.start-button:hover {
+  background-color: #3a80d2;
+  transform: translateY(2px);
+  box-shadow: 0 2px 0 #2a70c2;
+}
+
+.start-button:active {
+  transform: translateY(4px);
+  box-shadow: none;
+}

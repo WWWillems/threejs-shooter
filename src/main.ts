@@ -3,7 +3,7 @@ import * as THREE from "three";
 import { IsometricControls } from "./components/IsometricControls";
 import { HUD } from "./components/HUD";
 import { PickupManager } from "./components/PickupManager";
-
+import { StartOverlay } from "./components/StartOverlay";
 import { RemotePlayerManager } from "./components/RemotePlayerManager";
 import { EventEmitter } from "./events/eventEmitter";
 import { GAME_EVENTS } from "./events/constants";
@@ -25,12 +25,21 @@ gameScene.addLights();
 // Create the ground
 const ground = new Ground(scene);
 
-// Create the player
-const playerSystem = new Player(scene);
+// Create the player without adding to scene initially
+const playerSystem = new Player(scene, false);
 const player = playerSystem.getMesh();
 
 // Initialize controls
-const controls = new IsometricControls(camera, renderer.domElement, player);
+const controls = new IsometricControls(
+  camera,
+  renderer.domElement,
+  player,
+  undefined,
+  scene
+);
+
+// Disable player input initially
+controls.disableControls();
 
 // Initialize HUD
 const hud = new HUD(document.body, controls);
@@ -76,9 +85,6 @@ const gameLoop = new GameLoop(
   []
 );
 
-// Start the game loop
-gameLoop.start();
-
 // Setup event emission for player position
 const eventEmitter = EventEmitter.getInstance();
 
@@ -101,3 +107,26 @@ setInterval(() => {
     });
   }
 }, 100);
+
+// Create the start overlay
+const startOverlay = new StartOverlay(document.body, () => {
+  // This will be called when the Start Game button is clicked
+
+  // Add player mesh to the scene when the game starts
+  playerSystem.addToScene(scene);
+
+  // Enable player controls when the game starts
+  controls.enableControls();
+
+  // Emit USER.JOINED event
+  eventEmitter.emit(GAME_EVENTS.USER.JOINED, {
+    position: {
+      x: player.position.x,
+      y: player.position.y,
+      z: player.position.z,
+    },
+  });
+});
+
+// Start the game loop immediately
+gameLoop.start();

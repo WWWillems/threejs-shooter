@@ -39,11 +39,12 @@ export class IsometricControls implements CollisionDetector {
     camera: THREE.Camera,
     domElement: HTMLCanvasElement,
     player: THREE.Mesh,
-    remotePlayerManager?: RemotePlayerManager
+    remotePlayerManager?: RemotePlayerManager,
+    scene?: THREE.Scene
   ) {
     this.camera = camera;
     this.player = player;
-    this.scene = player.parent as THREE.Scene;
+    this.scene = scene || (player.parent as THREE.Scene);
     this.remotePlayerManager = remotePlayerManager;
 
     // Initialize component systems
@@ -79,6 +80,27 @@ export class IsometricControls implements CollisionDetector {
         this.debugVisualizer.toggleDebugMode();
       }
     });
+  }
+
+  /**
+   * Enable player controls
+   */
+  public enableControls(): void {
+    this.enabled = true;
+  }
+
+  /**
+   * Disable player controls
+   */
+  public disableControls(): void {
+    this.enabled = false;
+  }
+
+  /**
+   * Check if controls are currently enabled
+   */
+  public isEnabled(): boolean {
+    return this.enabled;
   }
 
   /**

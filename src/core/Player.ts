@@ -3,7 +3,7 @@ import * as THREE from "three";
 export class Player {
   private playerMesh: THREE.Mesh;
 
-  constructor(scene: THREE.Scene) {
+  constructor(scene: THREE.Scene, addToScene: boolean = true) {
     // Create a player object
     const playerGeometry = new THREE.BoxGeometry(1, 2, 1); // A bit taller than wide
     const playerMaterial = new THREE.MeshStandardMaterial({ color: 0xffaa00 }); // Orange-yellow color
@@ -12,7 +12,17 @@ export class Player {
     this.playerMesh.castShadow = true;
     this.playerMesh.receiveShadow = true;
 
-    // Add to scene
+    // Add to scene only if specified
+    if (addToScene) {
+      scene.add(this.playerMesh);
+    }
+  }
+
+  /**
+   * Adds the player mesh to the scene
+   * @param scene The scene to add the player mesh to
+   */
+  public addToScene(scene: THREE.Scene): void {
     scene.add(this.playerMesh);
   }
 
