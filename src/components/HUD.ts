@@ -4,9 +4,10 @@ import { getLeaderboard } from "../api/socket";
 
 // Define leaderboard player data interface
 interface LeaderboardPlayer {
-  nickname: string;
+  name: string;
   score: number;
   kills: number;
+  deaths: number;
   [key: string]: string | number | boolean; // Allow for additional properties with specific types
 }
 
@@ -926,7 +927,9 @@ export class HUD {
     try {
       const data = await getLeaderboard();
       // Ensure data is an array before assigning
-      this.leaderboardData = Array.isArray(data) ? data : [];
+      this.leaderboardData = Object.entries(data).map(
+        ([key, value]) => value as LeaderboardPlayer
+      );
 
       // Update the leaderboard display if it's visible
       if (this.leaderboardVisible) {
@@ -966,13 +969,13 @@ export class HUD {
       const row = document.createElement("tr");
 
       // Highlight current player
-      if (player.nickname === currentPlayerNickname) {
+      if (player.name === currentPlayerNickname) {
         row.classList.add("highlight-player");
       }
 
       row.innerHTML = `
         <td>${index + 1}</td>
-        <td>${player.nickname}</td>
+        <td>${player.name}</td>
         <td>${player.score}</td>
         <td>${player.kills}</td>
       `;
