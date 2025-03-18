@@ -2,8 +2,9 @@ import * as THREE from "three";
 
 export class Player {
   private playerMesh: THREE.Mesh;
+  private nickname = "Player";
 
-  constructor(scene: THREE.Scene, addToScene: boolean = true) {
+  constructor(scene: THREE.Scene, addToScene = true) {
     // Create a player object
     const playerGeometry = new THREE.BoxGeometry(1, 2, 1); // A bit taller than wide
     const playerMaterial = new THREE.MeshStandardMaterial({ color: 0xffaa00 }); // Orange-yellow color
@@ -64,5 +65,21 @@ export class Player {
    */
   public getRotation(): number {
     return this.playerMesh.rotation.y;
+  }
+
+  /**
+   * Set player nickname
+   * @param nickname The player's nickname
+   */
+  public setNickname(nickname: string): void {
+    this.nickname = nickname;
+  }
+
+  /**
+   * Get player nickname
+   * @returns Current player nickname
+   */
+  public getNickname(): string {
+    return this.nickname;
   }
 }

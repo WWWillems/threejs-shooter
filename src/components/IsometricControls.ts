@@ -87,6 +87,8 @@ export class IsometricControls implements CollisionDetector {
    */
   public enableControls(): void {
     this.enabled = true;
+    this.inputManager.enableKeyboardInput();
+    this.inputManager.enableMouseInput();
   }
 
   /**
@@ -94,6 +96,8 @@ export class IsometricControls implements CollisionDetector {
    */
   public disableControls(): void {
     this.enabled = false;
+    this.inputManager.disableKeyboardInput();
+    this.inputManager.disableMouseInput();
   }
 
   /**

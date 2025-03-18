@@ -46,19 +46,17 @@ export class RemotePlayerManager {
    */
   private setupSocketListeners(): void {
     // Listen for new player connections
-    socket.on(GAME_EVENTS.USER.CONNECTED, ({ message, userId }) => {
-      this.hud.showNotification(
-        "user connected",
-        "User connected",
-        message,
-        "👋"
-      );
-    });
+    socket.on(GAME_EVENTS.USER.CONNECTED, (_payload) => {});
 
-    socket.on(GAME_EVENTS.USER.JOINED, ({ message, userId }) => {
+    socket.on(GAME_EVENTS.USER.JOINED, ({ userId, name }) => {
       this.addPlayer(userId);
 
-      this.hud.showNotification("user joined", "User joined", message, "👋");
+      this.hud.showNotification(
+        "user joined",
+        "User connected",
+        `${name} joined`,
+        "👋"
+      );
     });
 
     // Listen for player disconnections

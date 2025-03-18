@@ -109,7 +109,7 @@ setInterval(() => {
 }, 100);
 
 // Create the start overlay
-const startOverlay = new StartOverlay(document.body, () => {
+const startOverlay = new StartOverlay(document.body, (nickname) => {
   // This will be called when the Start Game button is clicked
 
   // Add player mesh to the scene when the game starts
@@ -118,13 +118,20 @@ const startOverlay = new StartOverlay(document.body, () => {
   // Enable player controls when the game starts
   controls.enableControls();
 
-  // Emit USER.JOINED event
+  // Set player nickname
+  playerSystem.setNickname(nickname);
+
+  // Update HUD with nickname
+  hud.updateNickname(nickname);
+
+  // Emit USER.JOINED event with nickname
   eventEmitter.emit(GAME_EVENTS.USER.JOINED, {
     position: {
       x: player.position.x,
       y: player.position.y,
       z: player.position.z,
     },
+    name: nickname,
   });
 });
 

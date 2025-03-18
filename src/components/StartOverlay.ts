@@ -4,9 +4,12 @@ export class StartOverlay {
   private container: HTMLElement;
   private overlay: HTMLElement;
   private isVisible = true;
-  private onStartCallback: (() => void) | null = null;
+  private onStartCallback: ((nickname: string) => void) | null = null;
 
-  constructor(container: HTMLElement, onStartCallback?: () => void) {
+  constructor(
+    container: HTMLElement,
+    onStartCallback?: (nickname: string) => void
+  ) {
     this.container = container;
     if (onStartCallback) {
       this.onStartCallback = onStartCallback;
@@ -18,6 +21,12 @@ export class StartOverlay {
     const startButton = document.getElementById("start-button");
     if (startButton) {
       startButton.addEventListener("click", this.onStartButtonClick.bind(this));
+    }
+
+    // Add nickname input validation
+    const nicknameInput = document.getElementById("nickname-input");
+    if (nicknameInput) {
+      nicknameInput.addEventListener("input", this.validateNickname.bind(this));
     }
   }
 
@@ -41,7 +50,11 @@ export class StartOverlay {
             <li><strong>G</strong> - Drop weapon</li>
           </ul>
         </div>
-        <button id="start-button" class="start-button">START GAME</button>
+        <div class="nickname-container">
+          <label for="nickname-input">Enter your nickname:</label>
+          <input type="text" id="nickname-input" class="nickname-input" placeholder="Your nickname">
+        </div>
+        <button id="start-button" class="start-button" disabled>START GAME</button>
       </div>
     `;
 
@@ -52,9 +65,28 @@ export class StartOverlay {
     // Hide the overlay
     this.hide();
 
+    // Get nickname value
+    const nicknameInput = document.getElementById(
+      "nickname-input"
+    ) as HTMLInputElement;
+    const nickname = nicknameInput?.value.trim() || "Player";
+
     // Call the start callback if provided
     if (this.onStartCallback) {
-      this.onStartCallback();
+      this.onStartCallback(nickname);
+    }
+  }
+
+  private validateNickname(): void {
+    const nicknameInput = document.getElementById(
+      "nickname-input"
+    ) as HTMLInputElement;
+    const startButton = document.getElementById(
+      "start-button"
+    ) as HTMLButtonElement;
+
+    if (nicknameInput && startButton) {
+      startButton.disabled = !nicknameInput.value.trim();
     }
   }
 

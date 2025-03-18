@@ -25,6 +25,7 @@ export class HUD {
   private healthBarElement: HTMLElement | null = null;
   private healthValueElement: HTMLElement | null = null;
   private crosshairElement: HTMLElement | null = null;
+  private nicknameElement: HTMLElement | null = null;
 
   // Mouse position tracking
   private mouseX = 0;
@@ -55,6 +56,7 @@ export class HUD {
     this.healthBarElement = document.getElementById("health-bar-fill");
     this.healthValueElement = document.getElementById("health-value");
     this.crosshairElement = document.getElementById("crosshair");
+    this.nicknameElement = document.getElementById("nickname-display");
 
     // Create weapon slots
     this.createWeaponSlots();
@@ -85,13 +87,16 @@ export class HUD {
 
     // Add keyboard event listener to handle weapon dropping
     document.addEventListener("keydown", (event: KeyboardEvent) => {
-      if (event.key.toLowerCase() === "g") {
-        // Call dropCurrentWeapon method on controls
-        const droppedWeapon = this.controls.dropCurrentWeapon();
+      // Only process keyboard inputs if controls are enabled
+      if (this.controls.isEnabled()) {
+        if (event.key.toLowerCase() === "g") {
+          // Call dropCurrentWeapon method on controls
+          const droppedWeapon = this.controls.dropCurrentWeapon();
 
-        // If a weapon was successfully dropped, show notification
-        if (droppedWeapon) {
-          this.showWeaponDropNotification(droppedWeapon.name);
+          // If a weapon was successfully dropped, show notification
+          if (droppedWeapon) {
+            this.showWeaponDropNotification(droppedWeapon.name);
+          }
         }
       }
     });
@@ -133,6 +138,8 @@ export class HUD {
         </div>
         <div class="health-value" id="health-value">100</div>
       </div>
+      
+      <div class="nickname-display" id="nickname-display">Player</div>
       
       <div class="ammo-display">
         <span id="current-ammo">0</span>
@@ -775,6 +782,16 @@ export class HUD {
     const playerController = this.controls.getPlayerController();
     if (playerController) {
       playerController.resurrect();
+    }
+  }
+
+  /**
+   * Update the player's nickname display
+   * @param nickname The player's nickname
+   */
+  public updateNickname(nickname: string): void {
+    if (this.nicknameElement) {
+      this.nicknameElement.textContent = nickname;
     }
   }
 }

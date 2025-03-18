@@ -92,3 +92,43 @@
   transform: translateY(4px);
   box-shadow: none;
 }
+
+.start-button:disabled {
+  background-color: #7a7a7a;
+  box-shadow: 0 4px 0 #5a5a5a;
+  cursor: not-allowed;
+}
+
+.start-button:disabled:hover {
+  transform: none;
+  box-shadow: 0 4px 0 #5a5a5a;
+}
+
+.nickname-container {
+  margin-bottom: 15px;
+  text-align: left;
+}
+
+.nickname-container label {
+  display: block;
+  margin-bottom: 5px;
+  color: #e0e0e0;
+  font-size: 14px;
+}
+
+.nickname-input {
+  width: 100%;
+  padding: 8px;
+  border-radius: 4px;
+  border: 1px solid #4a90e2;
+  background-color: rgba(0, 0, 0, 0.3);
+  color: #e0e0e0;
+  font-size: 14px;
+  box-sizing: border-box;
+}
+
+.nickname-input:focus {
+  outline: none;
+  border-color: #2a70c2;
+  box-shadow: 0 0 5px rgba(74, 144, 226, 0.5);
+}
