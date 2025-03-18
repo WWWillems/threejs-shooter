@@ -30,6 +30,7 @@ export class EnvironmentBuilder {
     this.placeTrafficCones();
     this.placeTrees();
     this.placeBushes();
+    this.addWalls();
   }
 
   /**
@@ -441,5 +442,111 @@ export class EnvironmentBuilder {
   private getRandomColor(): number {
     const colors = [0xff4444, 0x44ff44, 0x4444ff];
     return colors[Math.floor(Math.random() * colors.length)];
+  }
+
+  /**
+   * Add walls around the game area
+   */
+  private addWalls(): void {
+    const wallHeight = 2.5; // Height of the walls
+    const wallThickness = 0.5; // Thickness of the walls
+    const groundSize = 100; // Size of the ground plane (from Ground.ts)
+    const wallColor = 0x888888; // Light gray color for walls
+
+    // Create wall material
+    const wallMaterial = new THREE.MeshStandardMaterial({
+      color: wallColor,
+      roughness: 0.8,
+      metalness: 0.2,
+    });
+
+    // Create walls for each side of the ground
+
+    // North wall (positive Z)
+    const northWallGeometry = new THREE.BoxGeometry(
+      groundSize + wallThickness,
+      wallHeight,
+      wallThickness
+    );
+    const northWall = new THREE.Mesh(northWallGeometry, wallMaterial);
+    northWall.position.set(
+      0,
+      wallHeight / 2,
+      groundSize / 2 + wallThickness / 2
+    );
+    northWall.castShadow = true;
+    northWall.receiveShadow = true;
+    this.scene.add(northWall);
+
+    // South wall (negative Z)
+    const southWallGeometry = new THREE.BoxGeometry(
+      groundSize + wallThickness,
+      wallHeight,
+      wallThickness
+    );
+    const southWall = new THREE.Mesh(southWallGeometry, wallMaterial);
+    southWall.position.set(
+      0,
+      wallHeight / 2,
+      -groundSize / 2 - wallThickness / 2
+    );
+    southWall.castShadow = true;
+    southWall.receiveShadow = true;
+    this.scene.add(southWall);
+
+    // East wall (positive X) - extended to include the north and south wall thickness
+    const eastWallGeometry = new THREE.BoxGeometry(
+      wallThickness,
+      wallHeight,
+      groundSize + wallThickness * 2
+    );
+    const eastWall = new THREE.Mesh(eastWallGeometry, wallMaterial);
+    eastWall.position.set(
+      groundSize / 2 + wallThickness / 2,
+      wallHeight / 2,
+      0
+    );
+    eastWall.castShadow = true;
+    eastWall.receiveShadow = true;
+    this.scene.add(eastWall);
+
+    // West wall (negative X) - extended to include the north and south wall thickness
+    const westWallGeometry = new THREE.BoxGeometry(
+      wallThickness,
+      wallHeight,
+      groundSize + wallThickness * 2
+    );
+    const westWall = new THREE.Mesh(westWallGeometry, wallMaterial);
+    westWall.position.set(
+      -groundSize / 2 - wallThickness / 2,
+      wallHeight / 2,
+      0
+    );
+    westWall.castShadow = true;
+    westWall.receiveShadow = true;
+    this.scene.add(westWall);
+
+    // Add collision boxes for each wall
+    const collisionSystem = this.controls.getCollisionSystem();
+
+    // North wall collision
+    const northWallBox = new THREE.Box3();
+    northWallBox.setFromObject(northWall);
+    collisionSystem.addCustomObstacle(northWallBox);
+
+    // South wall collision
+    const southWallBox = new THREE.Box3();
+    southWallBox.setFromObject(southWall);
+    collisionSystem.addCustomObstacle(southWallBox);
+
+    // East wall collision
+    const eastWallBox = new THREE.Box3();
+    eastWallBox.setFromObject(eastWall);
+    collisionSystem.addCustomObstacle(eastWallBox);
+
+    // West wall collision
+    const westWallBox = new THREE.Box3();
+    westWallBox.setFromObject(westWall);
+    collisionSystem.addCustomObstacle(westWallBox);
   }
 }
