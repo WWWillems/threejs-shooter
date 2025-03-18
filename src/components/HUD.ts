@@ -1,5 +1,14 @@
 import type { IsometricControls } from "./IsometricControls";
 import { WeaponType } from "./Weapon";
+import { getLeaderboard } from "../api/socket";
+
+// Define leaderboard player data interface
+interface LeaderboardPlayer {
+  nickname: string;
+  score: number;
+  kills: number;
+  [key: string]: string | number | boolean; // Allow for additional properties with specific types
+}
 
 export class HUD {
   private container: HTMLElement;
@@ -20,6 +29,10 @@ export class HUD {
   > = new Map();
   // Death overlay
   private deathOverlay: HTMLElement | null = null;
+  private leaderboardElement: HTMLElement | null = null;
+  private leaderboardVisible = false;
+  private leaderboardData: LeaderboardPlayer[] = [];
+  private leaderboardUpdateInterval: number | null = null;
 
   private weaponSlots: HTMLElement[] = [];
   private healthBarElement: HTMLElement | null = null;
@@ -52,6 +65,7 @@ export class HUD {
       "notification-container"
     );
     this.deathOverlay = document.getElementById("death-overlay");
+    this.leaderboardElement = document.getElementById("leaderboard");
 
     this.healthBarElement = document.getElementById("health-bar-fill");
     this.healthValueElement = document.getElementById("health-value");
@@ -114,6 +128,23 @@ export class HUD {
         this.restartGame();
       }
     });
+
+    // Set up leaderboard tab key listeners
+    if (this.controls.getInputManager) {
+      const inputManager = this.controls.getInputManager();
+      if (inputManager) {
+        inputManager.onShowLeaderboard(() => {
+          this.showLeaderboard();
+        });
+
+        inputManager.onHideLeaderboard(() => {
+          this.hideLeaderboard();
+        });
+      }
+    }
+
+    // Initial leaderboard data
+    this.fetchLeaderboardData();
   }
 
   private createUIOverlay(): HTMLElement {
@@ -155,6 +186,26 @@ export class HUD {
       
       <div id="crosshair" class="crosshair">+</div>
 
+      <!-- Leaderboard -->
+      <div id="leaderboard" class="leaderboard hidden">
+        <div class="leaderboard-title">Leaderboard</div>
+        <div class="leaderboard-content">
+          <table class="leaderboard-table">
+            <thead>
+              <tr>
+                <th>Rank</th>
+                <th>Player</th>
+                <th>Score</th>
+                <th>Kills</th>
+              </tr>
+            </thead>
+            <tbody id="leaderboard-body">
+              <!-- Leaderboard data will be inserted here -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
       <!-- Add notification container -->
       <div id="notification-container" class="notification-container"></div>
       
@@ -165,7 +216,7 @@ export class HUD {
       </div>
     `;
 
-    // Add CSS for notifications and death overlay
+    // Add CSS for notifications, death overlay and leaderboard
     const style = document.createElement("style");
     style.textContent = `
       .notification-container {
@@ -303,6 +354,79 @@ export class HUD {
       
       .restart-button:active {
         transform: scale(0.95);
+      }
+
+      /* Leaderboard styles */
+      .leaderboard {
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        width: 600px;
+        background-color: rgba(0, 0, 0, 0.8);
+        border-radius: 8px;
+        color: white;
+        z-index: 1000;
+        pointer-events: auto;
+        box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+        transition: opacity 0.3s ease;
+      }
+      
+      .leaderboard.hidden {
+        display: none;
+        opacity: 0;
+      }
+      
+      .leaderboard-title {
+        background-color: rgba(50, 50, 80, 0.8);
+        padding: 15px;
+        font-size: 24px;
+        font-weight: bold;
+        text-align: center;
+        border-top-left-radius: 8px;
+        border-top-right-radius: 8px;
+        border-bottom: 2px solid rgba(255, 255, 255, 0.2);
+      }
+      
+      .leaderboard-content {
+        padding: 15px;
+        max-height: 400px;
+        overflow-y: auto;
+      }
+      
+      .leaderboard-table {
+        width: 100%;
+        border-collapse: collapse;
+      }
+      
+      .leaderboard-table th,
+      .leaderboard-table td {
+        padding: 10px;
+        text-align: left;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      }
+      
+      .leaderboard-table th {
+        background-color: rgba(60, 60, 100, 0.5);
+        color: rgba(255, 255, 255, 0.9);
+        font-weight: bold;
+      }
+      
+      .leaderboard-table tbody tr:nth-child(odd) {
+        background-color: rgba(40, 40, 60, 0.5);
+      }
+      
+      .leaderboard-table tbody tr:nth-child(even) {
+        background-color: rgba(50, 50, 70, 0.5);
+      }
+      
+      .leaderboard-table tbody tr:hover {
+        background-color: rgba(80, 80, 120, 0.5);
+      }
+      
+      .highlight-player {
+        background-color: rgba(100, 150, 255, 0.3) !important;
+        font-weight: bold;
       }
     `;
 
@@ -792,6 +916,106 @@ export class HUD {
   public updateNickname(nickname: string): void {
     if (this.nicknameElement) {
       this.nicknameElement.textContent = nickname;
+    }
+  }
+
+  /**
+   * Fetch leaderboard data from the server
+   */
+  private async fetchLeaderboardData(): Promise<void> {
+    try {
+      const data = await getLeaderboard();
+      // Ensure data is an array before assigning
+      this.leaderboardData = Array.isArray(data) ? data : [];
+
+      // Update the leaderboard display if it's visible
+      if (this.leaderboardVisible) {
+        this.updateLeaderboardDisplay();
+      }
+    } catch (error) {
+      console.error("Error fetching leaderboard data:", error);
+      // Set leaderboardData to empty array on error to prevent forEach issues
+      this.leaderboardData = [];
+
+      // Still update the display to show empty leaderboard
+      if (this.leaderboardVisible) {
+        this.updateLeaderboardDisplay();
+      }
+    }
+  }
+
+  /**
+   * Update the leaderboard display with current data
+   */
+  private updateLeaderboardDisplay(): void {
+    if (!this.leaderboardElement) return;
+
+    const leaderboardBody = document.getElementById("leaderboard-body");
+    if (!leaderboardBody) return;
+
+    // Clear existing rows
+    leaderboardBody.innerHTML = "";
+
+    // Get current player nickname for highlighting
+    const currentPlayerNickname = this.controls.getPlayerNickname
+      ? this.controls.getPlayerNickname()
+      : "Player";
+
+    // Add rows for each player
+    this.leaderboardData.forEach((player, index) => {
+      const row = document.createElement("tr");
+
+      // Highlight current player
+      if (player.nickname === currentPlayerNickname) {
+        row.classList.add("highlight-player");
+      }
+
+      row.innerHTML = `
+        <td>${index + 1}</td>
+        <td>${player.nickname}</td>
+        <td>${player.score}</td>
+        <td>${player.kills}</td>
+      `;
+
+      leaderboardBody.appendChild(row);
+    });
+  }
+
+  /**
+   * Show the leaderboard
+   */
+  public showLeaderboard(): void {
+    if (!this.leaderboardElement) return;
+
+    // Fetch latest data
+    this.fetchLeaderboardData();
+
+    // Show the leaderboard
+    this.leaderboardElement.classList.remove("hidden");
+    this.leaderboardVisible = true;
+
+    // Start auto-updating the leaderboard
+    if (this.leaderboardUpdateInterval === null) {
+      this.leaderboardUpdateInterval = window.setInterval(() => {
+        this.fetchLeaderboardData();
+      }, 3000); // Update every 3 seconds
+    }
+  }
+
+  /**
+   * Hide the leaderboard
+   */
+  public hideLeaderboard(): void {
+    if (!this.leaderboardElement) return;
+
+    // Hide the leaderboard
+    this.leaderboardElement.classList.add("hidden");
+    this.leaderboardVisible = false;
+
+    // Stop auto-updating
+    if (this.leaderboardUpdateInterval !== null) {
+      window.clearInterval(this.leaderboardUpdateInterval);
+      this.leaderboardUpdateInterval = null;
     }
   }
 }

@@ -27,6 +27,8 @@ export class InputManager {
   private onReloadCallbacks: InputCallback[] = [];
   private onWeaponSwitchCallbacks: ((index: number) => void)[] = [];
   private onMouseMoveCallbacks: ((mousePos: THREE.Vector2) => void)[] = [];
+  private onShowLeaderboardCallbacks: InputCallback[] = [];
+  private onHideLeaderboardCallbacks: InputCallback[] = [];
 
   // Input state
   private keyboardEnabled = true;
@@ -128,6 +130,12 @@ export class InputManager {
             callback(-2); // Next
           }
           break;
+        case "Tab":
+          event.preventDefault(); // Prevent tab from changing focus
+          for (const callback of this.onShowLeaderboardCallbacks) {
+            callback();
+          }
+          break;
       }
     });
 
@@ -136,6 +144,13 @@ export class InputManager {
       if (!this.keyboardEnabled) return;
 
       this.keys[event.code] = false;
+
+      // Handle special key up events
+      if (event.code === "Tab") {
+        for (const callback of this.onHideLeaderboardCallbacks) {
+          callback();
+        }
+      }
     });
 
     // Mouse click event for shooting
@@ -192,5 +207,19 @@ export class InputManager {
    */
   public onMouseMove(callback: (mousePos: THREE.Vector2) => void): void {
     this.onMouseMoveCallbacks.push(callback);
+  }
+
+  /**
+   * Register callback for showing leaderboard
+   */
+  public onShowLeaderboard(callback: InputCallback): void {
+    this.onShowLeaderboardCallbacks.push(callback);
+  }
+
+  /**
+   * Register callback for hiding leaderboard
+   */
+  public onHideLeaderboard(callback: InputCallback): void {
+    this.onHideLeaderboardCallbacks.push(callback);
   }
 }

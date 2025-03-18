@@ -34,6 +34,7 @@ export class IsometricControls implements CollisionDetector {
 
   // Track if controls are enabled
   private enabled = true;
+  private playerNickname = "Player";
 
   constructor(
     camera: THREE.Camera,
@@ -277,5 +278,26 @@ export class IsometricControls implements CollisionDetector {
 
     // Ensure the player's userData.controller is updated
     this.player.userData.controller = this.playerController;
+  }
+
+  /**
+   * Get the input manager
+   */
+  public getInputManager(): InputManager {
+    return this.inputManager;
+  }
+
+  /**
+   * Get player nickname
+   */
+  public getPlayerNickname(): string {
+    return this.playerNickname;
+  }
+
+  /**
+   * Set player nickname
+   */
+  public setPlayerNickname(nickname: string): void {
+    this.playerNickname = nickname;
   }
 }
