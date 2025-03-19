@@ -110,6 +110,15 @@ export class GameLoop {
     // Update controls
     this.controls.update();
 
+    // Update automatic weapon firing
+    const playerController = this.controls.getPlayerController();
+    if (playerController) {
+      const weaponSystem = playerController.getWeaponSystem();
+      if (weaponSystem) {
+        weaponSystem.updateAutoFire(this.scene, delta);
+      }
+    }
+
     // Update pickup manager
     this.pickupManager.update(delta);
 

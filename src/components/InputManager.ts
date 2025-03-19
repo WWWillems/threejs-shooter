@@ -18,6 +18,7 @@ type InputCallback = () => void;
 export class InputManager {
   // Mouse state
   private mousePosition = new THREE.Vector2();
+  private mouseDown = false;
 
   // Keyboard state
   private keys: { [key: string]: boolean } = {};
@@ -29,6 +30,8 @@ export class InputManager {
   private onMouseMoveCallbacks: ((mousePos: THREE.Vector2) => void)[] = [];
   private onShowLeaderboardCallbacks: InputCallback[] = [];
   private onHideLeaderboardCallbacks: InputCallback[] = [];
+  private onMouseDownCallbacks: InputCallback[] = [];
+  private onMouseUpCallbacks: InputCallback[] = [];
 
   // Input state
   private keyboardEnabled = true;
@@ -160,7 +163,35 @@ export class InputManager {
       const mouseEvent = event as unknown as MouseEvent;
       if (mouseEvent.button === 0) {
         // Left mouse button
+        this.mouseDown = true;
         for (const callback of this.onShootCallbacks) {
+          callback();
+        }
+        for (const callback of this.onMouseDownCallbacks) {
+          callback();
+        }
+      }
+    });
+
+    // Mouse up event
+    this.domElement.addEventListener("mouseup", (event: Event) => {
+      if (!this.mouseEnabled) return;
+
+      const mouseEvent = event as unknown as MouseEvent;
+      if (mouseEvent.button === 0) {
+        // Left mouse button
+        this.mouseDown = false;
+        for (const callback of this.onMouseUpCallbacks) {
+          callback();
+        }
+      }
+    });
+
+    // Also handle mouse leaving the window
+    document.addEventListener("mouseout", () => {
+      if (this.mouseDown) {
+        this.mouseDown = false;
+        for (const callback of this.onMouseUpCallbacks) {
           callback();
         }
       }
@@ -221,5 +252,26 @@ export class InputManager {
    */
   public onHideLeaderboard(callback: InputCallback): void {
     this.onHideLeaderboardCallbacks.push(callback);
+  }
+
+  /**
+   * Register callback for mouse down event
+   */
+  public onMouseDown(callback: InputCallback): void {
+    this.onMouseDownCallbacks.push(callback);
+  }
+
+  /**
+   * Register callback for mouse up event
+   */
+  public onMouseUp(callback: InputCallback): void {
+    this.onMouseUpCallbacks.push(callback);
+  }
+
+  /**
+   * Check if mouse is currently down
+   */
+  public isMouseDown(): boolean {
+    return this.mouseDown;
   }
 }

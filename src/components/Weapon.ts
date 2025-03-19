@@ -54,6 +54,9 @@ export class WeaponSystem extends NetworkedEntity {
   private muzzleFlashDuration = 0.05; // in seconds
   private muzzleFlashTimer = 0;
 
+  // Add auto-fire tracking
+  private isMouseDown = false;
+
   constructor(
     scene: THREE.Scene,
     player: THREE.Mesh,
@@ -1035,5 +1038,21 @@ export class WeaponSystem extends NetworkedEntity {
    */
   public setPickupManager(pickupManager: PickupManager): void {
     this.pickupManager = pickupManager;
+  }
+
+  // Set mouse down state (call this when mouse button is pressed)
+  public setMouseDown(isDown: boolean): void {
+    this.isMouseDown = isDown;
+  }
+
+  // Method to update auto-fire (call this in the game loop)
+  public updateAutoFire(scene: THREE.Scene, delta: number): void {
+    if (this.isMouseDown) {
+      const currentWeapon = this.getCurrentWeapon();
+      // Only auto-fire for assault rifle
+      if (currentWeapon.name === "Assault Rifle") {
+        this.shoot(scene);
+      }
+    }
   }
 }

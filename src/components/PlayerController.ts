@@ -126,6 +126,15 @@ export class PlayerController {
       this.weaponSystem.shoot(this.scene);
     });
 
+    // Track mouse state for automatic weapons
+    this.inputManager.onMouseDown(() => {
+      this.weaponSystem.setMouseDown(true);
+    });
+
+    this.inputManager.onMouseUp(() => {
+      this.weaponSystem.setMouseDown(false);
+    });
+
     this.inputManager.onReload(() => {
       this.weaponSystem.reload();
     });
@@ -583,5 +592,13 @@ export class PlayerController {
    */
   public updateCollisionSystem(collisionSystem: CollisionSystem): void {
     this.collisionSystem = collisionSystem;
+  }
+
+  /**
+   * Get the player's weapon system
+   * @returns The weapon system
+   */
+  public getWeaponSystem() {
+    return this.weaponSystem;
   }
 }
