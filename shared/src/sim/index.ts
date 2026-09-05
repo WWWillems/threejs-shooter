@@ -5,5 +5,6 @@ export * from "./weapons";
 export * from "./projectile";
 export * from "./mapLayout";
 export * from "./spawnPoints";
+export * from "./playerHitbox";
 export * from "./pickups";
 export * from "./grenade";

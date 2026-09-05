@@ -1,5 +1,5 @@
 import type { Vec3 } from "../types";
-import { rotateY, vec3 } from "./vec3";
+import { add, rotateY, sub, vec3 } from "./vec3";
 
 /** Axis-aligned bounding box in world space. */
 export interface AABB {
@@ -107,4 +107,36 @@ export function sweepSegmentAABB(
   }
 
   return tMin;
+}
+
+/**
+ * Bring a world-space point into the local frame of `box` rotated `yaw`
+ * radians about the Y axis through its centre (same convention as a Three.js
+ * `rotation.y`). In that frame the rotated box is just `box` again.
+ */
+const toRotatedBoxFrame = (box: AABB, yaw: number, p: Vec3): Vec3 => {
+  const c = aabbCenter(box);
+  return add(rotateY(sub(p, c), -yaw), c);
+};
+
+/** Whether `p` lies inside `box` after rotating the box `yaw` about Y through its centre. */
+export const rotatedAabbContains = (box: AABB, yaw: number, p: Vec3): boolean =>
+  aabbContains(box, yaw === 0 ? p : toRotatedBoxFrame(box, yaw, p));
+
+/**
+ * Sweep the segment `from -> to` against `box` rotated `yaw` about the Y axis
+ * through its centre. Same contract as `sweepSegmentAABB`.
+ */
+export function sweepSegmentRotatedAABB(
+  from: Vec3,
+  to: Vec3,
+  box: AABB,
+  yaw: number
+): number | null {
+  if (yaw === 0) return sweepSegmentAABB(from, to, box);
+  return sweepSegmentAABB(
+    toRotatedBoxFrame(box, yaw, from),
+    toRotatedBoxFrame(box, yaw, to),
+    box
+  );
 }

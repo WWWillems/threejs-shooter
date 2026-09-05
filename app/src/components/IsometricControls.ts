@@ -122,10 +122,6 @@ export class IsometricControls implements CollisionDetector {
 
     // Update debug visualization if enabled
     if (this.debugVisualizer.isDebugMode()) {
-      // Pass current player height to debug visualizer
-      this.debugVisualizer.setPlayerHeight(
-        this.playerController.getPlayerHeight()
-      );
       this.debugVisualizer.updateDebugVisualization();
     }
   }

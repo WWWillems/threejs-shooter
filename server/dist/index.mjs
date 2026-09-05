@@ -142,6 +142,18 @@ function sweepSegmentAABB(from, to, box) {
   }
   return tMin;
 }
+const toRotatedBoxFrame = (box, yaw, p) => {
+  const c = aabbCenter(box);
+  return add(rotateY(sub(p, c), -yaw), c);
+};
+function sweepSegmentRotatedAABB(from, to, box, yaw) {
+  if (yaw === 0) return sweepSegmentAABB(from, to, box);
+  return sweepSegmentAABB(
+    toRotatedBoxFrame(box, yaw, from),
+    toRotatedBoxFrame(box, yaw, to),
+    box
+  );
+}
 
 var __defProp$2 = Object.defineProperty;
 var __defNormalProp$2 = (obj, key, value) => key in obj ? __defProp$2(obj, key, { enumerable: true, configurable: true, writable: true, value }) : obj[key] = value;
@@ -242,7 +254,12 @@ function sweepProjectile(from, to, colliders, skip) {
   let best = null;
   for (const collider of colliders) {
     if (skip?.(collider)) continue;
-    const t = sweepSegmentAABB(from, to, collider.box);
+    const t = sweepSegmentRotatedAABB(
+      from,
+      to,
+      collider.box,
+      collider.yaw ?? 0
+    );
     if (t === null) continue;
     if (!best || t < best.t) {
       best = { t, point: lerp(from, to, t), collider };
@@ -569,6 +586,12 @@ function pickSpawnPoint(occupied, points = SPAWN_POINTS) {
   }
   return best;
 }
+
+const playerHitbox = (position, yaw) => ({
+  box: aabbFromCenterSize(position, PLAYER_SIZE),
+  yaw
+});
+const playerCollider = (position, yaw, tag) => ({ ...playerHitbox(position, yaw), tag });
 
 const PICKUP_REACH = 2;
 const PICKUP_LIFETIME = 30;
@@ -1192,10 +1215,12 @@ class GameRoom {
     const colliders = [];
     for (const player of this.players.values()) {
       if (player.status !== "alive" || !player.position) continue;
-      colliders.push({
-        box: aabbFromCenterSize(player.position, PLAYER_SIZE),
-        tag: { kind: "player", id: player.id }
-      });
+      colliders.push(
+        playerCollider(player.position, player.rotation, {
+          kind: "player",
+          id: player.id
+        })
+      );
     }
     return colliders;
   }

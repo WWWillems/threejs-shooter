@@ -207,6 +207,34 @@ describe("GameRoom", () => {
       expect(bob.received(GAME_EVENTS.COMBAT.HIT)).toHaveLength(0);
     });
 
+    it("hitboxes turn with the player", () => {
+      const { alice, bob } = twoPlayers();
+      // A grazing shot down -Z at x = 0.6: past the face of Bob's 1-wide box
+      // when he faces straight ahead, inside it once he turns 45 degrees.
+      const graze = () =>
+        alice.send(GAME_EVENTS.WEAPON.SHOOT, {
+          weaponType: "pistol",
+          action: "shoot",
+          data: {
+            position: { x: 0.6, y: 1, z: -0.6 },
+            direction: { x: 0, y: 0, z: -1 },
+          },
+        });
+
+      graze();
+      runTicks(10);
+      expect(bob.received(GAME_EVENTS.COMBAT.HIT)).toHaveLength(0);
+
+      bob.send(GAME_EVENTS.PLAYER.POSITION, {
+        position: { x: 0, y: 1, z: -10 },
+        rotation: Math.PI / 4,
+      });
+      now += 1000;
+      graze();
+      runTicks(10);
+      expect(bob.received(GAME_EVENTS.COMBAT.HIT)).toHaveLength(1);
+    });
+
     it("bullets stop at world geometry", () => {
       const { alice } = twoPlayers();
       // Shoot at the shop (10x4x8 at z=-20): from z=-14 towards -Z

@@ -23,6 +23,7 @@ import {
   isWeaponId,
   isWithinPickupReach,
   pickSpawnPoint,
+  playerCollider,
   rollCrateDrop,
   rollPickupContents,
   shopBox,
@@ -649,10 +650,12 @@ export class GameRoom {
     const colliders: Collider<WorldTag>[] = [];
     for (const player of this.players.values()) {
       if (player.status !== "alive" || !player.position) continue;
-      colliders.push({
-        box: aabbFromCenterSize(player.position, PLAYER_SIZE),
-        tag: { kind: "player", id: player.id },
-      });
+      colliders.push(
+        playerCollider(player.position, player.rotation, {
+          kind: "player",
+          id: player.id,
+        })
+      );
     }
     return colliders;
   }

@@ -1,5 +1,5 @@
 import type { Vec3 } from "../types";
-import { type AABB, sweepSegmentAABB } from "./aabb";
+import { type AABB, sweepSegmentRotatedAABB } from "./aabb";
 import { add, lerp, normalize, rotateY, scale } from "./vec3";
 import { pelletYawOffsets, type WeaponStats } from "./weapons";
 
@@ -20,7 +20,10 @@ export interface Projectile {
 
 /** Something a projectile can hit. */
 export interface Collider<Tag = unknown> {
+  /** The box in its own (unrotated) frame. */
   box: AABB;
+  /** Rotation about the Y axis through the box centre, radians. Omit for axis-aligned. */
+  yaw?: number;
   tag: Tag;
 }
 
@@ -75,7 +78,12 @@ export function sweepProjectile<Tag>(
   let best: SweepHit<Tag> | null = null;
   for (const collider of colliders) {
     if (skip?.(collider)) continue;
-    const t = sweepSegmentAABB(from, to, collider.box);
+    const t = sweepSegmentRotatedAABB(
+      from,
+      to,
+      collider.box,
+      collider.yaw ?? 0
+    );
     if (t === null) continue;
     if (!best || t < best.t) {
       best = { t, point: lerp(from, to, t), collider };

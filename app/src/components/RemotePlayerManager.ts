@@ -303,12 +303,7 @@ export class RemotePlayerManager {
   public containsPoint(point: THREE.Vector3): boolean {
     for (const player of this.players.values()) {
       if (player.isDead) continue;
-      const playerHeight = PlayerCollider.getPlayerHeight(player.mesh);
-      const playerBox = PlayerCollider.createCollisionBox(
-        player.mesh.position,
-        playerHeight
-      );
-      if (playerBox.containsPoint(point)) return true;
+      if (PlayerCollider.containsPoint(player.mesh, point)) return true;
     }
     return false;
   }

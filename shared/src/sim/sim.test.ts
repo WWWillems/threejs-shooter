@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { aabbFromCenterSize, aabbFromRotatedBox, sweepSegmentAABB } from "./aabb";
+import {
+  aabbFromCenterSize,
+  aabbFromRotatedBox,
+  rotatedAabbContains,
+  sweepSegmentAABB,
+  sweepSegmentRotatedAABB,
+} from "./aabb";
+import { playerCollider, playerHitbox, playerHitboxContains } from "./playerHitbox";
 import { GRENADE, blastDamage, integrateGrenade, spawnGrenade } from "./grenade";
 import { generateMap, crateBox } from "./mapLayout";
 import { integrateProjectile, spawnPellets, type Collider } from "./projectile";
@@ -38,6 +45,57 @@ describe("sweepSegmentAABB", () => {
     expect(sweepSegmentAABB(vec3(0.2, -3, 0.2), vec3(0.2, 3, 0.2), box)).toBeCloseTo(
       2.5 / 6
     );
+  });
+});
+
+describe("rotated boxes", () => {
+  // 1 x 1 footprint at the origin. Turned 45 degrees it becomes a diamond
+  // reaching sqrt(0.5) ~ 0.707 along the axes, but only 0.5 along the diagonals.
+  const box = aabbFromCenterSize(vec3(0, 1, 0), vec3(1, 2, 1));
+  const quarter = Math.PI / 4;
+
+  it("contains points the axis-aligned box would miss, and vice versa", () => {
+    // On the x axis, past the unrotated face but inside the diamond
+    expect(rotatedAabbContains(box, 0, vec3(0.6, 1, 0))).toBe(false);
+    expect(rotatedAabbContains(box, quarter, vec3(0.6, 1, 0))).toBe(true);
+    // In the unrotated corner, outside the diamond
+    expect(rotatedAabbContains(box, 0, vec3(0.45, 1, 0.45))).toBe(true);
+    expect(rotatedAabbContains(box, quarter, vec3(0.45, 1, 0.45))).toBe(false);
+  });
+
+  it("sweeps against the rotated shape", () => {
+    // Grazing shot at z = 0.6: misses the square, clips the diamond
+    const from = vec3(-3, 1, 0.6);
+    const to = vec3(3, 1, 0.6);
+    expect(sweepSegmentRotatedAABB(from, to, box, 0)).toBeNull();
+    expect(sweepSegmentRotatedAABB(from, to, box, quarter)).not.toBeNull();
+  });
+
+  it("is identical to the plain sweep at yaw 0", () => {
+    const from = vec3(-2, 1, 0);
+    const to = vec3(2, 1, 0);
+    expect(sweepSegmentRotatedAABB(from, to, box, 0)).toBe(
+      sweepSegmentAABB(from, to, box)
+    );
+  });
+
+  it("is periodic in the yaw", () => {
+    const p = vec3(0.6, 1, 0);
+    expect(rotatedAabbContains(box, quarter + Math.PI, p)).toBe(true);
+    expect(rotatedAabbContains(box, Math.PI / 2, p)).toBe(false);
+  });
+});
+
+describe("playerHitbox", () => {
+  it("is one box shared by the point test and the collider", () => {
+    const pos = vec3(4, 1, -2);
+    const hitbox = playerHitbox(pos, Math.PI / 4);
+    const collider = playerCollider(pos, Math.PI / 4, "bob");
+    expect(collider.box).toEqual(hitbox.box);
+    expect(collider.yaw).toBe(hitbox.yaw);
+    expect(collider.tag).toBe("bob");
+    expect(playerHitboxContains(hitbox, vec3(4.6, 1, -2))).toBe(true);
+    expect(playerHitboxContains(hitbox, vec3(4.45, 1, -1.55))).toBe(false);
   });
 });
 

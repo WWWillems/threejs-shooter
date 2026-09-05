@@ -250,7 +250,7 @@ export class CollisionSystem implements CollisionDetector {
     playerHeight: number
   ): boolean {
     // Update player collider using the PlayerCollider utility
-    this.playerCollider = PlayerCollider.createCollisionBox(
+    this.playerCollider = PlayerCollider.createMovementBox(
       position,
       playerHeight
     );
@@ -301,15 +301,8 @@ export class CollisionSystem implements CollisionDetector {
 
     // Bullets are cosmetic on the client: they stop at players so the visual
     // reads right, but damage is resolved by the server (COMBAT.HIT).
-    if (this.player) {
-      const playerHeight = PlayerCollider.getPlayerHeight(this.player);
-      const playerBox = PlayerCollider.createCollisionBox(
-        this.player.position,
-        playerHeight
-      );
-      if (playerBox.containsPoint(bulletPosition)) {
-        return true;
-      }
+    if (this.player && PlayerCollider.containsPoint(this.player, bulletPosition)) {
+      return true;
     }
 
     if (this.remotePlayerManager?.containsPoint(bulletPosition)) {

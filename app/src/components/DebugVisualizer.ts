@@ -12,7 +12,6 @@ export class DebugVisualizer {
   private debugHelpers: THREE.Object3D[] = [];
   private debugMode = false;
   private player: THREE.Object3D;
-  private playerHeight = 2; // Default player height
   private remotePlayerManager?: RemotePlayerManager;
 
   constructor(
@@ -45,16 +44,6 @@ export class DebugVisualizer {
   }
 
   /**
-   * Set current player height for collision visualization
-   */
-  public setPlayerHeight(height: number): void {
-    this.playerHeight = height;
-    if (this.debugMode) {
-      this.updateDebugVisualization();
-    }
-  }
-
-  /**
    * Update the collision system reference
    */
   public updateCollisionSystem(collisionSystem: CollisionSystem): void {
@@ -79,11 +68,8 @@ export class DebugVisualizer {
 
     if (!this.debugMode) return;
 
-    // Create player collider visualization
-    this.createPlayerColliderVisualization(
-      this.player.position,
-      this.playerHeight
-    );
+    // Create player hitbox visualization
+    this.createPlayerColliderVisualization();
 
     // Create car collider visualizations
     this.createCarColliderVisualizations();
@@ -260,16 +246,12 @@ export class DebugVisualizer {
   }
 
   /**
-   * Create visual representation of player collider
+   * Draw the local player's hitbox (the shared, rotated box the server sweeps
+   * bullets against).
    */
-  private createPlayerColliderVisualization(
-    playerPosition: THREE.Vector3,
-    playerHeight: number
-  ): void {
-    // Create player debug mesh using the PlayerCollider utility
+  private createPlayerColliderVisualization(): void {
     const playerMesh = PlayerCollider.createDebugMesh(
-      playerPosition,
-      playerHeight,
+      this.player,
       0x00ff00, // Green for local player
       0.5
     );
@@ -279,7 +261,7 @@ export class DebugVisualizer {
   }
 
   /**
-   * Create visual representations of remote player colliders
+   * Draw each remote player's hitbox at its interpolated position and facing.
    */
   private createRemotePlayerColliderVisualizations(): void {
     if (!this.remotePlayerManager) return;
@@ -288,13 +270,8 @@ export class DebugVisualizer {
     if (!remotePlayers) return;
 
     for (const player of remotePlayers.values()) {
-      // Get player height using the PlayerCollider utility
-      const playerHeight = PlayerCollider.getPlayerHeight(player.mesh);
-
-      // Create remote player debug mesh using the PlayerCollider utility
       const playerMesh = PlayerCollider.createDebugMesh(
-        player.mesh.position,
-        playerHeight,
+        player.mesh,
         0xff0000, // Red for remote players
         0.5
       );
