@@ -58,6 +58,9 @@ export function attachSocketIO(io: GameServer, room: GameRoom): void {
     socket.on(GAME_EVENTS.WEAPON.SWITCH, (p) =>
       room.applyIntent(socket.id, GAME_EVENTS.WEAPON.SWITCH, p)
     );
+    socket.on(GAME_EVENTS.PICKUP.CLAIM, (p) =>
+      room.applyIntent(socket.id, GAME_EVENTS.PICKUP.CLAIM, p)
+    );
 
     socket.on("disconnect", () => {
       console.log("User disconnected:", socket.id);

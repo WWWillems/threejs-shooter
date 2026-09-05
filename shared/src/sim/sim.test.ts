@@ -2,6 +2,12 @@ import { describe, expect, it } from "vitest";
 import { aabbFromCenterSize, aabbFromRotatedBox, sweepSegmentAABB } from "./aabb";
 import { generateMap, crateBox } from "./mapLayout";
 import { integrateProjectile, spawnPellets, type Collider } from "./projectile";
+import {
+  PICKUP_REACH,
+  findPickupSpawnPosition,
+  isWithinPickupReach,
+  rollPickupContents,
+} from "./pickups";
 import { Rng } from "./rng";
 import { pickSpawnPoint } from "./spawnPoints";
 import { WEAPONS, pelletYawOffsets } from "./weapons";
@@ -130,5 +136,39 @@ describe("pickSpawnPoint", () => {
     const spot = pickSpawnPoint([vec3(0, 1, 0), vec3(12, 1, -4)]);
     expect(spot).not.toEqual(vec3(0, 1, 0));
     expect(spot).not.toEqual(vec3(12, 1, -4));
+  });
+});
+
+describe("pickups", () => {
+  it("reach is measured on the ground plane", () => {
+    const pickup = vec3(0, 0.5, 0);
+    expect(isWithinPickupReach(vec3(1, 1, 1), pickup)).toBe(true);
+    expect(isWithinPickupReach(vec3(PICKUP_REACH + 0.1, 1, 0), pickup)).toBe(false);
+  });
+
+  it("spawns clear of blockers and players", () => {
+    const rng = new Rng(3);
+    const blocker = aabbFromCenterSize(vec3(0, 0.5, 0), vec3(200, 1, 20)); // wide bar
+    const player = vec3(20, 1, 20);
+    for (let i = 0; i < 20; i++) {
+      const spot = findPickupSpawnPosition(rng, [blocker], [player]);
+      expect(spot).not.toBeNull();
+      expect(Math.abs(spot!.z)).toBeGreaterThan(10);
+      expect(Math.hypot(spot!.x - player.x, spot!.z - player.z)).toBeGreaterThanOrEqual(10);
+    }
+  });
+
+  it("gives up when nothing fits", () => {
+    const everywhere = aabbFromCenterSize(vec3(0, 0.5, 0), vec3(400, 4, 400));
+    expect(findPickupSpawnPosition(new Rng(1), [everywhere], [])).toBeNull();
+  });
+
+  it("rolls valid contents", () => {
+    const rng = new Rng(9);
+    for (let i = 0; i < 20; i++) {
+      const spec = rollPickupContents(rng, `p${i}`, vec3(0, 0.5, 0));
+      expect(spec.amount).toBeGreaterThan(0);
+      if (spec.kind === "ammo") expect(WEAPONS[spec.weaponId]).toBeDefined();
+    }
   });
 });

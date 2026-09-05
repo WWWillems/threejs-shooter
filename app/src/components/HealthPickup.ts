@@ -1,6 +1,5 @@
 import * as THREE from "three";
 import { Pickup } from "./Pickup";
-import type { PlayerController } from "./PlayerController";
 
 /**
  * Health pickup class
@@ -51,15 +50,12 @@ export class HealthPickup extends Pickup {
     return "health";
   }
 
-  public collect(playerController: PlayerController): void {
-    // Apply healing to player
-    playerController.heal(this.healAmount);
+  public getHealAmount(): number {
+    return this.healAmount;
+  }
 
-    // Create effect
-    this.createCollectionEffect(0xff0000);
-
-    // Remove pickup
-    this.remove();
+  protected collectionEffectColor(): number {
+    return 0xff0000;
   }
 
   private addHoverAnimation(group: THREE.Group): void {

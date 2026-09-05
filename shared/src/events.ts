@@ -37,4 +37,20 @@ export const GAME_EVENTS = {
     /** Server -> all: a player's HP reached zero. */
     KILL: "combat:kill",
   },
+  CRATE: {
+    /** Server -> all: a crate took damage. */
+    DAMAGED: "crate:damaged",
+    /** Server -> all: a crate's HP reached zero; remove it. */
+    DESTROYED: "crate:destroyed",
+  },
+  PICKUP: {
+    /** Server -> all: a pickup appeared in the world. */
+    SPAWNED: "pickup:spawned",
+    /** Client -> server: I'm standing on this pickup and want it. */
+    CLAIM: "pickup:claim",
+    /** Server -> all: a player took a pickup. */
+    TAKEN: "pickup:taken",
+    /** Server -> all: a pickup timed out. */
+    EXPIRED: "pickup:expired",
+  },
 } as const;

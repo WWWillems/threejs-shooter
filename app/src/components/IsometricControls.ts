@@ -169,7 +169,6 @@ export class IsometricControls implements CollisionDetector {
       position,
       size,
       rotation,
-      this.pickupManager,
       crateId
     );
     this.collisionSystem.addWoodenCrate(crate, size);

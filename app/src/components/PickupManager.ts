@@ -1,4 +1,10 @@
 import * as THREE from "three";
+import {
+  GAME_EVENTS,
+  isWithinPickupReach,
+  type PickupSpec,
+  type WeaponId,
+} from "@threejs-shooter/shared";
 import type { PlayerController } from "./PlayerController";
 import { WeaponType } from "./Weapon";
 import type { Weapon } from "./Weapon";
@@ -6,80 +12,143 @@ import { HealthPickup } from "./HealthPickup";
 import { AmmoPickup } from "./AmmoPickup";
 import { WeaponPickup } from "./WeaponPickup";
 import type { HUD } from "./HUD";
-import type { CollisionSystem } from "./CollisionSystem";
+import type { NetworkClient } from "../net/NetworkClient";
 import type { Pickup } from "./Pickup";
 
+/** Don't re-send a claim for the same pickup more often than this (ms). */
+const CLAIM_RETRY_MS = 500;
+
 /**
- * Pickup manager class to handle all pickups in the game
+ * Renders pickups. Health and ammo pickups are owned by the server: they
+ * appear on PICKUP.SPAWNED, we send PICKUP.CLAIM when the local player is in
+ * reach, and they disappear on PICKUP.TAKEN / PICKUP.EXPIRED. Dropped weapons
+ * are still purely local (inventory is client-trusted for now).
  */
 export class PickupManager {
   private scene: THREE.Scene;
-  private pickups: Array<Pickup> = [];
+  /** Server-owned pickups keyed by server id. */
+  private serverPickups = new Map<string, Pickup>();
+  /** Claims in flight: pickup id -> time sent (ms). */
+  private pendingClaims = new Map<string, number>();
+  /** Client-owned pickups (dropped weapons). */
+  private localPickups: Pickup[] = [];
   private playerController: PlayerController;
   private player: THREE.Object3D;
+  private net: NetworkClient;
   private collectionDistance = 1.5;
   private hud: HUD | null = null;
-  private collisionSystem: CollisionSystem | null = null;
-  private groundSize = 100; // Size of the ground plane
-  private lastSpawnTime = 0;
-  private spawnInterval = 10; // Base interval in seconds between spawns
-  private maxPickups = 10; // Maximum number of pickups allowed at once
-  private minSpawnInterval = 5; // Minimum spawn interval in seconds
-  private maxSpawnInterval = 15; // Maximum spawn interval in seconds
 
   constructor(
     scene: THREE.Scene,
     player: THREE.Object3D,
     playerController: PlayerController,
-    hud?: HUD,
-    collisionSystem?: CollisionSystem
+    net: NetworkClient,
+    hud?: HUD
   ) {
     this.scene = scene;
     this.player = player;
     this.playerController = playerController;
+    this.net = net;
     this.hud = hud || null;
-    this.collisionSystem = collisionSystem || null;
 
     // Initialize animations array
     if (!window.__pickupAnimations) {
       window.__pickupAnimations = [];
     }
+
+    this.setupNetworkListeners();
+  }
+
+  private setupNetworkListeners(): void {
+    const { net } = this;
+
+    // Full sync on (re)join: whatever the server has is what exists
+    net.on(GAME_EVENTS.GAME.STATE, ({ pickups }) => {
+      this.clearServerPickups();
+      for (const spec of pickups) this.spawnFromSpec(spec);
+    });
+
+    net.on(GAME_EVENTS.PICKUP.SPAWNED, (spec) => this.spawnFromSpec(spec));
+
+    net.on(GAME_EVENTS.PICKUP.EXPIRED, ({ pickupId }) => {
+      this.removeServerPickup(pickupId);
+    });
+
+    net.on(GAME_EVENTS.PICKUP.TAKEN, ({ pickup, playerId, hp }) => {
+      const rendered = this.serverPickups.get(pickup.id);
+      rendered?.playCollectionEffect();
+      this.removeServerPickup(pickup.id);
+
+      if (playerId !== net.selfId) return;
+      this.applyToLocalPlayer(pickup, hp);
+    });
+  }
+
+  /** The server says we got it: apply the effect and tell the player. */
+  private applyToLocalPlayer(pickup: PickupSpec, hp: number): void {
+    switch (pickup.kind) {
+      case "health":
+        this.playerController.applyServerHp(hp);
+        this.hud?.showHealthPickupNotification(pickup.amount);
+        break;
+      case "ammo": {
+        const weaponType = toWeaponType(pickup.weaponId);
+        this.playerController.addAmmo(weaponType, pickup.amount);
+        this.hud?.showAmmoPickupNotification(weaponType, pickup.amount);
+        break;
+      }
+      default: {
+        const unhandled: never = pickup;
+        throw new Error(`Unhandled pickup kind: ${String(unhandled)}`);
+      }
+    }
+  }
+
+  private spawnFromSpec(spec: PickupSpec): void {
+    if (this.serverPickups.has(spec.id)) return;
+    const position = new THREE.Vector3(
+      spec.position.x,
+      spec.position.y,
+      spec.position.z
+    );
+
+    let pickup: Pickup;
+    switch (spec.kind) {
+      case "health":
+        pickup = new HealthPickup(this.scene, position, spec.amount);
+        break;
+      case "ammo":
+        pickup = new AmmoPickup(
+          this.scene,
+          position,
+          toWeaponType(spec.weaponId),
+          spec.amount
+        );
+        break;
+      default: {
+        const unhandled: never = spec;
+        throw new Error(`Unhandled pickup kind: ${String(unhandled)}`);
+      }
+    }
+    this.serverPickups.set(spec.id, pickup);
+  }
+
+  private removeServerPickup(pickupId: string): void {
+    const pickup = this.serverPickups.get(pickupId);
+    if (!pickup) return;
+    pickup.remove();
+    this.serverPickups.delete(pickupId);
+    this.pendingClaims.delete(pickupId);
+  }
+
+  private clearServerPickups(): void {
+    for (const id of [...this.serverPickups.keys()]) {
+      this.removeServerPickup(id);
+    }
   }
 
   /**
-   * Set the collision system for pickup spawning
-   */
-  public setCollisionSystem(collisionSystem: CollisionSystem): void {
-    this.collisionSystem = collisionSystem;
-  }
-
-  /**
-   * Create a health pickup at the specified position
-   */
-  public createHealthPickup(
-    position: THREE.Vector3,
-    healAmount = 25
-  ): HealthPickup {
-    const pickup = new HealthPickup(this.scene, position, healAmount);
-    this.pickups.push(pickup);
-    return pickup;
-  }
-
-  /**
-   * Create an ammo pickup at the specified position
-   */
-  public createAmmoPickup(
-    position: THREE.Vector3,
-    weaponType: WeaponType,
-    ammoAmount = 30
-  ): AmmoPickup {
-    const pickup = new AmmoPickup(this.scene, position, weaponType, ammoAmount);
-    this.pickups.push(pickup);
-    return pickup;
-  }
-
-  /**
-   * Create a weapon pickup at the specified position
+   * Create a weapon pickup at the specified position (local: dropped weapon)
    */
   public createWeaponPickup(
     position: THREE.Vector3,
@@ -87,36 +156,17 @@ export class PickupManager {
     model: THREE.Object3D
   ): WeaponPickup {
     const pickup = new WeaponPickup(this.scene, position, weapon, model);
-    this.pickups.push(pickup);
+    this.localPickups.push(pickup);
     return pickup;
   }
 
   /**
-   * Update pickups - check for collection and expiration
+   * Per frame: claim server pickups we are standing on, collect local ones,
+   * advance hover animations.
    */
   public update(delta: number): void {
-    // Make a copy of the array to avoid issues if we modify it during iteration
-    const currentPickups = [...this.pickups];
-
-    for (let i = currentPickups.length - 1; i >= 0; i--) {
-      const pickup = currentPickups[i];
-
-      // Check if pickup has expired
-      if (pickup.hasExpired()) {
-        pickup.remove();
-        this.pickups.splice(i, 1);
-        continue;
-      }
-
-      // Check if player is close enough to collect the pickup
-      const distance = this.player.position.distanceTo(
-        pickup.getMesh().position
-      );
-      if (distance < this.collectionDistance) {
-        // Collect the pickup and show notification
-        this.collectPickup(pickup, i);
-      }
-    }
+    this.claimNearbyServerPickups();
+    this.collectLocalPickups();
 
     // Update pickup animations
     if (window.__pickupAnimations && window.__pickupAnimations.length > 0) {
@@ -125,136 +175,63 @@ export class PickupManager {
         anim(delta)
       );
     }
-
-    // Check if it's time to spawn a new pickup
-    this.checkRandomSpawn(delta);
   }
 
-  /**
-   * Collect a pickup and show a notification
-   */
-  private collectPickup(pickup: Pickup, index: number): void {
-    // Call the pickup's collect method
-    pickup.collect(this.playerController);
+  private claimNearbyServerPickups(): void {
+    if (this.playerController.getHealth().isDead) return;
+    const now = performance.now();
+    const playerPos = this.player.position;
 
-    // Remove from pickups array
-    this.pickups.splice(index, 1);
+    for (const [id, pickup] of this.serverPickups) {
+      const target = pickup.getMesh().position;
+      if (!isWithinPickupReach(playerPos, target)) continue;
 
-    // Show notification if HUD is available
-    if (this.hud) {
-      if (pickup instanceof HealthPickup) {
-        // Get heal amount from pickup's userData
-        const healAmount = pickup.getMesh().userData.healAmount || 0;
-        this.hud.showHealthPickupNotification(healAmount);
-      } else if (pickup instanceof AmmoPickup) {
-        // Get ammo info from pickup's userData
-        const userData = pickup.getMesh().userData;
-        if (userData.weaponType && userData.ammoAmount) {
-          this.hud.showAmmoPickupNotification(
-            userData.weaponType,
-            userData.ammoAmount
-          );
-        }
-      } else if (pickup instanceof WeaponPickup) {
-        // Get weapon info from pickup's userData
-        const userData = pickup.getMesh().userData;
-        if (userData.weaponName) {
-          this.hud.showWeaponPickupNotification(userData.weaponName);
-        }
-      }
+      const lastSent = this.pendingClaims.get(id);
+      if (lastSent !== undefined && now - lastSent < CLAIM_RETRY_MS) continue;
+
+      this.pendingClaims.set(id, now);
+      this.net.send(GAME_EVENTS.PICKUP.CLAIM, { pickupId: id });
     }
   }
 
-  /**
-   * Check if we should spawn a random pickup
-   */
-  private checkRandomSpawn(delta: number): void {
-    // Update spawn timer
-    this.lastSpawnTime += delta;
+  private collectLocalPickups(): void {
+    for (let i = this.localPickups.length - 1; i >= 0; i--) {
+      const pickup = this.localPickups[i];
 
-    // Check if it's time to spawn a new pickup and if we're under the max limit
-    if (
-      this.lastSpawnTime >= this.spawnInterval &&
-      this.pickups.length < this.maxPickups
-    ) {
-      this.spawnRandomPickup();
-
-      // Reset timer with random interval
-      this.lastSpawnTime = 0;
-      this.spawnInterval =
-        this.minSpawnInterval +
-        Math.random() * (this.maxSpawnInterval - this.minSpawnInterval);
-    }
-  }
-
-  /**
-   * Generate a random position on the ground that doesn't collide with objects
-   */
-  private getValidSpawnPosition(): THREE.Vector3 | null {
-    // Try up to 30 positions before giving up
-    for (let i = 0; i < 30; i++) {
-      // Generate random position within ground boundaries
-      const halfSize = this.groundSize / 2;
-      const x = Math.random() * this.groundSize - halfSize;
-      const z = Math.random() * this.groundSize - halfSize;
-      const position = new THREE.Vector3(x, 0.5, z); // 0.5 to position slightly above ground
-
-      // Keep pickups away from player spawn to give them time to navigate
-      if (position.distanceTo(this.player.position) < 10) {
+      if (pickup.hasExpired()) {
+        pickup.remove();
+        this.localPickups.splice(i, 1);
         continue;
       }
 
-      // Check if position is valid (no collision)
-      if (this.isValidSpawnPosition(position)) {
-        return position;
+      const distance = this.player.position.distanceTo(
+        pickup.getMesh().position
+      );
+      if (distance < this.collectionDistance) {
+        pickup.collect(this.playerController);
+        this.localPickups.splice(i, 1);
+
+        const weaponName = pickup.getMesh().userData.weaponName;
+        if (this.hud && weaponName) {
+          this.hud.showWeaponPickupNotification(weaponName);
+        }
       }
     }
-
-    // Could not find a valid position
-    return null;
   }
+}
 
-  /**
-   * Check if a position is valid for spawning a pickup (no collision with objects)
-   */
-  private isValidSpawnPosition(position: THREE.Vector3): boolean {
-    // If no collision system is available, allow spawning anywhere
-    if (!this.collisionSystem) {
-      return true;
-    }
-
-    // Create a temporary position slightly above ground to check for collisions
-    // We check collision as if there was a small object at this position
-    const testPosition = position.clone();
-    testPosition.y = 0.1; // Start just above ground
-
-    // Use the collision system to check if this position collides with any objects
-    return !this.collisionSystem.checkPlayerCollision(testPosition, 1);
-  }
-
-  /**
-   * Spawn a random pickup at a random valid position
-   */
-  private spawnRandomPickup(): void {
-    // Get a valid spawn position
-    const position = this.getValidSpawnPosition();
-    if (!position) {
-      // Could not find a valid position
-      return;
-    }
-
-    // Randomly choose between health and ammo pickup (50/50 chance)
-    if (Math.random() < 0.5) {
-      // Health pickup with random amount between 10 and 50
-      const healAmount = Math.floor(10 + Math.random() * 40);
-      this.createHealthPickup(position, healAmount);
-    } else {
-      // Ammo pickup with random weapon type
-      const weaponTypes = Object.values(WeaponType);
-      const weaponType =
-        weaponTypes[Math.floor(Math.random() * weaponTypes.length)];
-      const ammoAmount = Math.floor(20 + Math.random() * 60);
-      this.createAmmoPickup(position, weaponType, ammoAmount);
+/** Map a shared weapon id onto the client's WeaponType enum. */
+function toWeaponType(weaponId: WeaponId): WeaponType {
+  switch (weaponId) {
+    case "pistol":
+      return WeaponType.PISTOL;
+    case "rifle":
+      return WeaponType.RIFLE;
+    case "shotgun":
+      return WeaponType.SHOTGUN;
+    default: {
+      const unhandled: never = weaponId;
+      throw new Error(`Unhandled weapon id: ${String(unhandled)}`);
     }
   }
 }

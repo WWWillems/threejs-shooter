@@ -60,6 +60,7 @@ describe("event contract", () => {
       GAME_EVENTS.PLAYER.RESPAWN,
       GAME_EVENTS.WEAPON.SHOOT,
       GAME_EVENTS.WEAPON.SWITCH,
+      GAME_EVENTS.PICKUP.CLAIM,
     ];
     const server: ServerEventName[] = [
       GAME_EVENTS.GAME.STATE,
@@ -72,6 +73,11 @@ describe("event contract", () => {
       GAME_EVENTS.WEAPON.SWITCH,
       GAME_EVENTS.COMBAT.HIT,
       GAME_EVENTS.COMBAT.KILL,
+      GAME_EVENTS.CRATE.DAMAGED,
+      GAME_EVENTS.CRATE.DESTROYED,
+      GAME_EVENTS.PICKUP.SPAWNED,
+      GAME_EVENTS.PICKUP.TAKEN,
+      GAME_EVENTS.PICKUP.EXPIRED,
     ];
     for (const name of [...client, ...server]) {
       expect(allEventNames).toContain(name);

@@ -1,6 +1,5 @@
 import * as THREE from "three";
-import { WeaponType } from "./Weapon";
-import type { PickupManager } from "./PickupManager";
+import { CRATE_MAX_HP } from "@threejs-shooter/shared";
 
 // Define wooden crate collision dimensions for collision detection
 export interface WoodenCrateCollisionInfo {
@@ -8,14 +7,21 @@ export interface WoodenCrateCollisionInfo {
   heightOffset: number;
 }
 
-// Define interface for destructible crate
+/**
+ * A crate mesh that mirrors server state. The server owns crate HP; the
+ * client only shows damage (`applyServerHp`) and removes destroyed crates
+ * (`destroy`).
+ */
 export interface DestructibleCrate extends THREE.Group {
   /** Id from the shared map layout; the server refers to crates by this. */
   crateId?: string;
   crateSize?: number;
   health?: number;
   maxHealth?: number;
-  takeDamage?: (amount: number) => boolean; // Returns true if destroyed
+  /** Show the damage tint for a server-reported HP value. */
+  applyServerHp?: (hp: number) => void;
+  /** Play the destruction effect and remove the crate from the scene. */
+  destroy?: (withEffect?: boolean) => void;
   isDestroyed?: boolean;
 }
 
@@ -310,7 +316,6 @@ function addToScene(
   position: THREE.Vector3,
   size = 1,
   rotation = 0,
-  pickupManager?: PickupManager,
   crateId?: string
 ): DestructibleCrate {
   const crateGroup = createWoodenCrateModel(size);
@@ -318,77 +323,51 @@ function addToScene(
   crateGroup.rotation.y = rotation;
   scene.add(crateGroup);
 
-  // Add destructible properties
   const crate = crateGroup as DestructibleCrate;
   crate.crateId = crateId;
   crate.crateSize = size;
-  crate.maxHealth = 100;
-  crate.health = 100;
+  crate.maxHealth = CRATE_MAX_HP;
+  crate.health = CRATE_MAX_HP;
   crate.isDestroyed = false;
 
-  // Add damage function
-  crate.takeDamage = function (amount: number): boolean {
-    if (this.isDestroyed) return true;
+  crate.applyServerHp = function (hp: number): void {
+    if (this.isDestroyed || this.maxHealth === undefined) return;
+    this.health = Math.max(0, hp);
 
-    if (this.health !== undefined && this.maxHealth !== undefined) {
-      this.health = Math.max(0, this.health - amount);
-
-      // Visual feedback - slightly darken crate as it takes damage
-      const darkFactor = this.health / this.maxHealth;
-      this.traverse((child) => {
-        if (child instanceof THREE.Mesh) {
-          if (child.material instanceof THREE.MeshStandardMaterial) {
-            // Adjust material properties based on damage
-            child.material.emissive.setRGB(0.3 * (1 - darkFactor), 0, 0);
-            child.material.color.multiplyScalar(0.7 + 0.3 * darkFactor);
-          }
+    // Visual feedback: darken and redden the crate as it takes damage.
+    // Colours are set absolutely so repeated updates do not compound.
+    const intact = this.health / this.maxHealth;
+    this.traverse((child) => {
+      if (
+        child instanceof THREE.Mesh &&
+        child.material instanceof THREE.MeshStandardMaterial
+      ) {
+        child.material.emissive.setRGB(0.3 * (1 - intact), 0, 0);
+        const base: THREE.Color | undefined = child.userData.baseColor;
+        if (base) {
+          child.material.color.copy(base).multiplyScalar(0.7 + 0.3 * intact);
         }
-      });
-
-      // Check if destroyed
-      if (this.health <= 0) {
-        this.isDestroyed = true;
-
-        // Create destruction effect (particles)
-        createDestructionEffect(scene, this.position, size);
-
-        // Random chance to spawn pickup (50% chance)
-        if (Math.random() < 0.5) {
-          // Randomly choose between health pickup (50%) or ammo pickup (50%)
-          if (pickupManager) {
-            if (Math.random() < 0.5) {
-              // Create health pickup
-              pickupManager.createHealthPickup(this.position.clone(), 25);
-            } else {
-              // Create ammo pickup with random weapon type
-              const weaponTypes = [
-                WeaponType.PISTOL,
-                WeaponType.RIFLE,
-                WeaponType.SHOTGUN,
-                WeaponType.SNIPER,
-              ];
-              const randomWeaponType =
-                weaponTypes[Math.floor(Math.random() * weaponTypes.length)];
-              pickupManager.createAmmoPickup(
-                this.position.clone(),
-                randomWeaponType,
-                30
-              );
-            }
-          }
-        }
-
-        // Remove from scene after a slight delay
-        setTimeout(() => {
-          scene.remove(this);
-        }, 100);
-
-        return true;
       }
-    }
-
-    return false;
+    });
   };
+
+  crate.destroy = function (withEffect = true): void {
+    if (this.isDestroyed) return;
+    this.isDestroyed = true;
+    this.health = 0;
+    if (withEffect) createDestructionEffect(scene, this.position, size);
+    scene.remove(this);
+  };
+
+  // Remember each mesh's untinted colour for applyServerHp
+  crate.traverse((child) => {
+    if (
+      child instanceof THREE.Mesh &&
+      child.material instanceof THREE.MeshStandardMaterial
+    ) {
+      child.userData.baseColor = child.material.color.clone();
+    }
+  });
 
   return crate;
 }

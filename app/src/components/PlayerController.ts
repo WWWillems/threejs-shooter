@@ -504,10 +504,10 @@ export class PlayerController {
     };
   }
 
-  public heal(amount: number): void {
+  /** Adopt an HP value the server reported (e.g. after a health pickup). */
+  public applyServerHp(hp: number): void {
     if (this.isDead) return;
-
-    this.currentHealth = Math.min(this.maxHealth, this.currentHealth + amount);
+    this.currentHealth = Math.min(this.maxHealth, Math.max(0, hp));
   }
 
   /**

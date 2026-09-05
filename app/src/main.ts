@@ -3,6 +3,7 @@ import * as THREE from "three";
 import { IsometricControls } from "./components/IsometricControls";
 import { HUD } from "./components/HUD";
 import { PickupManager } from "./components/PickupManager";
+import { CrateSync } from "./components/CrateSync";
 import { StartOverlay } from "./components/StartOverlay";
 import { RemotePlayerManager } from "./components/RemotePlayerManager";
 import { GAME_EVENTS } from "@threejs-shooter/shared";
@@ -74,21 +75,22 @@ controls.updateCollisionSystem(remotePlayerManager);
 // Set collision detector for RemotePlayerManager
 remotePlayerManager.setCollisionDetector(controls.getCollisionSystem());
 
-// Initialize pickup manager
+// Pickups are server-owned; this renders them and sends claim intents
 const pickupManager = new PickupManager(
   scene,
   player,
   controls.getPlayerController(),
-  hud,
-  controls.getCollisionSystem()
+  net,
+  hud
 );
 
-// Set pickup manager in controls
+// Set pickup manager in controls (dropped weapons)
 controls.setPickupManager(pickupManager);
 
-// Build the environment
+// Build the environment from the shared map, then mirror crate HP from the server
 const environmentBuilder = new EnvironmentBuilder(scene, controls);
 environmentBuilder.buildEnvironment();
+new CrateSync(net, controls.getCollisionSystem(), environmentBuilder.getMap());
 
 // Initialize the game loop
 const gameLoop = new GameLoop(

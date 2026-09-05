@@ -5,3 +5,4 @@ export * from "./weapons";
 export * from "./projectile";
 export * from "./mapLayout";
 export * from "./spawnPoints";
+export * from "./pickups";

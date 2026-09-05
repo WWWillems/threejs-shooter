@@ -1,6 +1,5 @@
 import * as THREE from "three";
 import { Pickup } from "./Pickup";
-import type { PlayerController } from "./PlayerController";
 import { WeaponType } from "./Weapon";
 
 /**
@@ -68,15 +67,8 @@ export class AmmoPickup extends Pickup {
     return `ammo_${this.weaponType}`;
   }
 
-  public collect(playerController: PlayerController): void {
-    // Apply ammo to player weapon
-    playerController.addAmmo(this.weaponType, this.ammoAmount);
-
-    // Create effect with yellow color for ammo
-    this.createCollectionEffect(0xcccc00);
-
-    // Remove pickup
-    this.remove();
+  protected collectionEffectColor(): number {
+    return 0xcccc00;
   }
 
   private getColorForWeaponType(weaponType?: WeaponType): number {

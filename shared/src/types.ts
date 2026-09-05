@@ -85,6 +85,57 @@ export interface CombatKillEvent {
   source: DamageSource;
 }
 
+/** Server -> all: a crate lost HP (to a bullet or a blast). */
+export interface CrateDamagedEvent {
+  crateId: string;
+  damage: number;
+  /** Crate HP after the hit. */
+  hp: number;
+  maxHp: number;
+}
+
+/** Server -> all: a crate is gone. Clients remove the mesh and its collider. */
+export interface CrateDestroyedEvent {
+  crateId: string;
+  position: Vec3;
+}
+
+/** Crate HP as the server tracks it; destroyed crates are omitted. */
+export interface CrateState {
+  id: string;
+  hp: number;
+}
+
+/** A collectable lying in the world. Owned by the server. */
+export type PickupSpec =
+  | { id: string; kind: "health"; position: Vec3; amount: number }
+  | {
+      id: string;
+      kind: "ammo";
+      position: Vec3;
+      weaponId: WeaponId;
+      amount: number;
+    };
+
+export type PickupKind = PickupSpec["kind"];
+
+/** Client -> server: I'm within reach of this pickup and want it. */
+export interface PickupClaimEvent extends BaseEvent {
+  pickupId: string;
+}
+
+/** Server -> all: `playerId` collected `pickup`. `hp` is the player's HP afterwards. */
+export interface PickupTakenEvent {
+  pickup: PickupSpec;
+  playerId: string;
+  hp: number;
+}
+
+/** Server -> all: the pickup timed out and is gone. */
+export interface PickupExpiredEvent {
+  pickupId: string;
+}
+
 /** Last known state of one player, as tracked by the server. */
 export interface PlayerSnapshot {
   id: string;
@@ -101,6 +152,9 @@ export interface GameStateEvent {
   /** The receiving client's own player id, so it can ignore itself in snapshots. */
   selfId: string;
   players: PlayerSnapshot[];
+  /** Surviving crates and their HP; anything from the map layout not listed is destroyed. */
+  crates: CrateState[];
+  pickups: PickupSpec[];
 }
 
 /** Server tick rate in Hz; one WorldSnapshot is broadcast per tick. */

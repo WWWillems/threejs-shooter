@@ -59,9 +59,24 @@ export abstract class Pickup {
   protected abstract getPickupType(): string;
 
   /**
-   * Logic to apply when pickup is collected - should be implemented by subclasses
+   * Apply the pickup to the local player. Only client-owned pickups (dropped
+   * weapons) implement this; server-owned pickups are resolved by the server
+   * and applied by PickupManager from the PICKUP.TAKEN event.
    */
-  public abstract collect(playerController: PlayerController): void;
+  public collect(_playerController: PlayerController): void {
+    this.playCollectionEffect();
+    this.remove();
+  }
+
+  /** Flash at the pickup's position; used when anyone collects it. */
+  public playCollectionEffect(): void {
+    this.createCollectionEffect(this.collectionEffectColor());
+  }
+
+  /** Colour of the collection flash; subclasses override. */
+  protected collectionEffectColor(): number {
+    return 0xffffff;
+  }
 
   /**
    * Check if pickup has expired

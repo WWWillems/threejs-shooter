@@ -1,25 +1,39 @@
 import {
+  CRATE_DROP_CHANCE,
+  CRATE_MAX_HP,
   GAME_EVENTS,
+  PICKUP_LIFETIME,
+  PICKUP_MAX_COUNT,
+  PICKUP_SPAWN_INTERVAL,
   PLAYER_MAX_HP,
   PLAYER_SIZE,
+  Rng,
   WEAPONS,
   aabbFromCenterSize,
   aabbIntersects,
   carBox,
   crateBox,
+  findPickupSpawnPosition,
   generateMap,
   integrateProjectile,
   isWeaponId,
+  isWithinPickupReach,
   pickSpawnPoint,
+  rollCrateDrop,
+  rollPickupContents,
   shopBox,
   spawnPellets,
   streetLightBox,
   type ClientEventName,
   type ClientPayload,
   type Collider,
+  type CrateSpec,
+  type CrateState,
   type DamageSource,
   type Leaderboard,
   type MapLayout,
+  type PickupClaimEvent,
+  type PickupSpec,
   type PlayerPositionEvent,
   type PlayerSnapshot,
   type Projectile,
@@ -43,6 +57,17 @@ interface ServerPlayer extends PlayerSnapshot {
   pendingHazardDamage: number;
 }
 
+interface ServerCrate {
+  spec: CrateSpec;
+  hp: number;
+}
+
+interface ServerPickup {
+  spec: PickupSpec;
+  /** Server clock (ms) at which the pickup disappears. */
+  expiresAt: number;
+}
+
 /** Points awarded to the killer per kill. */
 const KILL_SCORE = 100;
 /** Damage per second while overlapping a car. */
@@ -54,6 +79,8 @@ export interface GameRoomOptions {
   /** Server clock in ms. Injected for tests. */
   clock?: () => number;
   map?: MapLayout;
+  /** Seed for the room's own randomness (pickup rolls). Injected for tests. */
+  seed?: number;
 }
 
 /**
@@ -65,7 +92,7 @@ export interface GameRoomOptions {
  *
  * Authority: clients own their own movement (reported via `player:position`);
  * the server owns everything that affects others: bullets, HP, deaths,
- * respawns, the leaderboard.
+ * respawns, the leaderboard, crate HP and pickups.
  */
 export class GameRoom {
   /** Last known state of every player who has joined, keyed by player id. */
@@ -74,19 +101,32 @@ export class GameRoom {
   readonly map: MapLayout;
   /** Bullets in flight. */
   readonly projectiles: Projectile[] = [];
+  /** Surviving crates keyed by crate id. */
+  readonly crates = new Map<string, ServerCrate>();
+  /** Pickups lying in the world keyed by pickup id. */
+  readonly pickups = new Map<string, ServerPickup>();
 
   private readonly clock: () => number;
+  private readonly rng: Rng;
   private readonly staticColliders: Collider<WorldTag>[];
   private tickCount = 0;
   private nextProjectileId = 1;
+  private nextPickupId = 1;
+  /** Seconds until the next random pickup spawn. */
+  private pickupSpawnIn: number;
 
   constructor(
     private readonly transport: RoomTransport,
     options: GameRoomOptions = {}
   ) {
     this.clock = options.clock ?? Date.now;
+    this.rng = new Rng(options.seed ?? (Date.now() & 0xffffffff));
     this.map = options.map ?? generateMap();
     this.staticColliders = buildStaticColliders(this.map);
+    for (const spec of this.map.crates) {
+      this.crates.set(spec.id, { spec, hp: CRATE_MAX_HP });
+    }
+    this.pickupSpawnIn = this.rollPickupSpawnDelay();
   }
 
   /** A transport-level connection was established; the player has not joined yet. */
@@ -134,6 +174,9 @@ export class GameRoom {
       case GAME_EVENTS.WEAPON.SWITCH:
         this.handleWeaponSwitch(playerId, payload as WeaponEvent);
         break;
+      case GAME_EVENTS.PICKUP.CLAIM:
+        this.handlePickupClaim(playerId, payload as PickupClaimEvent);
+        break;
       default: {
         const unhandled: never = event;
         throw new Error(`Unhandled intent: ${String(unhandled)}`);
@@ -149,6 +192,7 @@ export class GameRoom {
     this.tickCount += 1;
     this.stepProjectiles(dt);
     this.stepCarContact(dt);
+    this.stepPickups(dt, now);
     this.transport.broadcast(GAME_EVENTS.WORLD.SNAPSHOT, {
       tick: this.tickCount,
       serverTime: now,
@@ -165,6 +209,8 @@ export class GameRoom {
     this.transport.send(playerId, GAME_EVENTS.GAME.STATE, {
       selfId: playerId,
       players: this.snapshotPlayers(),
+      crates: this.snapshotCrates(),
+      pickups: [...this.pickups.values()].map((p) => p.spec),
     });
 
     this.players.set(playerId, {
@@ -269,6 +315,36 @@ export class GameRoom {
     );
   }
 
+  private handlePickupClaim(playerId: string, payload: PickupClaimEvent): void {
+    const player = this.players.get(playerId);
+    if (!player || player.status !== "alive" || !player.position) return;
+
+    const pickup = this.pickups.get(payload.pickupId);
+    if (!pickup) return; // already taken or expired: first claim wins
+    if (!isWithinPickupReach(player.position, pickup.spec.position)) return;
+
+    this.pickups.delete(pickup.spec.id);
+
+    switch (pickup.spec.kind) {
+      case "health":
+        player.hp = Math.min(PLAYER_MAX_HP, player.hp + pickup.spec.amount);
+        break;
+      case "ammo":
+        // Ammo is client-trusted for now; the claimant applies it locally.
+        break;
+      default: {
+        const unhandled: never = pickup.spec;
+        throw new Error(`Unhandled pickup kind: ${String(unhandled)}`);
+      }
+    }
+
+    this.transport.broadcast(GAME_EVENTS.PICKUP.TAKEN, {
+      pickup: pickup.spec,
+      playerId,
+      hp: player.hp,
+    });
+  }
+
   // ---- simulation --------------------------------------------------------
 
   private stepProjectiles(dt: number): void {
@@ -289,18 +365,107 @@ export class GameRoom {
         (c) => c.tag.kind === "player" && c.tag.id === projectile.ownerId
       );
 
-      if (hit && hit.collider.tag.kind === "player") {
-        this.applyDamage(
-          projectile.ownerId,
-          hit.collider.tag.id,
-          projectile.damage,
-          projectile.weaponId,
-          hit.point
-        );
+      if (hit) {
+        switch (hit.collider.tag.kind) {
+          case "player":
+            this.applyDamage(
+              projectile.ownerId,
+              hit.collider.tag.id,
+              projectile.damage,
+              projectile.weaponId,
+              hit.point
+            );
+            break;
+          case "crate":
+            this.damageCrate(hit.collider.tag.id, projectile.damage);
+            break;
+          case "static":
+            break;
+          default: {
+            const unhandled: never = hit.collider.tag;
+            throw new Error(`Unhandled collider tag: ${String(unhandled)}`);
+          }
+        }
       }
 
       if (expired) this.projectiles.splice(i, 1);
     }
+  }
+
+  /** Apply damage to a crate; destroy it and maybe drop a pickup at zero HP. */
+  damageCrate(crateId: string, damage: number): void {
+    const crate = this.crates.get(crateId);
+    if (!crate) return;
+
+    crate.hp = Math.max(0, crate.hp - damage);
+    this.transport.broadcast(GAME_EVENTS.CRATE.DAMAGED, {
+      crateId,
+      damage,
+      hp: crate.hp,
+      maxHp: CRATE_MAX_HP,
+    });
+
+    if (crate.hp > 0) return;
+
+    this.crates.delete(crateId);
+    const position = crate.spec.position;
+    this.transport.broadcast(GAME_EVENTS.CRATE.DESTROYED, { crateId, position });
+
+    if (this.rng.next() < CRATE_DROP_CHANCE) {
+      this.spawnPickup(
+        rollCrateDrop(this.rng, this.allocatePickupId(), {
+          x: position.x,
+          y: 0.5,
+          z: position.z,
+        })
+      );
+    }
+  }
+
+  /** Expire old pickups and spawn new ones on the random cadence. */
+  private stepPickups(dt: number, now: number): void {
+    for (const pickup of this.pickups.values()) {
+      if (now < pickup.expiresAt) continue;
+      this.pickups.delete(pickup.spec.id);
+      this.transport.broadcast(GAME_EVENTS.PICKUP.EXPIRED, {
+        pickupId: pickup.spec.id,
+      });
+    }
+
+    this.pickupSpawnIn -= dt;
+    if (this.pickupSpawnIn > 0) return;
+    this.pickupSpawnIn = this.rollPickupSpawnDelay();
+    if (this.pickups.size >= PICKUP_MAX_COUNT) return;
+
+    const blockers = [
+      ...this.staticColliders.map((c) => c.box),
+      ...this.crateColliders().map((c) => c.box),
+    ];
+    const playerPositions: Vec3[] = [];
+    for (const player of this.players.values()) {
+      if (player.position) playerPositions.push(player.position);
+    }
+    const position = findPickupSpawnPosition(this.rng, blockers, playerPositions);
+    if (!position) return;
+
+    this.spawnPickup(rollPickupContents(this.rng, this.allocatePickupId(), position));
+  }
+
+  private spawnPickup(spec: PickupSpec): void {
+    this.pickups.set(spec.id, {
+      spec,
+      expiresAt: this.clock() + PICKUP_LIFETIME * 1000,
+    });
+    this.transport.broadcast(GAME_EVENTS.PICKUP.SPAWNED, spec);
+  }
+
+  private allocatePickupId(): string {
+    return `pickup-${this.nextPickupId++}`;
+  }
+
+  private rollPickupSpawnDelay(): number {
+    const [min, max] = PICKUP_SPAWN_INTERVAL;
+    return this.rng.range(min, max);
   }
 
   /**
@@ -368,9 +533,16 @@ export class GameRoom {
   }
 
   private crateColliders(): Collider<WorldTag>[] {
-    return this.map.crates.map((crate) => ({
-      box: crateBox(crate),
-      tag: { kind: "crate", id: crate.id },
+    return [...this.crates.values()].map(({ spec }) => ({
+      box: crateBox(spec),
+      tag: { kind: "crate", id: spec.id },
+    }));
+  }
+
+  private snapshotCrates(): CrateState[] {
+    return [...this.crates.values()].map(({ spec, hp }) => ({
+      id: spec.id,
+      hp,
     }));
   }
 

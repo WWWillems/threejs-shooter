@@ -116,6 +116,19 @@ export class CollisionSystem implements CollisionDetector {
     this.updateWoodenCrateColliders();
   }
 
+  /** Find a crate by its shared map-layout id. */
+  public getWoodenCrate(crateId: string): DestructibleCrate | undefined {
+    return this.woodenCrates.find((c) => c.crateId === crateId);
+  }
+
+  /** Remove a destroyed crate (server said so) from the scene and colliders. */
+  public destroyWoodenCrate(crateId: string, withEffect = true): void {
+    const crate = this.getWoodenCrate(crateId);
+    if (!crate) return;
+    crate.destroy?.(withEffect);
+    this.updateWoodenCrateColliders();
+  }
+
   /**
    * Add a custom obstacle to the collision system
    */
@@ -210,19 +223,14 @@ export class CollisionSystem implements CollisionDetector {
       const { dimensions, heightOffset } =
         WoodenCrate.getCollisionDimensions(size);
 
-      // Create collision box
-      const box = new THREE.Box3();
-
-      // Get world position of the crate
+      // The crate mesh is centred on its position, and so is the server's
+      // crate AABB (shared `crateBox`); keep the client collider identical.
       const crateWorldPos = new THREE.Vector3();
       crate.getWorldPosition(crateWorldPos);
-
-      // Create a copy of the crate position adjusted for height offset
-      const adjustedPos = crateWorldPos.clone();
-      adjustedPos.y += heightOffset;
-
-      // Set the collision box around the adjusted crate position
-      box.setFromCenterAndSize(adjustedPos, dimensions);
+      const box = new THREE.Box3().setFromCenterAndSize(
+        crateWorldPos,
+        dimensions
+      );
 
       this.woodenCrateColliders.push({
         box,
@@ -284,18 +292,10 @@ export class CollisionSystem implements CollisionDetector {
    * Check for bullet collision with any collidable object
    */
   public checkForBulletCollision(bulletPosition: THREE.Vector3): boolean {
-    // Check collision with wooden crates
+    // Crates stop cosmetic bullets; crate HP is the server's (CRATE.DAMAGED)
     for (const crate of this.woodenCrateColliders) {
       if (crate.box.containsPoint(bulletPosition)) {
-        const wasDestroyed =
-          crate.crateObj.takeDamage?.(this.bulletDamage) ?? false;
-
-        // If the crate was destroyed, update colliders
-        if (wasDestroyed) {
-          this.updateWoodenCrateColliders();
-        }
-
-        return true; // Bullet hit the crate
+        return true;
       }
     }
 

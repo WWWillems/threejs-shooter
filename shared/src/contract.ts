@@ -2,7 +2,13 @@ import { GAME_EVENTS } from "./events";
 import type {
   CombatHitEvent,
   CombatKillEvent,
+  CrateDamagedEvent,
+  CrateDestroyedEvent,
   GameStateEvent,
+  PickupClaimEvent,
+  PickupExpiredEvent,
+  PickupSpec,
+  PickupTakenEvent,
   PlayerPositionEvent,
   PlayerRespawnedEvent,
   RespawnRequestEvent,
@@ -25,6 +31,7 @@ export interface ClientToServerEvents {
   [GAME_EVENTS.PLAYER.RESPAWN]: (payload: RespawnRequestEvent) => void;
   [GAME_EVENTS.WEAPON.SHOOT]: (payload: WeaponEvent) => void;
   [GAME_EVENTS.WEAPON.SWITCH]: (payload: WeaponEvent) => void;
+  [GAME_EVENTS.PICKUP.CLAIM]: (payload: PickupClaimEvent) => void;
 }
 
 /** Events the server may send to a client, bound to their payload types. */
@@ -41,6 +48,11 @@ export interface ServerToClientEvents {
   [GAME_EVENTS.WEAPON.SWITCH]: (payload: Stamped<WeaponEvent>) => void;
   [GAME_EVENTS.COMBAT.HIT]: (payload: CombatHitEvent) => void;
   [GAME_EVENTS.COMBAT.KILL]: (payload: CombatKillEvent) => void;
+  [GAME_EVENTS.CRATE.DAMAGED]: (payload: CrateDamagedEvent) => void;
+  [GAME_EVENTS.CRATE.DESTROYED]: (payload: CrateDestroyedEvent) => void;
+  [GAME_EVENTS.PICKUP.SPAWNED]: (payload: PickupSpec) => void;
+  [GAME_EVENTS.PICKUP.TAKEN]: (payload: PickupTakenEvent) => void;
+  [GAME_EVENTS.PICKUP.EXPIRED]: (payload: PickupExpiredEvent) => void;
 }
 
 export type ClientEventName = keyof ClientToServerEvents;

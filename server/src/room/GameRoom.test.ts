@@ -1,8 +1,11 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import {
+  CRATE_MAX_HP,
   GAME_EVENTS,
+  PICKUP_LIFETIME,
   PLAYER_MAX_HP,
   WEAPONS,
+  type PickupSpec,
   type WeaponId,
 } from "@threejs-shooter/shared";
 import { GameRoom } from "./GameRoom";
@@ -54,7 +57,7 @@ describe("GameRoom", () => {
   beforeEach(() => {
     transport = new MemoryTransport();
     now = 10_000;
-    room = new GameRoom(transport, { clock: () => now });
+    room = new GameRoom(transport, { clock: () => now, seed: 1 });
   });
 
   describe("presence", () => {
@@ -242,6 +245,156 @@ describe("GameRoom", () => {
         targetId: "alice",
         source: "car",
       });
+    });
+  });
+
+  describe("crates", () => {
+    it("tells joiners which crates survive and with how much HP", () => {
+      room.damageCrate("crate-0", 40);
+      room.damageCrate("crate-1", CRATE_MAX_HP);
+
+      const alice = client("alice").connect();
+      alice.send(GAME_EVENTS.USER.JOINED, { name: "Alice", position: origin });
+
+      const [state] = alice.received(GAME_EVENTS.GAME.STATE);
+      const ids = state.payload.crates.map((c) => c.id);
+      expect(ids).toContain("crate-0");
+      expect(ids).not.toContain("crate-1");
+      expect(state.payload.crates.find((c) => c.id === "crate-0")!.hp).toBe(60);
+    });
+
+    it("server bullets damage crates and destroy them at zero HP", () => {
+      const { alice, bob } = twoPlayers();
+      // Pyramid crate on the +Z side, nothing between it and the shooter
+      const crate = room.map.crates[2]; // (3.9, 0.5, 6.1), size 1
+      const from = { x: crate.position.x, y: 0.5, z: crate.position.z + 5 };
+      alice.send(GAME_EVENTS.PLAYER.POSITION, { position: from, rotation: 0 });
+
+      for (let shot = 0; shot < 4; shot++) {
+        now += 1000;
+        alice.send(GAME_EVENTS.WEAPON.SHOOT, {
+          weaponType: "pistol",
+          action: "shoot",
+          data: { position: from, direction: { x: 0, y: 0, z: -1 } },
+        });
+        runTicks(10);
+      }
+
+      const damaged = bob.received(GAME_EVENTS.CRATE.DAMAGED);
+      expect(damaged).toHaveLength(4);
+      expect(damaged[0].payload).toMatchObject({ crateId: crate.id, hp: 75 });
+      expect(bob.received(GAME_EVENTS.CRATE.DESTROYED)).toHaveLength(1);
+      expect(room.crates.has(crate.id)).toBe(false);
+
+      // Destroyed crates no longer block bullets: the next shot flies through
+      // to the crate behind it (crate-0 at z=3.9).
+      transport.clear();
+      now += 1000;
+      alice.send(GAME_EVENTS.WEAPON.SHOOT, {
+        weaponType: "pistol",
+        action: "shoot",
+        data: { position: from, direction: { x: 0, y: 0, z: -1 } },
+      });
+      runTicks(10);
+      const next = bob.received(GAME_EVENTS.CRATE.DAMAGED);
+      expect(next).toHaveLength(1);
+      expect(next[0].payload.crateId).toBe("crate-0");
+    });
+
+    it("destroyed crates sometimes drop a pickup", () => {
+      const { alice } = twoPlayers();
+      for (const crate of room.map.crates) room.damageCrate(crate.id, CRATE_MAX_HP);
+
+      const spawned = alice.received(GAME_EVENTS.PICKUP.SPAWNED);
+      expect(spawned.length).toBeGreaterThan(0);
+      expect(spawned.length).toBeLessThan(room.map.crates.length);
+      expect(room.pickups.size).toBe(spawned.length);
+    });
+  });
+
+  describe("pickups", () => {
+    /** Destroy crates until one drops a pickup of `kind`; return its spec. */
+    const dropPickup = (kind: PickupSpec["kind"]): PickupSpec => {
+      for (const crate of room.map.crates) {
+        room.damageCrate(crate.id, CRATE_MAX_HP);
+        const found = [...room.pickups.values()].find((p) => p.spec.kind === kind);
+        if (found) return found.spec;
+      }
+      throw new Error(`no ${kind} pickup dropped`);
+    };
+
+    it("spawns random pickups on a timer, away from players and geometry", () => {
+      const { alice } = twoPlayers();
+      runTicks(20 * 16); // > max spawn interval
+
+      const spawned = alice.received(GAME_EVENTS.PICKUP.SPAWNED);
+      expect(spawned.length).toBeGreaterThan(0);
+      const position = spawned[0].payload.position;
+      expect(Math.hypot(position.x, position.z)).toBeGreaterThanOrEqual(10);
+    });
+
+    it("a health pickup heals the claimant and everyone hears about it", () => {
+      const { alice, bob } = twoPlayers();
+      const pickup = dropPickup("health");
+      aliceShootsBob(alice);
+      runTicks(10);
+      expect(room.players.get("bob")!.hp).toBe(75);
+      transport.clear();
+
+      bob.send(GAME_EVENTS.PLAYER.POSITION, {
+        position: { ...pickup.position, y: 1 },
+        rotation: 0,
+      });
+      bob.send(GAME_EVENTS.PICKUP.CLAIM, { pickupId: pickup.id });
+
+      const expectedHp = Math.min(PLAYER_MAX_HP, 75 + pickup.amount);
+      expect(room.players.get("bob")!.hp).toBe(expectedHp);
+      expect(room.pickups.has(pickup.id)).toBe(false);
+
+      const [taken] = alice.received(GAME_EVENTS.PICKUP.TAKEN);
+      expect(taken.payload).toMatchObject({ playerId: "bob", hp: expectedHp });
+      expect(taken.payload.pickup.id).toBe(pickup.id);
+    });
+
+    it("rejects claims from out of reach and double claims", () => {
+      const { alice, bob } = twoPlayers();
+      const pickup = dropPickup("ammo");
+      transport.clear();
+
+      // Bob is 10 units away
+      bob.send(GAME_EVENTS.PICKUP.CLAIM, { pickupId: pickup.id });
+      expect(room.pickups.has(pickup.id)).toBe(true);
+      expect(alice.received(GAME_EVENTS.PICKUP.TAKEN)).toHaveLength(0);
+
+      alice.send(GAME_EVENTS.PLAYER.POSITION, {
+        position: { ...pickup.position, y: 1 },
+        rotation: 0,
+      });
+      bob.send(GAME_EVENTS.PLAYER.POSITION, {
+        position: { ...pickup.position, y: 1 },
+        rotation: 0,
+      });
+      alice.send(GAME_EVENTS.PICKUP.CLAIM, { pickupId: pickup.id });
+      bob.send(GAME_EVENTS.PICKUP.CLAIM, { pickupId: pickup.id });
+
+      const taken = bob.received(GAME_EVENTS.PICKUP.TAKEN);
+      expect(taken).toHaveLength(1);
+      expect(taken[0].payload.playerId).toBe("alice");
+      expect(taken[0].payload.hp).toBe(PLAYER_MAX_HP); // ammo leaves HP alone
+    });
+
+    it("pickups expire after their lifetime", () => {
+      const { alice } = twoPlayers();
+      const pickup = dropPickup("health");
+      transport.clear();
+
+      now += PICKUP_LIFETIME * 1000 + 1;
+      runTicks(1);
+
+      expect(room.pickups.has(pickup.id)).toBe(false);
+      expect(alice.received(GAME_EVENTS.PICKUP.EXPIRED)).toContainEqual(
+        expect.objectContaining({ payload: { pickupId: pickup.id } })
+      );
     });
   });
 
