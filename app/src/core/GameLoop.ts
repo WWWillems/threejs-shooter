@@ -36,7 +36,8 @@ export class GameLoop {
     pickupManager: PickupManager,
     remotePlayerManager: RemotePlayerManager,
     grenadeRenderer: GrenadeRenderer,
-    player: THREE.Mesh
+    player: THREE.Mesh,
+    private readonly renderFrame?: () => void
   ) {
     this.scene = scene;
     this.camera = camera;
@@ -107,6 +108,7 @@ export class GameLoop {
     }
 
     // Render the scene
-    this.renderer.render(this.scene, this.camera);
+    if (this.renderFrame) this.renderFrame();
+    else this.renderer.render(this.scene, this.camera);
   };
 }

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  type AABB,
   aabbFromCenterSize,
   aabbFromRotatedBox,
   aabbIntersects,
@@ -24,9 +25,17 @@ import {
   rollPickupContents,
 } from "./pickups";
 import { Rng } from "./rng";
-import { PLAYER_SIZE, SPAWN_POINTS, pickSpawnPoint } from "./spawnPoints";
+import { PLAYER_SIZE, SPAWN_POINTS, facingCenterYaw, pickSpawnPoint } from "./spawnPoints";
 import { WEAPONS, pelletYawOffsets } from "./weapons";
 import { vec3 } from "./vec3";
+import {
+  cloneLevelDocument,
+  levelFromMap,
+  mapFromLevel,
+  parseLevelDocument,
+  serializeLevelDocument,
+  validateLevel,
+} from "./level";
 
 describe("sweepSegmentAABB", () => {
   const box = aabbFromCenterSize(vec3(0, 0, 0), vec3(1, 1, 1));
@@ -52,6 +61,35 @@ describe("sweepSegmentAABB", () => {
     expect(sweepSegmentAABB(vec3(0.2, -3, 0.2), vec3(0.2, 3, 0.2), box)).toBeCloseTo(
       2.5 / 6
     );
+  });
+});
+
+describe("serialized levels", () => {
+  it("round-trips the generated map without changing gameplay geometry", () => {
+    const level = levelFromMap(generateMap());
+    const parsed = parseLevelDocument(JSON.parse(serializeLevelDocument(level)));
+    const restored = mapFromLevel(parsed);
+
+    expect(restored).toEqual(generateMap());
+    expect(cloneLevelDocument(level)).toEqual(level);
+  });
+
+  it("rejects duplicate IDs and blocked spawn points", () => {
+    const level = levelFromMap(generateMap());
+    level.objects[0].id = level.objects[1].id;
+    const duplicateDiagnostics = validateLevel(level);
+    expect(
+      duplicateDiagnostics.some((diagnostic) => diagnostic.message.includes("Duplicate"))
+    ).toBe(true);
+
+    const blockedLevel = levelFromMap(generateMap());
+    blockedLevel.spawnPoints[0].position = { x: 0, y: 1, z: 0 }; // inside the shop
+    const blockedDiagnostics = validateLevel(blockedLevel);
+    expect(
+      blockedDiagnostics.some((diagnostic) =>
+        diagnostic.message.includes("overlaps gameplay")
+      )
+    ).toBe(true);
   });
 });
 
@@ -203,7 +241,7 @@ describe("map", () => {
     );
     expect(trunk.min.y).toBeCloseTo(map.trees[0].position.y);
 
-    for (const kind of ["wall-0", "shop", "light-0"]) {
+    for (const kind of ["wall-north", "shop", "warehouse-flank-s", "tenement-flank-s", "light-0"]) {
       expect(ids).toContain(kind);
     }
     for (const car of map.cars) expect(ids).toContain(car.id);
@@ -212,7 +250,7 @@ describe("map", () => {
   it("keeps bushes and cones movement-only, off the solid list", () => {
     const map = generateMap();
     const soft = movementOnlyColliders(map);
-    expect(soft).toHaveLength(map.bushes.length + map.cones.length);
+    expect(soft).toHaveLength(map.bushes.length + map.cones.length + map.props.filter((prop) => ["trash-bag", "fence", "fence-gate"].includes(prop.type)).length);
     const solidIds = new Set(solidColliders(map).map((c) => c.tag.id));
     for (const { id } of soft) expect(solidIds.has(id)).toBe(false);
   });
@@ -228,6 +266,70 @@ describe("map", () => {
       const player = aabbFromCenterSize(spawn, PLAYER_SIZE);
       expect(obstacles.some((box) => aabbIntersects(player, box))).toBe(false);
     }
+  });
+
+  it("gives each team five spawn points in its own spawn street", () => {
+    const map = generateMap();
+    const south = map.spawnPoints.filter((p) => p.z < -28);
+    const north = map.spawnPoints.filter((p) => p.z > 28);
+    expect(south).toHaveLength(5);
+    expect(north).toHaveLength(5);
+    expect(south.length + north.length).toBe(map.spawnPoints.length);
+  });
+
+  it("faces each spawn point toward the map centre", () => {
+    expect(facingCenterYaw({ x: 0, y: 1, z: -34 })).toBeCloseTo(Math.PI);
+    expect(facingCenterYaw({ x: 0, y: 1, z: 34 })).toBeCloseTo(0);
+    expect(facingCenterYaw({ x: 16, y: 1, z: 0 })).toBeCloseTo(Math.PI / 2);
+  });
+
+  it("is the same map for both teams: every obstacle has a 180° twin", () => {
+    const map = generateMap();
+    const boxes = [
+      ...solidColliders(map).map((c) => c.box),
+      ...movementOnlyColliders(map).map((c) => c.box),
+      ...map.crates.map(crateBox),
+    ];
+    const key = (box: AABB) =>
+      [box.min.x, box.min.y, box.min.z, box.max.x, box.max.y, box.max.z]
+        .map((v) => v.toFixed(4))
+        .join(",");
+    const seen = new Set(boxes.map(key));
+    for (const box of boxes) {
+      const twin: AABB = {
+        min: vec3(-box.max.x, box.min.y, -box.max.z),
+        max: vec3(-box.min.x, box.max.y, -box.min.z),
+      };
+      expect(seen.has(key(twin))).toBe(true);
+    }
+  });
+
+  it("does not let hand-placed cover interpenetrate", () => {
+    const map = generateMap();
+    // Boundary walls meet at the corners and fence runs share their posts on purpose.
+    const deliberate = (id: string) =>
+      id.startsWith("wall-") || id.startsWith("fence-") || id.startsWith("gate-");
+    const boxes = [
+      ...solidColliders(map).map((c) => ({ id: c.tag.id, box: c.box })),
+      ...movementOnlyColliders(map),
+      ...map.crates.map((c) => ({ id: c.id, box: crateBox(c) })),
+    ].filter(({ id }) => !deliberate(id));
+    const overlapAlong = (a: AABB, b: AABB, axis: "x" | "y" | "z") =>
+      Math.min(a.max[axis], b.max[axis]) - Math.max(a.min[axis], b.min[axis]);
+    const interpenetrating: string[] = [];
+    for (let i = 0; i < boxes.length; i++) {
+      for (let j = i + 1; j < boxes.length; j++) {
+        const a = boxes[i];
+        const b = boxes[j];
+        // Parts of one prop (a forklift's body and forks) may touch each other.
+        if (a.id.split(":")[0] === b.id.split(":")[0]) continue;
+        const shared = (["x", "y", "z"] as const).every(
+          (axis) => overlapAlong(a.box, b.box, axis) > 1e-6
+        );
+        if (shared) interpenetrating.push(`${a.id} x ${b.id}`);
+      }
+    }
+    expect(interpenetrating).toEqual([]);
   });
 });
 

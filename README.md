@@ -34,6 +34,25 @@ npm run dev:app      # Vite dev server on http://localhost:5173
 
 The client reads the server URL from `VITE_SERVER_URL` and falls back to `http://localhost:3000`.
 
+## Building levels
+
+The development-only editor is available at `/editor.html`:
+
+```bash
+npm run dev:editor
+```
+
+It edits the checked-in JSON documents under `shared/levels/`. The editor can export a level
+for review; install that export with the validator/normalizer:
+
+```bash
+npm run import:level -- ./path/to/export.json [level-id]
+```
+
+Gameplay loads the same active level on both ends. Use `VITE_LEVEL_ID` for the client and
+`LEVEL_ID` for the server; both default to `default`. The server must be restarted after
+changing its level environment variable.
+
 ## Generating game textures
 
 The `generate-game-textures` skill creates tileable PBR surface materials and transparent

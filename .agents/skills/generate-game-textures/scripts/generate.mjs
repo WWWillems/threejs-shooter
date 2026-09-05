@@ -5,13 +5,15 @@
  *   node generate.mjs --slug <slug> --prompt "<what the surface is>" [--kind material|decal]
  *        [--draft | --final] [--size 1024x1024] [--variants N]
  *        [--ref <image>]... [--no-style] [--no-repair] [--seam-threshold 1.8]
- *        [--max-calls 4] [--dry-run] [derive flags, see derive-maps.mjs]
+ *        [--max-calls 4] [--dry-run] [--albedo-mean N] [derive flags, see derive-maps.mjs]
  *
  * Draft (default): quality low, N variants, written to the skill's out/ folder
- *   with a 2x2 tile check and a seam score. Costs little; iterate on the prompt here.
- * Final: quality high, one image, seam repaired if needed, written into
- *   app/public/textures/<slug>/ (material) or app/public/decals/ (decal),
- *   PBR maps derived, sidecar <slug>.texture.json written.
+ *   with a 2x2 tile check, a seam score and the measured albedo mean. Costs
+ *   little; iterate on the prompt here.
+ * Final: quality high, one image, seam repaired if needed, untouched copy kept
+ *   in out/<slug>/final.png, optionally albedo-normalised (--albedo-mean),
+ *   written into app/public/textures/<slug>/ (material) or app/public/decals/
+ *   (decal), PBR maps derived, sidecar <slug>.texture.json written.
  */
 import { mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { basename, join, relative, resolve } from "node:path";
@@ -21,7 +23,15 @@ import { loadApiKey, REPO_ROOT, SKILL_DIR } from "./lib/env.mjs";
 import { CallBudget, MODEL, editImage, formatUsage, generateImage, mimeFor } from "./lib/openai.mjs";
 import { REPAIR_PROMPT, buildPrompt } from "./lib/prompts.mjs";
 import { offsetHalf, seamMask, seamScore, tileCheck } from "./lib/seam.mjs";
-import { DERIVE_ARG_OPTIONS, deriveMaps, deriveOptsFromArgs } from "./derive-maps.mjs";
+import { measureAlbedoMean, normalizeAlbedo } from "./lib/albedo.mjs";
+import {
+  DERIVE_ARG_OPTIONS,
+  albedoMeanFromArgs,
+  albedoMeanRecord,
+  describeAlbedoMean,
+  deriveMaps,
+  deriveOptsFromArgs,
+} from "./derive-maps.mjs";
 
 const USAGE = `usage: generate.mjs --slug <slug> --prompt "<text>" [options]
 
@@ -38,6 +48,8 @@ const USAGE = `usage: generate.mjs --slug <slug> --prompt "<text>" [options]
   --max-calls N             hard cap on API calls this invocation (default 4)
   --dry-run                 print the plan and full prompt; no API calls
   --out-root <dir>          write finals under <dir>/app/public instead of the repo (testing)
+  --albedo-mean N           final material only: rescale the basecolor so its mean luminance is N
+                            (sRGB 0-255) before maps are derived; off by default. See PROMPTS.md
   derive flags              --strength --blur --roughness-mode --roughness-range --ao-radius --ao-strength`;
 
 const { values: a } = parseArgs({
@@ -84,6 +96,8 @@ const variants = mode === "final" ? 1 : Math.max(1, Number(a.variants) || 1);
 const seamThreshold = Number(a["seam-threshold"]);
 const budget = new CallBudget(Math.max(1, Number(a["max-calls"]) || 4));
 const deriveOpts = deriveOptsFromArgs(a);
+const albedoTarget = albedoMeanFromArgs(a);
+if (albedoTarget !== undefined && kind !== "material") fail("--albedo-mean applies to materials only");
 const outRoot = a["out-root"] ? resolve(a["out-root"]) : REPO_ROOT;
 
 const [w, h] = a.size.split("x").map(Number);
@@ -146,7 +160,9 @@ if (mode === "draft") {
       const score = await seamScore(img);
       const checkPath = join(scratchDir, `draft-${n}_tilecheck.png`);
       await tileCheck(img, checkPath);
+      const albedo = await measureAlbedoMean(img);
       line += `\n  seam ratio ${score.ratio.toFixed(2)} (${score.ratio > seamThreshold ? "would repair" : "tiles ok"}) · tile check ${checkPath}`;
+      line += `\n  albedo mean ${albedo.mean.toFixed(1)} sRGB (see PROMPTS.md for the range per material family; --albedo-mean fixes it at --final)`;
     }
     console.log(line);
   }
@@ -189,13 +205,29 @@ const files = {};
 let derive = null;
 
 if (kind === "material") {
+  // Keep the untouched API output so albedo normalisation can be redone from
+  // the original later (derive-maps.mjs --albedo-mean looks for this file).
+  files.original = join(scratchDir, "final.png");
+  await sharp(image).png().toFile(files.original);
+
+  let albedoMean = null;
+  if (albedoTarget !== undefined) {
+    const result = await normalizeAlbedo(image, albedoTarget);
+    albedoMean = albedoMeanRecord(albedoTarget, result, "api");
+    image = result.png;
+    console.log(describeAlbedoMean(albedoMean));
+  } else {
+    const measured = await measureAlbedoMean(image);
+    console.log(`albedo mean ${measured.mean.toFixed(1)} sRGB (not normalised; pass --albedo-mean to rescale)`);
+  }
+
   files.basecolor = join(finalDir, `${a.slug}_basecolor.jpg`);
   await sharp(image).jpeg({ quality: 85 }).toFile(files.basecolor);
   files.tilecheck = join(scratchDir, `final_tilecheck.png`);
   await tileCheck(image, files.tilecheck);
   const derived = await deriveMaps(files.basecolor, { outDir: finalDir, slug: a.slug, ...deriveOpts });
   Object.assign(files, derived.files);
-  derive = derived.params;
+  derive = { ...derived.params, ...(albedoMean ? { albedoMean } : {}) };
 } else {
   files.decal = join(finalDir, `${a.slug}.png`);
   await sharp(image).png({ compressionLevel: 9 }).toFile(files.decal);

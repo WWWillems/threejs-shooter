@@ -17,6 +17,7 @@ import {
   carBox,
   crateBox,
   findPickupSpawnPosition,
+  facingCenterYaw,
   generateMap,
   integrateGrenade,
   integrateProjectile,
@@ -26,6 +27,7 @@ import {
   playerCollider,
   rollCrateDrop,
   rollPickupContents,
+  sanitizeNickname,
   solidColliders,
   spawnGrenade,
   spawnPellets,
@@ -223,7 +225,7 @@ export class GameRoom {
   // ---- intents -----------------------------------------------------------
 
   private handleJoin(playerId: string, payload: UserJoinedEvent): void {
-    const name = payload.name || `Player-${playerId.substring(0, 5)}`;
+    const name = sanitizeNickname(payload.name);
 
     // Sync the joiner with everyone already in the game, before registering them
     this.transport.send(playerId, GAME_EVENTS.GAME.STATE, {
@@ -240,7 +242,7 @@ export class GameRoom {
       status: "alive",
       hp: PLAYER_MAX_HP,
       position: payload.position,
-      rotation: 0,
+      rotation: facingCenterYaw(payload.position),
       positionAt: this.clock(),
       lastShotAt: -Infinity,
       lastThrowAt: -Infinity,
@@ -281,18 +283,19 @@ export class GameRoom {
     for (const other of this.players.values()) {
       if (other.id !== playerId && other.position) others.push(other.position);
     }
-    const position = pickSpawnPoint(others);
+    const position = pickSpawnPoint(others, this.map.spawnPoints);
 
     player.status = "alive";
     player.hp = PLAYER_MAX_HP;
     player.position = { ...position };
-    player.rotation = 0;
+    player.rotation = facingCenterYaw(position);
     player.positionAt = this.clock();
 
     this.transport.broadcast(GAME_EVENTS.PLAYER.RESPAWN, {
       playerId,
       position,
       hp: player.hp,
+      rotation: player.rotation,
     });
   }
 

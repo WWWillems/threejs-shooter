@@ -53,7 +53,7 @@ export class WeaponSystem {
   private scene: THREE.Scene;
   private player: THREE.Mesh;
   private bullets: Bullet[] = [];
-  private gunOffset = new THREE.Vector3(0.7, -0.1, -0.3);
+  private gunOffset = new THREE.Vector3(0.32, 0.1, 0.52);
   private pickupManager: PickupManager | null = null;
   private aimTarget: THREE.Vector3 | null = null;
   /** Null for remote players' weapon systems: they mirror the network, never talk to it. */
@@ -277,7 +277,7 @@ export class WeaponSystem {
     // Set gun position with appropriate height based on crouch state
     const gunPositionY = isCrouching
       ? this.player.position.y - 0.3
-      : this.player.position.y - 0.1;
+      : this.player.position.y + 0.1;
 
     // Calculate gun position in world space based on player's position and rotation
     // Forward vector based on player's rotation

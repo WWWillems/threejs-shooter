@@ -1,0 +1,4480 @@
+{
+  "schemaVersion": 1,
+  "id": "default",
+  "name": "Default level",
+  "seed": 20240913,
+  "groundSize": 76,
+  "objects": [
+    {
+      "id": "bag-street-0-s",
+      "type": "trash-bag",
+      "transform": {
+        "position": {
+          "x": -4,
+          "y": 0,
+          "z": -37.2
+        },
+        "rotation": {
+          "x": 0,
+          "y": 0.5,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "bag-street-0-n",
+      "type": "trash-bag",
+      "transform": {
+        "position": {
+          "x": 4,
+          "y": 0,
+          "z": 37.2
+        },
+        "rotation": {
+          "x": 0,
+          "y": 3.641592653589793,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "bag-street-1-s",
+      "type": "trash-bag",
+      "transform": {
+        "position": {
+          "x": -3,
+          "y": 0,
+          "z": -37.2
+        },
+        "rotation": {
+          "x": 0,
+          "y": -1.1,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "bag-street-1-n",
+      "type": "trash-bag",
+      "transform": {
+        "position": {
+          "x": 3,
+          "y": 0,
+          "z": 37.2
+        },
+        "rotation": {
+          "x": 0,
+          "y": 2.041592653589793,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "bag-street-2-s",
+      "type": "trash-bag",
+      "transform": {
+        "position": {
+          "x": 10.6,
+          "y": 0,
+          "z": -37.2
+        },
+        "rotation": {
+          "x": 0,
+          "y": 2.2,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "bag-street-2-n",
+      "type": "trash-bag",
+      "transform": {
+        "position": {
+          "x": -10.6,
+          "y": 0,
+          "z": 37.2
+        },
+        "rotation": {
+          "x": 0,
+          "y": 5.341592653589793,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "fence-west-0-s",
+      "type": "fence",
+      "transform": {
+        "position": {
+          "x": -19,
+          "y": 0,
+          "z": -20
+        },
+        "rotation": {
+          "x": 0,
+          "y": 1.5707963267948966,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "fence-west-0-n",
+      "type": "fence",
+      "transform": {
+        "position": {
+          "x": 19,
+          "y": 0,
+          "z": 20
+        },
+        "rotation": {
+          "x": 0,
+          "y": 4.71238898038469,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "fence-west-1-s",
+      "type": "fence",
+      "transform": {
+        "position": {
+          "x": -19,
+          "y": 0,
+          "z": -16
+        },
+        "rotation": {
+          "x": 0,
+          "y": 1.5707963267948966,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "fence-west-1-n",
+      "type": "fence",
+      "transform": {
+        "position": {
+          "x": 19,
+          "y": 0,
+          "z": 16
+        },
+        "rotation": {
+          "x": 0,
+          "y": 4.71238898038469,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "gate-west-s",
+      "type": "fence-gate",
+      "transform": {
+        "position": {
+          "x": -19,
+          "y": 0,
+          "z": -12
+        },
+        "rotation": {
+          "x": 0,
+          "y": 1.5707963267948966,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "gate-west-n",
+      "type": "fence-gate",
+      "transform": {
+        "position": {
+          "x": 19,
+          "y": 0,
+          "z": 12
+        },
+        "rotation": {
+          "x": 0,
+          "y": 4.71238898038469,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "fence-east-0-s",
+      "type": "fence",
+      "transform": {
+        "position": {
+          "x": 19,
+          "y": 0,
+          "z": -20
+        },
+        "rotation": {
+          "x": 0,
+          "y": 1.5707963267948966,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "fence-east-0-n",
+      "type": "fence",
+      "transform": {
+        "position": {
+          "x": -19,
+          "y": 0,
+          "z": 20
+        },
+        "rotation": {
+          "x": 0,
+          "y": 4.71238898038469,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "fence-east-1-s",
+      "type": "fence",
+      "transform": {
+        "position": {
+          "x": 19,
+          "y": 0,
+          "z": -16
+        },
+        "rotation": {
+          "x": 0,
+          "y": 1.5707963267948966,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "fence-east-1-n",
+      "type": "fence",
+      "transform": {
+        "position": {
+          "x": -19,
+          "y": 0,
+          "z": 16
+        },
+        "rotation": {
+          "x": 0,
+          "y": 4.71238898038469,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "gate-east-s",
+      "type": "fence-gate",
+      "transform": {
+        "position": {
+          "x": 19,
+          "y": 0,
+          "z": -12
+        },
+        "rotation": {
+          "x": 0,
+          "y": 1.5707963267948966,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "gate-east-n",
+      "type": "fence-gate",
+      "transform": {
+        "position": {
+          "x": -19,
+          "y": 0,
+          "z": 12
+        },
+        "rotation": {
+          "x": 0,
+          "y": 4.71238898038469,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "forklift-yard-s",
+      "type": "forklift",
+      "transform": {
+        "position": {
+          "x": 7,
+          "y": 0,
+          "z": -20
+        },
+        "rotation": {
+          "x": 0,
+          "y": 1.8707963267948966,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "forklift-yard-n",
+      "type": "forklift",
+      "transform": {
+        "position": {
+          "x": -7,
+          "y": 0,
+          "z": 20
+        },
+        "rotation": {
+          "x": 0,
+          "y": 5.0123889803846895,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "barrel-yard-0-s",
+      "type": "oil-barrel",
+      "transform": {
+        "position": {
+          "x": 4.2,
+          "y": 0,
+          "z": -14.2
+        },
+        "rotation": {
+          "x": 0,
+          "y": 0.2,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "barrel-yard-0-n",
+      "type": "oil-barrel",
+      "transform": {
+        "position": {
+          "x": -4.2,
+          "y": 0,
+          "z": 14.2
+        },
+        "rotation": {
+          "x": 0,
+          "y": 3.3415926535897933,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "barrel-yard-1-s",
+      "type": "oil-barrel",
+      "transform": {
+        "position": {
+          "x": 5.15,
+          "y": 0,
+          "z": -13.7
+        },
+        "rotation": {
+          "x": 0,
+          "y": -0.4,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "barrel-yard-1-n",
+      "type": "oil-barrel",
+      "transform": {
+        "position": {
+          "x": -5.15,
+          "y": 0,
+          "z": 13.7
+        },
+        "rotation": {
+          "x": 0,
+          "y": 2.741592653589793,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "barrel-yard-2-s",
+      "type": "oil-barrel",
+      "transform": {
+        "position": {
+          "x": 14,
+          "y": 0,
+          "z": -16
+        },
+        "rotation": {
+          "x": 0,
+          "y": 0.7,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "barrel-yard-2-n",
+      "type": "oil-barrel",
+      "transform": {
+        "position": {
+          "x": -14,
+          "y": 0,
+          "z": 16
+        },
+        "rotation": {
+          "x": 0,
+          "y": 3.8415926535897933,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "barrel-yard-3-s",
+      "type": "oil-barrel",
+      "transform": {
+        "position": {
+          "x": 14.95,
+          "y": 0,
+          "z": -15.6
+        },
+        "rotation": {
+          "x": 0,
+          "y": -0.1,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "barrel-yard-3-n",
+      "type": "oil-barrel",
+      "transform": {
+        "position": {
+          "x": -14.95,
+          "y": 0,
+          "z": 15.6
+        },
+        "rotation": {
+          "x": 0,
+          "y": 3.041592653589793,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "bag-yard-s",
+      "type": "trash-bag",
+      "transform": {
+        "position": {
+          "x": 12.4,
+          "y": 0,
+          "z": -20.7
+        },
+        "rotation": {
+          "x": 0,
+          "y": 0.9,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "bag-yard-n",
+      "type": "trash-bag",
+      "transform": {
+        "position": {
+          "x": -12.4,
+          "y": 0,
+          "z": 20.7
+        },
+        "rotation": {
+          "x": 0,
+          "y": 4.0415926535897935,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "barrel-mid-s",
+      "type": "oil-barrel",
+      "transform": {
+        "position": {
+          "x": 7,
+          "y": 0,
+          "z": -6.9
+        },
+        "rotation": {
+          "x": 0,
+          "y": 0.6,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "barrel-mid-n",
+      "type": "oil-barrel",
+      "transform": {
+        "position": {
+          "x": -7,
+          "y": 0,
+          "z": 6.9
+        },
+        "rotation": {
+          "x": 0,
+          "y": 3.741592653589793,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "barrel-dock-0-s",
+      "type": "oil-barrel",
+      "transform": {
+        "position": {
+          "x": 1.4,
+          "y": 0,
+          "z": -5
+        },
+        "rotation": {
+          "x": 0,
+          "y": 0.3,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "barrel-dock-0-n",
+      "type": "oil-barrel",
+      "transform": {
+        "position": {
+          "x": -1.4,
+          "y": 0,
+          "z": 5
+        },
+        "rotation": {
+          "x": 0,
+          "y": 3.441592653589793,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "barrel-dock-1-s",
+      "type": "oil-barrel",
+      "transform": {
+        "position": {
+          "x": 2.35,
+          "y": 0,
+          "z": -5.15
+        },
+        "rotation": {
+          "x": 0,
+          "y": -0.7,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "barrel-dock-1-n",
+      "type": "oil-barrel",
+      "transform": {
+        "position": {
+          "x": -2.35,
+          "y": 0,
+          "z": 5.15
+        },
+        "rotation": {
+          "x": 0,
+          "y": 2.441592653589793,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "bag-dock-0-s",
+      "type": "trash-bag",
+      "transform": {
+        "position": {
+          "x": 3.4,
+          "y": 0,
+          "z": -4.9
+        },
+        "rotation": {
+          "x": 0,
+          "y": 0.5,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "bag-dock-0-n",
+      "type": "trash-bag",
+      "transform": {
+        "position": {
+          "x": -3.4,
+          "y": 0,
+          "z": 4.9
+        },
+        "rotation": {
+          "x": 0,
+          "y": 3.641592653589793,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "bag-dock-1-s",
+      "type": "trash-bag",
+      "transform": {
+        "position": {
+          "x": 4.4,
+          "y": 0,
+          "z": -5.9
+        },
+        "rotation": {
+          "x": 0,
+          "y": -1.3,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "bag-dock-1-n",
+      "type": "trash-bag",
+      "transform": {
+        "position": {
+          "x": -4.4,
+          "y": 0,
+          "z": 5.9
+        },
+        "rotation": {
+          "x": 0,
+          "y": 1.841592653589793,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "forklift-gate-s",
+      "type": "forklift",
+      "transform": {
+        "position": {
+          "x": -19,
+          "y": 0,
+          "z": 0
+        },
+        "rotation": {
+          "x": 0,
+          "y": 1.5707963267948966,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "forklift-gate-n",
+      "type": "forklift",
+      "transform": {
+        "position": {
+          "x": 19,
+          "y": 0,
+          "z": 0
+        },
+        "rotation": {
+          "x": 0,
+          "y": 4.71238898038469,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "barrel-gate-0-s",
+      "type": "oil-barrel",
+      "transform": {
+        "position": {
+          "x": -19.3,
+          "y": 0,
+          "z": -6.4
+        },
+        "rotation": {
+          "x": 0,
+          "y": 0.1,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "barrel-gate-0-n",
+      "type": "oil-barrel",
+      "transform": {
+        "position": {
+          "x": 19.3,
+          "y": 0,
+          "z": 6.4
+        },
+        "rotation": {
+          "x": 0,
+          "y": 3.241592653589793,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "barrel-gate-1-s",
+      "type": "oil-barrel",
+      "transform": {
+        "position": {
+          "x": -18.5,
+          "y": 0,
+          "z": -5.4
+        },
+        "rotation": {
+          "x": 0,
+          "y": 0.8,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "barrel-gate-1-n",
+      "type": "oil-barrel",
+      "transform": {
+        "position": {
+          "x": 18.5,
+          "y": 0,
+          "z": 5.4
+        },
+        "rotation": {
+          "x": 0,
+          "y": 3.941592653589793,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "barrel-tower-0-s",
+      "type": "oil-barrel",
+      "transform": {
+        "position": {
+          "x": 28.6,
+          "y": 0,
+          "z": -11.4
+        },
+        "rotation": {
+          "x": 0,
+          "y": 0.4,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "barrel-tower-0-n",
+      "type": "oil-barrel",
+      "transform": {
+        "position": {
+          "x": -28.6,
+          "y": 0,
+          "z": 11.4
+        },
+        "rotation": {
+          "x": 0,
+          "y": 3.541592653589793,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "barrel-tower-1-s",
+      "type": "oil-barrel",
+      "transform": {
+        "position": {
+          "x": 29.5,
+          "y": 0,
+          "z": -10.9
+        },
+        "rotation": {
+          "x": 0,
+          "y": -0.2,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "barrel-tower-1-n",
+      "type": "oil-barrel",
+      "transform": {
+        "position": {
+          "x": -29.5,
+          "y": 0,
+          "z": 10.9
+        },
+        "rotation": {
+          "x": 0,
+          "y": 2.941592653589793,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "wall-north",
+      "type": "wall",
+      "transform": {
+        "position": {
+          "x": 0,
+          "y": 1.25,
+          "z": 38.25
+        },
+        "rotation": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "scale": {
+          "x": 76.5,
+          "y": 2.5,
+          "z": 0.5
+        }
+      }
+    },
+    {
+      "id": "wall-south",
+      "type": "wall",
+      "transform": {
+        "position": {
+          "x": 0,
+          "y": 1.25,
+          "z": -38.25
+        },
+        "rotation": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "scale": {
+          "x": 76.5,
+          "y": 2.5,
+          "z": 0.5
+        }
+      }
+    },
+    {
+      "id": "wall-east",
+      "type": "wall",
+      "transform": {
+        "position": {
+          "x": 38.25,
+          "y": 1.25,
+          "z": 0
+        },
+        "rotation": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "scale": {
+          "x": 0.5,
+          "y": 2.5,
+          "z": 77
+        }
+      }
+    },
+    {
+      "id": "wall-west",
+      "type": "wall",
+      "transform": {
+        "position": {
+          "x": -38.25,
+          "y": 1.25,
+          "z": 0
+        },
+        "rotation": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "scale": {
+          "x": 0.5,
+          "y": 2.5,
+          "z": 77
+        }
+      }
+    },
+    {
+      "id": "shop",
+      "type": "shop",
+      "transform": {
+        "position": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "rotation": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "warehouse-flank-s",
+      "type": "warehouse",
+      "transform": {
+        "position": {
+          "x": -25,
+          "y": 0,
+          "z": -20
+        },
+        "rotation": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "warehouse-flank-n",
+      "type": "warehouse",
+      "transform": {
+        "position": {
+          "x": 25,
+          "y": 0,
+          "z": 20
+        },
+        "rotation": {
+          "x": 0,
+          "y": 3.141592653589793,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "tenement-flank-s",
+      "type": "tenement",
+      "transform": {
+        "position": {
+          "x": 30,
+          "y": 0,
+          "z": 8
+        },
+        "rotation": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "tenement-flank-n",
+      "type": "tenement",
+      "transform": {
+        "position": {
+          "x": -30,
+          "y": 0,
+          "z": -8
+        },
+        "rotation": {
+          "x": 0,
+          "y": 3.141592653589793,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "car-0",
+      "type": "car",
+      "transform": {
+        "position": {
+          "x": 0,
+          "y": 0,
+          "z": -26
+        },
+        "rotation": {
+          "x": 0,
+          "y": 1.5707963267948966,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "car-1",
+      "type": "car",
+      "transform": {
+        "position": {
+          "x": 0,
+          "y": 0,
+          "z": 26
+        },
+        "rotation": {
+          "x": 0,
+          "y": 4.71238898038469,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "light-0",
+      "type": "street-light",
+      "transform": {
+        "position": {
+          "x": -22,
+          "y": 0,
+          "z": -35
+        },
+        "rotation": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "light-1",
+      "type": "street-light",
+      "transform": {
+        "position": {
+          "x": 22,
+          "y": 0,
+          "z": 35
+        },
+        "rotation": {
+          "x": 0,
+          "y": 3.141592653589793,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "light-2",
+      "type": "street-light",
+      "transform": {
+        "position": {
+          "x": 17,
+          "y": 0,
+          "z": -30
+        },
+        "rotation": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "light-3",
+      "type": "street-light",
+      "transform": {
+        "position": {
+          "x": -17,
+          "y": 0,
+          "z": 30
+        },
+        "rotation": {
+          "x": 0,
+          "y": 3.141592653589793,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "light-4",
+      "type": "street-light",
+      "transform": {
+        "position": {
+          "x": -14,
+          "y": 0,
+          "z": -12
+        },
+        "rotation": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "light-5",
+      "type": "street-light",
+      "transform": {
+        "position": {
+          "x": 14,
+          "y": 0,
+          "z": 12
+        },
+        "rotation": {
+          "x": 0,
+          "y": 3.141592653589793,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "crate-0",
+      "type": "crate",
+      "transform": {
+        "position": {
+          "x": -11.55,
+          "y": 0.5,
+          "z": -27.55
+        },
+        "rotation": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "crate-1",
+      "type": "crate",
+      "transform": {
+        "position": {
+          "x": 11.55,
+          "y": 0.5,
+          "z": 27.55
+        },
+        "rotation": {
+          "x": 0,
+          "y": 3.141592653589793,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "crate-2",
+      "type": "crate",
+      "transform": {
+        "position": {
+          "x": -10.45,
+          "y": 0.5,
+          "z": -27.55
+        },
+        "rotation": {
+          "x": 0,
+          "y": 0.3490658503988659,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "crate-3",
+      "type": "crate",
+      "transform": {
+        "position": {
+          "x": 10.45,
+          "y": 0.5,
+          "z": 27.55
+        },
+        "rotation": {
+          "x": 0,
+          "y": 3.490658503988659,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "crate-4",
+      "type": "crate",
+      "transform": {
+        "position": {
+          "x": -11.55,
+          "y": 0.5,
+          "z": -26.45
+        },
+        "rotation": {
+          "x": 0,
+          "y": -0.2617993877991494,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "crate-5",
+      "type": "crate",
+      "transform": {
+        "position": {
+          "x": 11.55,
+          "y": 0.5,
+          "z": 26.45
+        },
+        "rotation": {
+          "x": 0,
+          "y": 2.8797932657906435,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "crate-6",
+      "type": "crate",
+      "transform": {
+        "position": {
+          "x": -10.45,
+          "y": 0.5,
+          "z": -26.45
+        },
+        "rotation": {
+          "x": 0,
+          "y": 0.19634954084936207,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "crate-7",
+      "type": "crate",
+      "transform": {
+        "position": {
+          "x": 10.45,
+          "y": 0.5,
+          "z": 26.45
+        },
+        "rotation": {
+          "x": 0,
+          "y": 3.3379421944391554,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "crate-8",
+      "type": "crate",
+      "transform": {
+        "position": {
+          "x": -11,
+          "y": 1.5,
+          "z": -27
+        },
+        "rotation": {
+          "x": 0,
+          "y": 0.4487989505128276,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "crate-9",
+      "type": "crate",
+      "transform": {
+        "position": {
+          "x": 11,
+          "y": 1.5,
+          "z": 27
+        },
+        "rotation": {
+          "x": 0,
+          "y": 3.5903916041026207,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "crate-10",
+      "type": "crate",
+      "transform": {
+        "position": {
+          "x": 10.45,
+          "y": 0.5,
+          "z": -27.55
+        },
+        "rotation": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "crate-11",
+      "type": "crate",
+      "transform": {
+        "position": {
+          "x": -10.45,
+          "y": 0.5,
+          "z": 27.55
+        },
+        "rotation": {
+          "x": 0,
+          "y": 3.141592653589793,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "crate-12",
+      "type": "crate",
+      "transform": {
+        "position": {
+          "x": 11.55,
+          "y": 0.5,
+          "z": -27.55
+        },
+        "rotation": {
+          "x": 0,
+          "y": 0.3490658503988659,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "crate-13",
+      "type": "crate",
+      "transform": {
+        "position": {
+          "x": -11.55,
+          "y": 0.5,
+          "z": 27.55
+        },
+        "rotation": {
+          "x": 0,
+          "y": 3.490658503988659,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "crate-14",
+      "type": "crate",
+      "transform": {
+        "position": {
+          "x": 10.45,
+          "y": 0.5,
+          "z": -26.45
+        },
+        "rotation": {
+          "x": 0,
+          "y": -0.2617993877991494,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "crate-15",
+      "type": "crate",
+      "transform": {
+        "position": {
+          "x": -10.45,
+          "y": 0.5,
+          "z": 26.45
+        },
+        "rotation": {
+          "x": 0,
+          "y": 2.8797932657906435,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "crate-16",
+      "type": "crate",
+      "transform": {
+        "position": {
+          "x": 11.55,
+          "y": 0.5,
+          "z": -26.45
+        },
+        "rotation": {
+          "x": 0,
+          "y": 0.19634954084936207,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "crate-17",
+      "type": "crate",
+      "transform": {
+        "position": {
+          "x": -11.55,
+          "y": 0.5,
+          "z": 26.45
+        },
+        "rotation": {
+          "x": 0,
+          "y": 3.3379421944391554,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "crate-18",
+      "type": "crate",
+      "transform": {
+        "position": {
+          "x": 11,
+          "y": 1.5,
+          "z": -27
+        },
+        "rotation": {
+          "x": 0,
+          "y": 0.4487989505128276,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "crate-19",
+      "type": "crate",
+      "transform": {
+        "position": {
+          "x": -11,
+          "y": 1.5,
+          "z": 27
+        },
+        "rotation": {
+          "x": 0,
+          "y": 3.5903916041026207,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "crate-20",
+      "type": "crate",
+      "transform": {
+        "position": {
+          "x": -15.925,
+          "y": 0.5,
+          "z": -27
+        },
+        "rotation": {
+          "x": 0,
+          "y": 0.2617993877991494,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "crate-21",
+      "type": "crate",
+      "transform": {
+        "position": {
+          "x": 15.925,
+          "y": 0.5,
+          "z": 27
+        },
+        "rotation": {
+          "x": 0,
+          "y": 3.4033920413889427,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "crate-22",
+      "type": "crate",
+      "transform": {
+        "position": {
+          "x": -14.675,
+          "y": 0.5,
+          "z": -27
+        },
+        "rotation": {
+          "x": 0,
+          "y": -0.2617993877991494,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "crate-23",
+      "type": "crate",
+      "transform": {
+        "position": {
+          "x": 14.675,
+          "y": 0.5,
+          "z": 27
+        },
+        "rotation": {
+          "x": 0,
+          "y": 2.8797932657906435,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "crate-24",
+      "type": "crate",
+      "transform": {
+        "position": {
+          "x": -15.3,
+          "y": 1.5,
+          "z": -27
+        },
+        "rotation": {
+          "x": 0,
+          "y": -0.2243994752564138,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "crate-25",
+      "type": "crate",
+      "transform": {
+        "position": {
+          "x": 15.3,
+          "y": 1.5,
+          "z": 27
+        },
+        "rotation": {
+          "x": 0,
+          "y": 2.9171931783333793,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "crate-26",
+      "type": "crate",
+      "transform": {
+        "position": {
+          "x": 14.675,
+          "y": 0.5,
+          "z": -27
+        },
+        "rotation": {
+          "x": 0,
+          "y": 0.2617993877991494,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "crate-27",
+      "type": "crate",
+      "transform": {
+        "position": {
+          "x": -14.675,
+          "y": 0.5,
+          "z": 27
+        },
+        "rotation": {
+          "x": 0,
+          "y": 3.4033920413889427,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "crate-28",
+      "type": "crate",
+      "transform": {
+        "position": {
+          "x": 15.925,
+          "y": 0.5,
+          "z": -27
+        },
+        "rotation": {
+          "x": 0,
+          "y": -0.2617993877991494,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "crate-29",
+      "type": "crate",
+      "transform": {
+        "position": {
+          "x": -15.925,
+          "y": 0.5,
+          "z": 27
+        },
+        "rotation": {
+          "x": 0,
+          "y": 2.8797932657906435,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "crate-30",
+      "type": "crate",
+      "transform": {
+        "position": {
+          "x": 15.3,
+          "y": 1.5,
+          "z": -27
+        },
+        "rotation": {
+          "x": 0,
+          "y": -0.2243994752564138,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "crate-31",
+      "type": "crate",
+      "transform": {
+        "position": {
+          "x": -15.3,
+          "y": 1.5,
+          "z": 27
+        },
+        "rotation": {
+          "x": 0,
+          "y": 2.9171931783333793,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "crate-32",
+      "type": "crate",
+      "transform": {
+        "position": {
+          "x": -8.25,
+          "y": 0.5,
+          "z": -17
+        },
+        "rotation": {
+          "x": 0,
+          "y": 0.2617993877991494,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "crate-33",
+      "type": "crate",
+      "transform": {
+        "position": {
+          "x": 8.25,
+          "y": 0.5,
+          "z": 17
+        },
+        "rotation": {
+          "x": 0,
+          "y": 3.4033920413889427,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "crate-34",
+      "type": "crate",
+      "transform": {
+        "position": {
+          "x": -7,
+          "y": 0.5,
+          "z": -17
+        },
+        "rotation": {
+          "x": 0,
+          "y": -0.2617993877991494,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "crate-35",
+      "type": "crate",
+      "transform": {
+        "position": {
+          "x": 7,
+          "y": 0.5,
+          "z": 17
+        },
+        "rotation": {
+          "x": 0,
+          "y": 2.8797932657906435,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "crate-36",
+      "type": "crate",
+      "transform": {
+        "position": {
+          "x": -5.75,
+          "y": 0.5,
+          "z": -17
+        },
+        "rotation": {
+          "x": 0,
+          "y": 0.2617993877991494,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "crate-37",
+      "type": "crate",
+      "transform": {
+        "position": {
+          "x": 5.75,
+          "y": 0.5,
+          "z": 17
+        },
+        "rotation": {
+          "x": 0,
+          "y": 3.4033920413889427,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "crate-38",
+      "type": "crate",
+      "transform": {
+        "position": {
+          "x": -7.625,
+          "y": 1.5,
+          "z": -17
+        },
+        "rotation": {
+          "x": 0,
+          "y": -0.2243994752564138,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "crate-39",
+      "type": "crate",
+      "transform": {
+        "position": {
+          "x": 7.625,
+          "y": 1.5,
+          "z": 17
+        },
+        "rotation": {
+          "x": 0,
+          "y": 2.9171931783333793,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "crate-40",
+      "type": "crate",
+      "transform": {
+        "position": {
+          "x": -6.375,
+          "y": 1.5,
+          "z": -17
+        },
+        "rotation": {
+          "x": 0,
+          "y": 0.2243994752564138,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "crate-41",
+      "type": "crate",
+      "transform": {
+        "position": {
+          "x": 6.375,
+          "y": 1.5,
+          "z": 17
+        },
+        "rotation": {
+          "x": 0,
+          "y": 3.365992128846207,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "crate-42",
+      "type": "crate",
+      "transform": {
+        "position": {
+          "x": -14.125,
+          "y": 0.5,
+          "z": -21
+        },
+        "rotation": {
+          "x": 0,
+          "y": 0.2617993877991494,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "crate-43",
+      "type": "crate",
+      "transform": {
+        "position": {
+          "x": 14.125,
+          "y": 0.5,
+          "z": 21
+        },
+        "rotation": {
+          "x": 0,
+          "y": 3.4033920413889427,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "crate-44",
+      "type": "crate",
+      "transform": {
+        "position": {
+          "x": -12.875,
+          "y": 0.5,
+          "z": -21
+        },
+        "rotation": {
+          "x": 0,
+          "y": -0.2617993877991494,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "crate-45",
+      "type": "crate",
+      "transform": {
+        "position": {
+          "x": 12.875,
+          "y": 0.5,
+          "z": 21
+        },
+        "rotation": {
+          "x": 0,
+          "y": 2.8797932657906435,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "crate-46",
+      "type": "crate",
+      "transform": {
+        "position": {
+          "x": -13.5,
+          "y": 1.5,
+          "z": -21
+        },
+        "rotation": {
+          "x": 0,
+          "y": -0.2243994752564138,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "crate-47",
+      "type": "crate",
+      "transform": {
+        "position": {
+          "x": 13.5,
+          "y": 1.5,
+          "z": 21
+        },
+        "rotation": {
+          "x": 0,
+          "y": 2.9171931783333793,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "crate-48",
+      "type": "crate",
+      "transform": {
+        "position": {
+          "x": -12.1,
+          "y": 0.5,
+          "z": -8.1
+        },
+        "rotation": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "crate-49",
+      "type": "crate",
+      "transform": {
+        "position": {
+          "x": 12.1,
+          "y": 0.5,
+          "z": 8.1
+        },
+        "rotation": {
+          "x": 0,
+          "y": 3.141592653589793,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "crate-50",
+      "type": "crate",
+      "transform": {
+        "position": {
+          "x": -9.9,
+          "y": 0.5,
+          "z": -8.1
+        },
+        "rotation": {
+          "x": 0,
+          "y": 0.5235987755982988,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "crate-51",
+      "type": "crate",
+      "transform": {
+        "position": {
+          "x": 9.9,
+          "y": 0.5,
+          "z": 8.1
+        },
+        "rotation": {
+          "x": 0,
+          "y": 3.665191429188092,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "crate-52",
+      "type": "crate",
+      "transform": {
+        "position": {
+          "x": -12.1,
+          "y": 0.5,
+          "z": -5.9
+        },
+        "rotation": {
+          "x": 0,
+          "y": -0.39269908169872414,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "crate-53",
+      "type": "crate",
+      "transform": {
+        "position": {
+          "x": 12.1,
+          "y": 0.5,
+          "z": 5.9
+        },
+        "rotation": {
+          "x": 0,
+          "y": 2.748893571891069,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "crate-54",
+      "type": "crate",
+      "transform": {
+        "position": {
+          "x": -9.9,
+          "y": 0.5,
+          "z": -5.9
+        },
+        "rotation": {
+          "x": 0,
+          "y": 1.0471975511965976,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "crate-55",
+      "type": "crate",
+      "transform": {
+        "position": {
+          "x": 9.9,
+          "y": 0.5,
+          "z": 5.9
+        },
+        "rotation": {
+          "x": 0,
+          "y": 4.1887902047863905,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "crate-56",
+      "type": "crate",
+      "transform": {
+        "position": {
+          "x": -11,
+          "y": 1.5,
+          "z": -7.5
+        },
+        "rotation": {
+          "x": 0,
+          "y": 0.7853981633974483,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "crate-57",
+      "type": "crate",
+      "transform": {
+        "position": {
+          "x": 11,
+          "y": 1.5,
+          "z": 7.5
+        },
+        "rotation": {
+          "x": 0,
+          "y": 3.9269908169872414,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "crate-58",
+      "type": "crate",
+      "transform": {
+        "position": {
+          "x": -11,
+          "y": 1.5,
+          "z": -6.5
+        },
+        "rotation": {
+          "x": 0,
+          "y": -0.7853981633974483,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "crate-59",
+      "type": "crate",
+      "transform": {
+        "position": {
+          "x": 11,
+          "y": 1.5,
+          "z": 6.5
+        },
+        "rotation": {
+          "x": 0,
+          "y": 2.356194490192345,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "crate-60",
+      "type": "crate",
+      "transform": {
+        "position": {
+          "x": -11,
+          "y": 2.5,
+          "z": -7
+        },
+        "rotation": {
+          "x": 0,
+          "y": 0.3141592653589793,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "crate-61",
+      "type": "crate",
+      "transform": {
+        "position": {
+          "x": 11,
+          "y": 2.5,
+          "z": 7
+        },
+        "rotation": {
+          "x": 0,
+          "y": 3.4557519189487724,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "crate-62",
+      "type": "crate",
+      "transform": {
+        "position": {
+          "x": 8,
+          "y": 0.6,
+          "z": -8
+        },
+        "rotation": {
+          "x": 0,
+          "y": 0.3,
+          "z": 0
+        },
+        "scale": {
+          "x": 1.2,
+          "y": 1.2,
+          "z": 1.2
+        }
+      }
+    },
+    {
+      "id": "crate-63",
+      "type": "crate",
+      "transform": {
+        "position": {
+          "x": -8,
+          "y": 0.6,
+          "z": 8
+        },
+        "rotation": {
+          "x": 0,
+          "y": 3.441592653589793,
+          "z": 0
+        },
+        "scale": {
+          "x": 1.2,
+          "y": 1.2,
+          "z": 1.2
+        }
+      }
+    },
+    {
+      "id": "crate-64",
+      "type": "crate",
+      "transform": {
+        "position": {
+          "x": 9.2,
+          "y": 0.5,
+          "z": -7.2
+        },
+        "rotation": {
+          "x": 0,
+          "y": -0.2,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "crate-65",
+      "type": "crate",
+      "transform": {
+        "position": {
+          "x": -9.2,
+          "y": 0.5,
+          "z": 7.2
+        },
+        "rotation": {
+          "x": 0,
+          "y": 2.941592653589793,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "crate-66",
+      "type": "crate",
+      "transform": {
+        "position": {
+          "x": -3.125,
+          "y": 0.5,
+          "z": -5.3
+        },
+        "rotation": {
+          "x": 0,
+          "y": 0.2617993877991494,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "crate-67",
+      "type": "crate",
+      "transform": {
+        "position": {
+          "x": 3.125,
+          "y": 0.5,
+          "z": 5.3
+        },
+        "rotation": {
+          "x": 0,
+          "y": 3.4033920413889427,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "crate-68",
+      "type": "crate",
+      "transform": {
+        "position": {
+          "x": -1.875,
+          "y": 0.5,
+          "z": -5.3
+        },
+        "rotation": {
+          "x": 0,
+          "y": -0.2617993877991494,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "crate-69",
+      "type": "crate",
+      "transform": {
+        "position": {
+          "x": 1.875,
+          "y": 0.5,
+          "z": 5.3
+        },
+        "rotation": {
+          "x": 0,
+          "y": 2.8797932657906435,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "crate-70",
+      "type": "crate",
+      "transform": {
+        "position": {
+          "x": -2.5,
+          "y": 1.5,
+          "z": -5.3
+        },
+        "rotation": {
+          "x": 0,
+          "y": -0.2243994752564138,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "crate-71",
+      "type": "crate",
+      "transform": {
+        "position": {
+          "x": 2.5,
+          "y": 1.5,
+          "z": 5.3
+        },
+        "rotation": {
+          "x": 0,
+          "y": 2.9171931783333793,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "crate-72",
+      "type": "crate",
+      "transform": {
+        "position": {
+          "x": 25.4,
+          "y": 0.6,
+          "z": -9.6
+        },
+        "rotation": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "scale": {
+          "x": 1.2,
+          "y": 1.2,
+          "z": 1.2
+        }
+      }
+    },
+    {
+      "id": "crate-73",
+      "type": "crate",
+      "transform": {
+        "position": {
+          "x": -25.4,
+          "y": 0.6,
+          "z": 9.6
+        },
+        "rotation": {
+          "x": 0,
+          "y": 3.141592653589793,
+          "z": 0
+        },
+        "scale": {
+          "x": 1.2,
+          "y": 1.2,
+          "z": 1.2
+        }
+      }
+    },
+    {
+      "id": "crate-74",
+      "type": "crate",
+      "transform": {
+        "position": {
+          "x": 26.6,
+          "y": 0.6,
+          "z": -9.6
+        },
+        "rotation": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "scale": {
+          "x": 1.2,
+          "y": 1.2,
+          "z": 1.2
+        }
+      }
+    },
+    {
+      "id": "crate-75",
+      "type": "crate",
+      "transform": {
+        "position": {
+          "x": -26.6,
+          "y": 0.6,
+          "z": 9.6
+        },
+        "rotation": {
+          "x": 0,
+          "y": 3.141592653589793,
+          "z": 0
+        },
+        "scale": {
+          "x": 1.2,
+          "y": 1.2,
+          "z": 1.2
+        }
+      }
+    },
+    {
+      "id": "crate-76",
+      "type": "crate",
+      "transform": {
+        "position": {
+          "x": 25.4,
+          "y": 0.6,
+          "z": -8.4
+        },
+        "rotation": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "scale": {
+          "x": 1.2,
+          "y": 1.2,
+          "z": 1.2
+        }
+      }
+    },
+    {
+      "id": "crate-77",
+      "type": "crate",
+      "transform": {
+        "position": {
+          "x": -25.4,
+          "y": 0.6,
+          "z": 8.4
+        },
+        "rotation": {
+          "x": 0,
+          "y": 3.141592653589793,
+          "z": 0
+        },
+        "scale": {
+          "x": 1.2,
+          "y": 1.2,
+          "z": 1.2
+        }
+      }
+    },
+    {
+      "id": "crate-78",
+      "type": "crate",
+      "transform": {
+        "position": {
+          "x": 26.6,
+          "y": 0.6,
+          "z": -8.4
+        },
+        "rotation": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "scale": {
+          "x": 1.2,
+          "y": 1.2,
+          "z": 1.2
+        }
+      }
+    },
+    {
+      "id": "crate-79",
+      "type": "crate",
+      "transform": {
+        "position": {
+          "x": -26.6,
+          "y": 0.6,
+          "z": 8.4
+        },
+        "rotation": {
+          "x": 0,
+          "y": 3.141592653589793,
+          "z": 0
+        },
+        "scale": {
+          "x": 1.2,
+          "y": 1.2,
+          "z": 1.2
+        }
+      }
+    },
+    {
+      "id": "crate-80",
+      "type": "crate",
+      "transform": {
+        "position": {
+          "x": 25.4,
+          "y": 1.7999999999999998,
+          "z": -9
+        },
+        "rotation": {
+          "x": 0,
+          "y": 0.2617993877991494,
+          "z": 0
+        },
+        "scale": {
+          "x": 1.2,
+          "y": 1.2,
+          "z": 1.2
+        }
+      }
+    },
+    {
+      "id": "crate-81",
+      "type": "crate",
+      "transform": {
+        "position": {
+          "x": -25.4,
+          "y": 1.7999999999999998,
+          "z": 9
+        },
+        "rotation": {
+          "x": 0,
+          "y": 3.4033920413889427,
+          "z": 0
+        },
+        "scale": {
+          "x": 1.2,
+          "y": 1.2,
+          "z": 1.2
+        }
+      }
+    },
+    {
+      "id": "crate-82",
+      "type": "crate",
+      "transform": {
+        "position": {
+          "x": 26.6,
+          "y": 1.7999999999999998,
+          "z": -9
+        },
+        "rotation": {
+          "x": 0,
+          "y": -0.2617993877991494,
+          "z": 0
+        },
+        "scale": {
+          "x": 1.2,
+          "y": 1.2,
+          "z": 1.2
+        }
+      }
+    },
+    {
+      "id": "crate-83",
+      "type": "crate",
+      "transform": {
+        "position": {
+          "x": -26.6,
+          "y": 1.7999999999999998,
+          "z": 9
+        },
+        "rotation": {
+          "x": 0,
+          "y": 2.8797932657906435,
+          "z": 0
+        },
+        "scale": {
+          "x": 1.2,
+          "y": 1.2,
+          "z": 1.2
+        }
+      }
+    },
+    {
+      "id": "crate-84",
+      "type": "crate",
+      "transform": {
+        "position": {
+          "x": 26,
+          "y": 3,
+          "z": -9
+        },
+        "rotation": {
+          "x": 0,
+          "y": 0.6283185307179586,
+          "z": 0
+        },
+        "scale": {
+          "x": 1.2,
+          "y": 1.2,
+          "z": 1.2
+        }
+      }
+    },
+    {
+      "id": "crate-85",
+      "type": "crate",
+      "transform": {
+        "position": {
+          "x": -26,
+          "y": 3,
+          "z": 9
+        },
+        "rotation": {
+          "x": 0,
+          "y": 3.7699111843077517,
+          "z": 0
+        },
+        "scale": {
+          "x": 1.2,
+          "y": 1.2,
+          "z": 1.2
+        }
+      }
+    },
+    {
+      "id": "crate-86",
+      "type": "crate",
+      "transform": {
+        "position": {
+          "x": 21.875,
+          "y": 0.5,
+          "z": -25.5
+        },
+        "rotation": {
+          "x": 0,
+          "y": 0.2617993877991494,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "crate-87",
+      "type": "crate",
+      "transform": {
+        "position": {
+          "x": -21.875,
+          "y": 0.5,
+          "z": 25.5
+        },
+        "rotation": {
+          "x": 0,
+          "y": 3.4033920413889427,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "crate-88",
+      "type": "crate",
+      "transform": {
+        "position": {
+          "x": 23.125,
+          "y": 0.5,
+          "z": -25.5
+        },
+        "rotation": {
+          "x": 0,
+          "y": -0.2617993877991494,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "crate-89",
+      "type": "crate",
+      "transform": {
+        "position": {
+          "x": -23.125,
+          "y": 0.5,
+          "z": 25.5
+        },
+        "rotation": {
+          "x": 0,
+          "y": 2.8797932657906435,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "crate-90",
+      "type": "crate",
+      "transform": {
+        "position": {
+          "x": 22.5,
+          "y": 1.5,
+          "z": -25.5
+        },
+        "rotation": {
+          "x": 0,
+          "y": -0.2243994752564138,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "crate-91",
+      "type": "crate",
+      "transform": {
+        "position": {
+          "x": -22.5,
+          "y": 1.5,
+          "z": 25.5
+        },
+        "rotation": {
+          "x": 0,
+          "y": 2.9171931783333793,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "cone-0",
+      "type": "traffic-cone",
+      "transform": {
+        "position": {
+          "x": 5.2,
+          "y": 0,
+          "z": -22.6
+        },
+        "rotation": {
+          "x": 0,
+          "y": 5.248576834121005,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "cone-1",
+      "type": "traffic-cone",
+      "transform": {
+        "position": {
+          "x": -5.2,
+          "y": 0,
+          "z": 22.6
+        },
+        "rotation": {
+          "x": 0,
+          "y": 8.390169487710798,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "cone-2",
+      "type": "traffic-cone",
+      "transform": {
+        "position": {
+          "x": 9.4,
+          "y": 0,
+          "z": -21.9
+        },
+        "rotation": {
+          "x": 0,
+          "y": 4.0981535444990165,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "cone-3",
+      "type": "traffic-cone",
+      "transform": {
+        "position": {
+          "x": -9.4,
+          "y": 0,
+          "z": 21.9
+        },
+        "rotation": {
+          "x": 0,
+          "y": 7.23974619808881,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "cone-4",
+      "type": "traffic-cone",
+      "transform": {
+        "position": {
+          "x": 8.8,
+          "y": 0,
+          "z": -17.6
+        },
+        "rotation": {
+          "x": 0,
+          "y": 6.006259553687542,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "cone-5",
+      "type": "traffic-cone",
+      "transform": {
+        "position": {
+          "x": -8.8,
+          "y": 0,
+          "z": 17.6
+        },
+        "rotation": {
+          "x": 0,
+          "y": 9.147852207277335,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "cone-6",
+      "type": "traffic-cone",
+      "transform": {
+        "position": {
+          "x": -17.6,
+          "y": 0,
+          "z": -9.3
+        },
+        "rotation": {
+          "x": 0,
+          "y": 2.905815829110096,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "cone-7",
+      "type": "traffic-cone",
+      "transform": {
+        "position": {
+          "x": 17.6,
+          "y": 0,
+          "z": 9.3
+        },
+        "rotation": {
+          "x": 0,
+          "y": 6.04740848269989,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "cone-8",
+      "type": "traffic-cone",
+      "transform": {
+        "position": {
+          "x": -16.9,
+          "y": 0,
+          "z": -10
+        },
+        "rotation": {
+          "x": 0,
+          "y": 0.5293540937913552,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "cone-9",
+      "type": "traffic-cone",
+      "transform": {
+        "position": {
+          "x": 16.9,
+          "y": 0,
+          "z": 10
+        },
+        "rotation": {
+          "x": 0,
+          "y": 3.6709467473811483,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "cone-10",
+      "type": "traffic-cone",
+      "transform": {
+        "position": {
+          "x": 29,
+          "y": 0,
+          "z": -31
+        },
+        "rotation": {
+          "x": 0,
+          "y": 1.5242032271481332,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "cone-11",
+      "type": "traffic-cone",
+      "transform": {
+        "position": {
+          "x": -29,
+          "y": 0,
+          "z": 31
+        },
+        "rotation": {
+          "x": 0,
+          "y": 4.665795880737926,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "cone-12",
+      "type": "traffic-cone",
+      "transform": {
+        "position": {
+          "x": 29.8,
+          "y": 0,
+          "z": -30.2
+        },
+        "rotation": {
+          "x": 0,
+          "y": 4.328806097566527,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "cone-13",
+      "type": "traffic-cone",
+      "transform": {
+        "position": {
+          "x": -29.8,
+          "y": 0,
+          "z": 30.2
+        },
+        "rotation": {
+          "x": 0,
+          "y": 7.47039875115632,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "cone-14",
+      "type": "traffic-cone",
+      "transform": {
+        "position": {
+          "x": 30.6,
+          "y": 0,
+          "z": -29.4
+        },
+        "rotation": {
+          "x": 0,
+          "y": 1.9608287970299783,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "cone-15",
+      "type": "traffic-cone",
+      "transform": {
+        "position": {
+          "x": -30.6,
+          "y": 0,
+          "z": 29.4
+        },
+        "rotation": {
+          "x": 0,
+          "y": 5.102421450619771,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "cone-16",
+      "type": "traffic-cone",
+      "transform": {
+        "position": {
+          "x": 31.4,
+          "y": 0,
+          "z": -28.6
+        },
+        "rotation": {
+          "x": 0,
+          "y": 2.3581570606269953,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "cone-17",
+      "type": "traffic-cone",
+      "transform": {
+        "position": {
+          "x": -31.4,
+          "y": 0,
+          "z": 28.6
+        },
+        "rotation": {
+          "x": 0,
+          "y": 5.499749714216788,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "tree-0",
+      "type": "tree",
+      "transform": {
+        "position": {
+          "x": -31.5,
+          "y": 0,
+          "z": -36.2
+        },
+        "rotation": {
+          "x": 0,
+          "y": 5.1346684514367915,
+          "z": 0
+        },
+        "scale": {
+          "x": 0.9,
+          "y": 0.9,
+          "z": 0.9
+        }
+      }
+    },
+    {
+      "id": "tree-1",
+      "type": "tree",
+      "transform": {
+        "position": {
+          "x": 31.5,
+          "y": 0,
+          "z": 36.2
+        },
+        "rotation": {
+          "x": 0,
+          "y": 8.276261105026585,
+          "z": 0
+        },
+        "scale": {
+          "x": 0.9,
+          "y": 0.9,
+          "z": 0.9
+        }
+      }
+    },
+    {
+      "id": "tree-2",
+      "type": "tree",
+      "transform": {
+        "position": {
+          "x": -35.5,
+          "y": 0,
+          "z": -30
+        },
+        "rotation": {
+          "x": 0,
+          "y": 0.40678096582000683,
+          "z": 0
+        },
+        "scale": {
+          "x": 1.1,
+          "y": 1.1,
+          "z": 1.1
+        }
+      }
+    },
+    {
+      "id": "tree-3",
+      "type": "tree",
+      "transform": {
+        "position": {
+          "x": 35.5,
+          "y": 0,
+          "z": 30
+        },
+        "rotation": {
+          "x": 0,
+          "y": 3.5483736194098,
+          "z": 0
+        },
+        "scale": {
+          "x": 1.1,
+          "y": 1.1,
+          "z": 1.1
+        }
+      }
+    },
+    {
+      "id": "tree-4",
+      "type": "tree",
+      "transform": {
+        "position": {
+          "x": -35.5,
+          "y": 0,
+          "z": -12
+        },
+        "rotation": {
+          "x": 0,
+          "y": 2.2842328330433346,
+          "z": 0
+        },
+        "scale": {
+          "x": 0.9,
+          "y": 0.9,
+          "z": 0.9
+        }
+      }
+    },
+    {
+      "id": "tree-5",
+      "type": "tree",
+      "transform": {
+        "position": {
+          "x": 35.5,
+          "y": 0,
+          "z": 12
+        },
+        "rotation": {
+          "x": 0,
+          "y": 5.425825486633128,
+          "z": 0
+        },
+        "scale": {
+          "x": 0.9,
+          "y": 0.9,
+          "z": 0.9
+        }
+      }
+    },
+    {
+      "id": "tree-6",
+      "type": "tree",
+      "transform": {
+        "position": {
+          "x": -35.5,
+          "y": 0,
+          "z": 6
+        },
+        "rotation": {
+          "x": 0,
+          "y": 3.704608959055953,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "tree-7",
+      "type": "tree",
+      "transform": {
+        "position": {
+          "x": 35.5,
+          "y": 0,
+          "z": -6
+        },
+        "rotation": {
+          "x": 0,
+          "y": 6.846201612645746,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "tree-8",
+      "type": "tree",
+      "transform": {
+        "position": {
+          "x": 35.5,
+          "y": 0,
+          "z": -24
+        },
+        "rotation": {
+          "x": 0,
+          "y": 0.08242501925289814,
+          "z": 0
+        },
+        "scale": {
+          "x": 1.2,
+          "y": 1.2,
+          "z": 1.2
+        }
+      }
+    },
+    {
+      "id": "tree-9",
+      "type": "tree",
+      "transform": {
+        "position": {
+          "x": -35.5,
+          "y": 0,
+          "z": 24
+        },
+        "rotation": {
+          "x": 0,
+          "y": 3.2240176728426913,
+          "z": 0
+        },
+        "scale": {
+          "x": 1.2,
+          "y": 1.2,
+          "z": 1.2
+        }
+      }
+    },
+    {
+      "id": "bush-0",
+      "type": "bush",
+      "transform": {
+        "position": {
+          "x": -33.2,
+          "y": 0,
+          "z": -35.6
+        },
+        "rotation": {
+          "x": 0,
+          "y": 5.327745249974729,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "bush-1",
+      "type": "bush",
+      "transform": {
+        "position": {
+          "x": 33.2,
+          "y": 0,
+          "z": 35.6
+        },
+        "rotation": {
+          "x": 0,
+          "y": 8.469337903564522,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "bush-2",
+      "type": "bush",
+      "transform": {
+        "position": {
+          "x": -29.8,
+          "y": 0,
+          "z": -36.5
+        },
+        "rotation": {
+          "x": 0,
+          "y": 0.5202413839704136,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "bush-3",
+      "type": "bush",
+      "transform": {
+        "position": {
+          "x": 29.8,
+          "y": 0,
+          "z": 36.5
+        },
+        "rotation": {
+          "x": 0,
+          "y": 3.6618340375602068,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "bush-4",
+      "type": "bush",
+      "transform": {
+        "position": {
+          "x": 17.6,
+          "y": 0,
+          "z": -18.1
+        },
+        "rotation": {
+          "x": 0,
+          "y": 0.33463090969199416,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "bush-5",
+      "type": "bush",
+      "transform": {
+        "position": {
+          "x": -17.6,
+          "y": 0,
+          "z": 18.1
+        },
+        "rotation": {
+          "x": 0,
+          "y": 3.4762235632817875,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "bush-6",
+      "type": "bush",
+      "transform": {
+        "position": {
+          "x": -6,
+          "y": 0,
+          "z": -5.3
+        },
+        "rotation": {
+          "x": 0,
+          "y": 1.3706740928434378,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "bush-7",
+      "type": "bush",
+      "transform": {
+        "position": {
+          "x": 6,
+          "y": 0,
+          "z": 5.3
+        },
+        "rotation": {
+          "x": 0,
+          "y": 4.512266746433231,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "bush-8",
+      "type": "bush",
+      "transform": {
+        "position": {
+          "x": -34.3,
+          "y": 0,
+          "z": -31.3
+        },
+        "rotation": {
+          "x": 0,
+          "y": 5.695728007419339,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "bush-9",
+      "type": "bush",
+      "transform": {
+        "position": {
+          "x": 34.3,
+          "y": 0,
+          "z": 31.3
+        },
+        "rotation": {
+          "x": 0,
+          "y": 8.837320661009132,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "bush-10",
+      "type": "bush",
+      "transform": {
+        "position": {
+          "x": -36.6,
+          "y": 0,
+          "z": -28.2
+        },
+        "rotation": {
+          "x": 0,
+          "y": 0.6013538965292826,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "bush-11",
+      "type": "bush",
+      "transform": {
+        "position": {
+          "x": 36.6,
+          "y": 0,
+          "z": 28.2
+        },
+        "rotation": {
+          "x": 0,
+          "y": 3.7429465501190755,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "bush-12",
+      "type": "bush",
+      "transform": {
+        "position": {
+          "x": -34.6,
+          "y": 0,
+          "z": -10.7
+        },
+        "rotation": {
+          "x": 0,
+          "y": 0.10149264961052393,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "bush-13",
+      "type": "bush",
+      "transform": {
+        "position": {
+          "x": 34.6,
+          "y": 0,
+          "z": 10.7
+        },
+        "rotation": {
+          "x": 0,
+          "y": 3.243085303200317,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "bush-14",
+      "type": "bush",
+      "transform": {
+        "position": {
+          "x": -36.3,
+          "y": 0,
+          "z": 7.6
+        },
+        "rotation": {
+          "x": 0,
+          "y": 5.416482128759054,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "bush-15",
+      "type": "bush",
+      "transform": {
+        "position": {
+          "x": 36.3,
+          "y": 0,
+          "z": -7.6
+        },
+        "rotation": {
+          "x": 0,
+          "y": 8.558074782348847,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "bush-16",
+      "type": "bush",
+      "transform": {
+        "position": {
+          "x": 34.1,
+          "y": 0,
+          "z": -25.6
+        },
+        "rotation": {
+          "x": 0,
+          "y": 3.33894903317803,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "bush-17",
+      "type": "bush",
+      "transform": {
+        "position": {
+          "x": -34.1,
+          "y": 0,
+          "z": 25.6
+        },
+        "rotation": {
+          "x": 0,
+          "y": 6.480541686767824,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "bush-18",
+      "type": "bush",
+      "transform": {
+        "position": {
+          "x": 36.5,
+          "y": 0,
+          "z": -22.2
+        },
+        "rotation": {
+          "x": 0,
+          "y": 1.5000987566773278,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "bush-19",
+      "type": "bush",
+      "transform": {
+        "position": {
+          "x": -36.5,
+          "y": 0,
+          "z": 22.2
+        },
+        "rotation": {
+          "x": 0,
+          "y": 4.641691410267121,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "bush-20",
+      "type": "bush",
+      "transform": {
+        "position": {
+          "x": 34.8,
+          "y": 0,
+          "z": -2.4
+        },
+        "rotation": {
+          "x": 0,
+          "y": 6.009529800260724,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "bush-21",
+      "type": "bush",
+      "transform": {
+        "position": {
+          "x": -34.8,
+          "y": 0,
+          "z": 2.4
+        },
+        "rotation": {
+          "x": 0,
+          "y": 9.151122453850517,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    }
+  ],
+  "spawnPoints": [
+    {
+      "id": "spawn-0",
+      "position": {
+        "x": -16,
+        "y": 1,
+        "z": -33
+      }
+    },
+    {
+      "id": "spawn-1",
+      "position": {
+        "x": -11,
+        "y": 1,
+        "z": -34
+      }
+    },
+    {
+      "id": "spawn-2",
+      "position": {
+        "x": 0,
+        "y": 1,
+        "z": -34
+      }
+    },
+    {
+      "id": "spawn-3",
+      "position": {
+        "x": 11,
+        "y": 1,
+        "z": -34
+      }
+    },
+    {
+      "id": "spawn-4",
+      "position": {
+        "x": 16,
+        "y": 1,
+        "z": -33
+      }
+    },
+    {
+      "id": "spawn-5",
+      "position": {
+        "x": 16,
+        "y": 1,
+        "z": 33
+      }
+    },
+    {
+      "id": "spawn-6",
+      "position": {
+        "x": 11,
+        "y": 1,
+        "z": 34
+      }
+    },
+    {
+      "id": "spawn-7",
+      "position": {
+        "x": 0,
+        "y": 1,
+        "z": 34
+      }
+    },
+    {
+      "id": "spawn-8",
+      "position": {
+        "x": -11,
+        "y": 1,
+        "z": 34
+      }
+    },
+    {
+      "id": "spawn-9",
+      "position": {
+        "x": -16,
+        "y": 1,
+        "z": 33
+      }
+    }
+  ]
+}

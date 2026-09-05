@@ -1,0 +1,69 @@
+{
+  "slug": "crate-planks",
+  "kind": "material",
+  "model": "gpt-image-2",
+  "createdAt": "2026-09-05T14:20:22.542Z",
+  "size": "1024x1024",
+  "quality": "high",
+  "prompt": "rough sawn wooden crate planks, dark oiled brown, water-darkened grain with a few small splits and knots, thin plank gaps, faint rain streaks",
+  "fullPrompt": "Top-down orthographic photograph of a flat surface material, to be used as a video game texture. The frame is filled edge to edge by the surface only: no objects, no people, no horizon, no vignette, no border, no text, no watermark. Uniform diffuse overcast lighting; no directional shadows and no specular hotspots baked into the image. Seamlessly tileable: the left edge continues into the right edge and the top edge into the bottom edge with no visible seam. Mood: rainy urban night in a noir crime district; desaturated palette, cold grey-blue shadows, grime and wear.\n\nSurface: rough sawn wooden crate planks, dark oiled brown, water-darkened grain with a few small splits and knots, thin plank gaps, faint rain streaks",
+  "styleRefs": [
+    "refs/style/asphalt-wet.png",
+    "refs/style/wood-weathered.png"
+  ],
+  "subjectRefs": [],
+  "requests": [
+    {
+      "step": "edit",
+      "requestId": "req_7e35a4e8ca83472ebf3ca8cb9595750b",
+      "usage": {
+        "input_tokens": 2212,
+        "input_tokens_details": {
+          "image_tokens": 2048,
+          "text_tokens": 164
+        },
+        "output_tokens": 7024,
+        "output_tokens_details": {
+          "image_tokens": 7024,
+          "text_tokens": 0
+        },
+        "total_tokens": 9236
+      }
+    }
+  ],
+  "seam": {
+    "threshold": 1.8,
+    "before": 1.672750117561341,
+    "after": null,
+    "repaired": false
+  },
+  "derive": {
+    "strength": 10,
+    "blur": 1,
+    "roughnessMode": "invert",
+    "roughnessRange": [
+      0.35,
+      0.95
+    ],
+    "aoRadius": 8,
+    "aoStrength": 1,
+    "albedoMean": {
+      "target": 105,
+      "before": 38.11,
+      "after": 105,
+      "gain": 7.25,
+      "clippedFraction": 0,
+      "limited": false,
+      "source": "basecolor",
+      "appliedAt": "2026-09-05T15:24:17.956Z"
+    }
+  },
+  "files": {
+    "basecolor": "app/public/textures/crate-planks/crate-planks_basecolor.jpg",
+    "tilecheck": ".agents/skills/generate-game-textures/out/crate-planks/final_tilecheck.png",
+    "normal": "app/public/textures/crate-planks/crate-planks_normal.png",
+    "height": "app/public/textures/crate-planks/crate-planks_height.png",
+    "roughness": "app/public/textures/crate-planks/crate-planks_roughness.jpg",
+    "ao": "app/public/textures/crate-planks/crate-planks_ao.jpg"
+  }
+}

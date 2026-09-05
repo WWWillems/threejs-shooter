@@ -5,6 +5,7 @@ import cors from "cors";
 import { TICK_RATE } from "@threejs-shooter/shared";
 import { GameRoom } from "./room/GameRoom";
 import { startTickLoop } from "./room/tickLoop";
+import { loadServerLevel } from "./levelLoader";
 import {
   attachSocketIO,
   SocketIOTransport,
@@ -26,7 +27,7 @@ app.use(
     origin: allowedOrigins,
     methods: ["GET", "POST"],
     credentials: true,
-  })
+  }),
 );
 
 const io: GameServer = new SocketIO(server, {
@@ -39,7 +40,9 @@ const io: GameServer = new SocketIO(server, {
 
 const PORT = process.env.PORT || 3000;
 
-const room = new GameRoom(new SocketIOTransport(io));
+const room = new GameRoom(new SocketIOTransport(io), {
+  map: loadServerLevel(),
+});
 attachSocketIO(io, room);
 startTickLoop(room, TICK_RATE);
 

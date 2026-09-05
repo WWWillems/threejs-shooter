@@ -6,12 +6,25 @@
  *   node derive-maps.mjs <basecolor> [--out <dir>] [--slug <slug>]
  *        [--strength 8] [--blur 1] [--roughness-mode invert|direct]
  *        [--roughness-range 0.35,0.95] [--ao-radius 8] [--ao-strength 1]
+ *        [--albedo-mean <sRGB 0-255>]
+ *
+ * Run standalone on an existing set it reads `<slug>.texture.json` next to the
+ * basecolor (if present) as the baseline for the derive flags, so re-running
+ * with one flag keeps the others as recorded, and writes the parameters it
+ * used back into the sidecar's `derive`.
+ *
+ * --albedo-mean rescales the basecolor JPEG in place (see lib/albedo.mjs)
+ * before deriving. It prefers the untouched API output kept in the skill's
+ * out/<slug>/final.png; when that is missing it rescales the current basecolor
+ * and says so in the sidecar (`derive.albedoMean.source`).
  */
-import { mkdirSync } from "node:fs";
-import { basename, dirname, join, resolve } from "node:path";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { basename, dirname, join, relative, resolve } from "node:path";
 import { parseArgs } from "node:util";
 import { fileURLToPath } from "node:url";
 import sharp from "sharp";
+import { normalizeAlbedo } from "./lib/albedo.mjs";
+import { SKILL_DIR } from "./lib/env.mjs";
 
 export const DERIVE_DEFAULTS = Object.freeze({
   /** normal map bumpiness; typical 4–16 */
@@ -160,6 +173,14 @@ export function deriveOptsFromArgs(v) {
   return o;
 }
 
+/** `--albedo-mean` target in sRGB 0–255, or undefined when not requested. */
+export function albedoMeanFromArgs(v) {
+  if (v["albedo-mean"] === undefined) return undefined;
+  const n = Number(v["albedo-mean"]);
+  if (!Number.isFinite(n) || n < 1 || n > 254) throw new Error("--albedo-mean must be a number within 1..254 (sRGB)");
+  return n;
+}
+
 export const DERIVE_ARG_OPTIONS = {
   strength: { type: "string" },
   blur: { type: "string" },
@@ -167,22 +188,86 @@ export const DERIVE_ARG_OPTIONS = {
   "roughness-range": { type: "string" },
   "ao-radius": { type: "string" },
   "ao-strength": { type: "string" },
+  "albedo-mean": { type: "string" },
 };
+
+/** Where generate.mjs keeps the untouched API output for a material. */
+export function originalBasecolorPath(slug) {
+  return join(SKILL_DIR, "out", slug, "final.png");
+}
+
+/**
+ * Build the `derive.albedoMean` sidecar record for a normalisation result.
+ * @param {number} target
+ * @param {{before: number, after: number, gain: number, clipped: number, limited: boolean}} result
+ * @param {string} source what was rescaled: "api" for the fresh API image,
+ *   the out/ original's path relative to the skill, or "basecolor" when only
+ *   the already-written JPEG was available.
+ */
+export function albedoMeanRecord(target, result, source) {
+  const round = (n) => Math.round(n * 100) / 100;
+  return {
+    target,
+    before: round(result.before),
+    after: round(result.after),
+    gain: round(result.gain),
+    clippedFraction: round(result.clipped),
+    limited: result.limited,
+    source,
+    appliedAt: new Date().toISOString(),
+  };
+}
+
+/** One-line report of a normalisation, with a warning when the target was out of reach. */
+export function describeAlbedoMean(record) {
+  const line = `albedo mean ${record.before} → ${record.after} sRGB (target ${record.target}, gain ${record.gain}, source ${record.source})`;
+  return record.limited
+    ? `${line}\nwarning: target ${record.target} is out of reach for this image (mean plateaus under the highlight roll-off); lower the target`
+    : line;
+}
+
+/**
+ * Rescale an existing basecolor JPEG in place to `target` mean, working from
+ * the untouched out/<slug>/final.png when it exists.
+ * @returns {Promise<ReturnType<typeof albedoMeanRecord>>}
+ */
+export async function normalizeBasecolorInPlace(basecolorPath, slug, target) {
+  const original = originalBasecolorPath(slug);
+  const fromOriginal = existsSync(original);
+  const result = await normalizeAlbedo(fromOriginal ? original : basecolorPath, target);
+  await sharp(result.png).jpeg({ quality: 85 }).toFile(basecolorPath);
+  return albedoMeanRecord(target, result, fromOriginal ? relative(SKILL_DIR, original) : "basecolor");
+}
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const { values, positionals } = parseArgs({
     allowPositionals: true,
     options: { out: { type: "string" }, slug: { type: "string" }, ...DERIVE_ARG_OPTIONS },
   });
-  const [basecolor] = positionals;
-  if (!basecolor) {
-    console.error("usage: derive-maps.mjs <basecolor> [--out dir] [--slug slug] [derive flags]");
+  const [basecolorArg] = positionals;
+  if (!basecolorArg) {
+    console.error("usage: derive-maps.mjs <basecolor> [--out dir] [--slug slug] [derive flags] [--albedo-mean N]");
     process.exit(2);
   }
-  const result = await deriveMaps(resolve(basecolor), {
-    outDir: values.out ? resolve(values.out) : undefined,
-    slug: values.slug,
-    ...deriveOptsFromArgs(values),
-  });
-  console.log(JSON.stringify(result, null, 2));
+  const basecolor = resolve(basecolorArg);
+  const outDir = values.out ? resolve(values.out) : dirname(basecolor);
+  const slug = values.slug ?? slugFromBasecolor(basecolor);
+  const sidecarPath = join(outDir, `${slug}.texture.json`);
+  const sidecar = existsSync(sidecarPath) ? JSON.parse(readFileSync(sidecarPath, "utf8")) : null;
+  const { albedoMean: recordedAlbedoMean, ...recordedDerive } = sidecar?.derive ?? {};
+
+  const target = albedoMeanFromArgs(values);
+  let albedoMean = recordedAlbedoMean ?? null;
+  if (target !== undefined) {
+    albedoMean = await normalizeBasecolorInPlace(basecolor, slug, target);
+    console.log(describeAlbedoMean(albedoMean));
+  }
+
+  const result = await deriveMaps(basecolor, { outDir, slug, ...recordedDerive, ...deriveOptsFromArgs(values) });
+  const derive = { ...result.params, ...(albedoMean ? { albedoMean } : {}) };
+  if (sidecar) {
+    sidecar.derive = derive;
+    writeFileSync(sidecarPath, `${JSON.stringify(sidecar, null, 2)}\n`);
+  }
+  console.log(JSON.stringify({ ...result, params: derive, sidecar: sidecar ? sidecarPath : null }, null, 2));
 }

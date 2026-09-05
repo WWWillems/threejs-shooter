@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { addCharacterVisual } from "../components/CharacterVisual";
 
 export class Player {
   private playerMesh: THREE.Mesh;
@@ -12,6 +13,7 @@ export class Player {
     this.playerMesh.position.set(0, 1, 0); // Position at origin, 1 unit above ground (half player height)
     this.playerMesh.castShadow = true;
     this.playerMesh.receiveShadow = true;
+    addCharacterVisual(this.playerMesh);
 
     // Add to scene only if specified
     if (addToScene) {

@@ -95,7 +95,9 @@ export async function seamMask(width, height, fraction = 0.06) {
 export async function tileCheck(buf, outPath, maxSize = 1024) {
   const { width, height } = await sharp(buf).metadata();
   const tile = await sharp(buf).png().toBuffer();
-  await sharp({ create: { width: width * 2, height: height * 2, channels: 3, background: "#000000" } })
+  // sharp runs resize before composite regardless of call order, so the 2x2
+  // canvas has to be materialised first and downscaled in a second pass.
+  const grid = await sharp({ create: { width: width * 2, height: height * 2, channels: 3, background: "#000000" } })
     .composite([
       { input: tile, left: 0, top: 0 },
       { input: tile, left: width, top: 0 },
@@ -103,6 +105,9 @@ export async function tileCheck(buf, outPath, maxSize = 1024) {
       { input: tile, left: width, top: height },
     ])
     .png()
+    .toBuffer();
+  await sharp(grid)
     .resize({ width: Math.min(maxSize, width * 2), height: Math.min(maxSize, height * 2), fit: "inside" })
+    .png()
     .toFile(outPath);
 }

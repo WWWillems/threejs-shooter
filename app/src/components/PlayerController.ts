@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { setCharacterCrouch } from "./CharacterVisual";
 import type { InputManager } from "./InputManager";
 import type { CollisionDetector } from "./CollisionInterface";
 import type { WorldColliders } from "../environment/WorldColliders";
@@ -135,9 +136,9 @@ export class PlayerController {
       this.applyServerHit(damage, hp);
     });
 
-    this.net.on(GAME_EVENTS.PLAYER.RESPAWN, ({ playerId, position, hp }) => {
+    this.net.on(GAME_EVENTS.PLAYER.RESPAWN, ({ playerId, position, rotation, hp }) => {
       if (playerId !== this.net.selfId) return;
-      this.applyServerRespawn(position, hp);
+      this.applyServerRespawn(position, rotation, hp);
     });
   }
 
@@ -250,7 +251,10 @@ export class PlayerController {
     this.applyMovement(delta);
 
     // Update camera position to follow player
-    this.cameraController.updateCameraPosition(this.isCrouching);
+    const cameraFocusY =
+      this.player.position.y +
+      (this.isCrouching ? (this.normalHeight - this.crouchHeight) / 2 : 0);
+    this.cameraController.updateCameraPosition(cameraFocusY);
     // Recalculate after the camera moves so a stationary crosshair remains
     // accurate while the player is moving.
     this.camera.updateMatrixWorld();
@@ -403,6 +407,7 @@ export class PlayerController {
    * Change player to crouching position
    */
   private crouch(): void {
+    setCharacterCrouch(this.player, true);
     if (this.player.geometry instanceof THREE.BoxGeometry) {
       this.player.geometry.dispose();
       const newGeometry = new THREE.BoxGeometry(1, this.crouchHeight, 1);
@@ -419,6 +424,7 @@ export class PlayerController {
    * Change player to standing position
    */
   private standUp(): void {
+    setCharacterCrouch(this.player, false);
     if (this.player.geometry instanceof THREE.BoxGeometry) {
       this.player.geometry.dispose();
       const newGeometry = new THREE.BoxGeometry(1, this.normalHeight, 1);
@@ -558,7 +564,7 @@ export class PlayerController {
     this.net.send(GAME_EVENTS.PLAYER.RESPAWN, {});
   }
 
-  private applyServerRespawn(position: Vec3, hp: number): void {
+  private applyServerRespawn(position: Vec3, rotation: number, hp: number): void {
     this.currentHealth = hp;
     this.isDead = false;
 
@@ -569,7 +575,7 @@ export class PlayerController {
     // Stand up at the server-chosen spawn point
     this.player.position.set(position.x, position.y, position.z);
     this.player.quaternion.identity();
-    this.player.rotation.set(0, 0, 0);
+    this.player.rotation.set(0, rotation, 0);
     this.player.updateMatrix();
     this.velocity.set(0, 0, 0);
 

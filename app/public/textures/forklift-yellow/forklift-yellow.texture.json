@@ -1,0 +1,67 @@
+{
+  "slug": "forklift-yellow",
+  "kind": "material",
+  "model": "gpt-image-2",
+  "createdAt": "2026-09-05T16:30:58.633Z",
+  "size": "1024x1024",
+  "quality": "high",
+  "prompt": "industrial safety yellow enamel on steel, uniform ochre yellow pigment with tiny evenly scattered grey chips, fine isotropic scratches and minute rust freckles, small scale wear evenly distributed across the whole surface, no streaks no large stains no gradients no stripes no objects",
+  "fullPrompt": "Top-down orthographic photograph of a flat surface material, to be used as a video game texture. The frame is filled edge to edge by the surface only: no objects, no people, no horizon, no vignette, no border, no text, no watermark. Uniform diffuse overcast lighting; no directional shadows and no specular hotspots baked into the image. Seamlessly tileable: the left edge continues into the right edge and the top edge into the bottom edge with no visible seam. This is a PBR albedo: evenly lit under flat overcast daylight at the material's natural mid-tone brightness, the colour it has in daylight; no night mood, no colour grading, no blue or orange tint from lighting baked in. Setting: a run-down urban crime district; the surface itself is grimy, weathered, rain-darkened and worn, in a muted, desaturated palette.\n\nSurface: industrial safety yellow enamel on steel, uniform ochre yellow pigment with tiny evenly scattered grey chips, fine isotropic scratches and minute rust freckles, small scale wear evenly distributed across the whole surface, no streaks no large stains no gradients no stripes no objects",
+  "styleRefs": [],
+  "subjectRefs": [],
+  "requests": [
+    {
+      "step": "generate",
+      "requestId": "req_695b0770cb154c4baebfecca23dad8f9",
+      "usage": {
+        "input_tokens": 239,
+        "input_tokens_details": {
+          "image_tokens": 0,
+          "text_tokens": 239
+        },
+        "output_tokens": 7024,
+        "output_tokens_details": {
+          "image_tokens": 7024,
+          "text_tokens": 0
+        },
+        "total_tokens": 7263
+      }
+    }
+  ],
+  "seam": {
+    "threshold": 1.8,
+    "before": 1.785920832017107,
+    "after": null,
+    "repaired": false
+  },
+  "derive": {
+    "strength": 4,
+    "blur": 1,
+    "roughnessMode": "invert",
+    "roughnessRange": [
+      0.35,
+      0.8
+    ],
+    "aoRadius": 8,
+    "aoStrength": 1,
+    "albedoMean": {
+      "target": 132,
+      "before": 144.06,
+      "after": 132,
+      "gain": 0.83,
+      "clippedFraction": 0,
+      "limited": false,
+      "source": "api",
+      "appliedAt": "2026-09-05T16:30:58.112Z"
+    }
+  },
+  "files": {
+    "original": ".agents/skills/generate-game-textures/out/forklift-yellow/final.png",
+    "basecolor": "app/public/textures/forklift-yellow/forklift-yellow_basecolor.jpg",
+    "tilecheck": ".agents/skills/generate-game-textures/out/forklift-yellow/final_tilecheck.png",
+    "normal": "app/public/textures/forklift-yellow/forklift-yellow_normal.png",
+    "height": "app/public/textures/forklift-yellow/forklift-yellow_height.png",
+    "roughness": "app/public/textures/forklift-yellow/forklift-yellow_roughness.jpg",
+    "ao": "app/public/textures/forklift-yellow/forklift-yellow_ao.jpg"
+  }
+}

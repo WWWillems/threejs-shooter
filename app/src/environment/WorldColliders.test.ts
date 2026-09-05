@@ -6,11 +6,15 @@ import {
   aabbFromCenterSize,
   crateBox,
   generateMap,
+  levelFromMap,
+  mapFromLevel,
   solidColliders,
 } from "@threejs-shooter/shared";
 import { WorldColliders } from "./WorldColliders";
 
 const map = generateMap();
+/** A spot guaranteed to be open ground: spawn points are validated clear of everything. */
+const open = map.spawnPoints[0];
 const playerBoxAt = (x: number, z: number) =>
   aabbFromCenterSize({ x, y: 1, z }, PLAYER_SIZE);
 
@@ -23,7 +27,7 @@ describe("WorldColliders", () => {
     for (const crate of map.crates) {
       expect(world.stopsBullet(crate.position)).toBe(true);
     }
-    expect(world.stopsBullet({ x: 0, y: 1, z: 0 })).toBe(false);
+    expect(world.stopsBullet(open)).toBe(false);
   });
 
   it("lets bullets pass bushes and cones but blocks walking through them", () => {
@@ -46,7 +50,7 @@ describe("WorldColliders", () => {
     const crate = map.crates[0].position;
     expect(world.blocksMovement(playerBoxAt(car.x, car.z))).toBe(true);
     expect(world.blocksMovement(playerBoxAt(crate.x, crate.z))).toBe(true);
-    expect(world.blocksMovement(playerBoxAt(0, 0))).toBe(false);
+    expect(world.blocksMovement(playerBoxAt(open.x, open.z))).toBe(false);
   });
 
   it("forgets a crate once the server destroys it", () => {
@@ -77,6 +81,13 @@ describe("WorldColliders", () => {
     const byKind = (kind: string) => all.filter((c) => c.kind === kind).length;
     expect(byKind("solid")).toBe(solidColliders(map).length);
     expect(byKind("crate")).toBe(map.crates.length);
-    expect(byKind("movement-only")).toBe(map.bushes.length + map.cones.length);
+    expect(byKind("movement-only")).toBe(map.bushes.length + map.cones.length + map.props.filter((prop) => ["trash-bag", "fence", "fence-gate"].includes(prop.type)).length);
+  });
+
+  it("builds identical colliders from an authored level document", () => {
+    const authoredMap = mapFromLevel(levelFromMap(map));
+    const authoredWorld = new WorldColliders(authoredMap);
+
+    expect(authoredWorld.colliders()).toEqual(new WorldColliders(map).colliders());
   });
 });

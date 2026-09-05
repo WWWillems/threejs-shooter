@@ -5,14 +5,69 @@ import {
   GRENADE,
   PICKUP_LIFETIME,
   PLAYER_MAX_HP,
+  SHOP_SIZE,
   WEAPONS,
+  aabbFromCenterSize,
+  facingCenterYaw,
+  generateMap,
+  vec3,
+  type CrateSpec,
+  type MapLayout,
   type PickupSpec,
   type WeaponId,
 } from "@threejs-shooter/shared";
 import { GameRoom } from "./GameRoom";
 import { MemoryClient, MemoryTransport } from "../adapters/memory";
+import { loadServerLevel } from "../levelLoader";
 
 const DT = 1 / 20;
+
+/**
+ * A small fixed world for the room tests, independent of the real level:
+ * open ground around the origin, the shop 20 units down -Z, two cars, a
+ * street light, three crates in an L at (3.9..6.1, 3.9..6.1) and a row of
+ * ten more along z = 15 for the pickup-drop tests.
+ */
+function testMap(): MapLayout {
+  const half = 30;
+  const wall = (id: string, center: [number, number], size: [number, number]) => ({
+    id,
+    box: aabbFromCenterSize(vec3(center[0], 1.25, center[1]), vec3(size[0], 2.5, size[1])),
+  });
+  const crate = (x: number, z: number, index: number): CrateSpec => ({
+    id: `crate-${index}`,
+    position: vec3(x, 0.5, z),
+    size: 1,
+    rotation: 0,
+  });
+  return {
+    seed: 1,
+    walls: [
+      wall("wall-north", [0, half], [2 * half, 0.5]),
+      wall("wall-south", [0, -half], [2 * half, 0.5]),
+      wall("wall-east", [half, 0], [0.5, 2 * half]),
+      wall("wall-west", [-half, 0], [0.5, 2 * half]),
+    ],
+    shop: { id: "shop", position: vec3(0, 0, -20), size: SHOP_SIZE },
+    buildings: [],
+    cars: [
+      { id: "car-0", position: vec3(8, 0, 9), rotation: -Math.PI / 5, scale: 1, tiltZ: 0 },
+      { id: "car-1", position: vec3(12, 0, 15), rotation: Math.PI / 3, scale: 1, tiltZ: 0 },
+    ],
+    streetLights: [{ id: "light-0", position: vec3(10, 0, 12), rotation: 0, scale: 1 }],
+    crates: [
+      crate(3.9, 3.9, 0),
+      crate(6.1, 3.9, 1),
+      crate(3.9, 6.1, 2),
+      ...Array.from({ length: 10 }, (_, i) => crate(-12 + i * 1.2, 15, 3 + i)),
+    ],
+    cones: [],
+    trees: [],
+    bushes: [],
+    props: [],
+    spawnPoints: [vec3(0, 1, 0), vec3(12, 1, -4), vec3(-12, 1, 0), vec3(0, 1, 15)],
+  };
+}
 
 describe("GameRoom", () => {
   let transport: MemoryTransport;
@@ -55,13 +110,40 @@ describe("GameRoom", () => {
     }
   };
 
+  it("constructs from the canonical serialized level", () => {
+    const loadedRoom = new GameRoom(new MemoryTransport(), {
+      map: loadServerLevel("default"),
+    });
+
+    // The checked-in JSON is the serialized generator output; regenerate it
+    // (`npm run generate:default-level`) whenever `generateMap` changes.
+    expect(loadedRoom.map).toEqual(generateMap());
+    expect(loadedRoom.map.spawnPoints).toHaveLength(10);
+    expect(loadedRoom.crates.size).toBe(loadedRoom.map.crates.length);
+  });
+
   beforeEach(() => {
     transport = new MemoryTransport();
     now = 10_000;
-    room = new GameRoom(transport, { clock: () => now, seed: 1 });
+    room = new GameRoom(transport, { clock: () => now, seed: 1, map: testMap() });
   });
 
   describe("presence", () => {
+    it("sanitizes and bounds nicknames at the server join boundary", () => {
+      const attacker = client("attacker").connect();
+
+      attacker.send(GAME_EVENTS.USER.JOINED, {
+        name: `<script>${"x".repeat(40)}</script>`,
+        position: origin,
+      });
+
+      const player = room.players.get("attacker");
+      expect(player).toBeDefined();
+      expect(player?.name).toBe("scriptxxxxxxxxxxxxxxxxxx");
+      expect(Array.from(player?.name ?? "")).toHaveLength(24);
+      expect(room.leaderBoard.attacker.name).toBe(player?.name);
+    });
+
     it("sends a late joiner the players already in the game", () => {
       const alice = client("alice").connect();
       alice.send(GAME_EVENTS.USER.JOINED, { name: "Alice", position: origin });
@@ -485,7 +567,7 @@ describe("GameRoom", () => {
 
     it("kills through the normal combat path", () => {
       const { alice, bob } = twoPlayers();
-      // Drop grenades at Bob's feet from outside the blast radius
+      // Drop grenades straight down at Bob's feet, from outside the blast radius
       alice.send(GAME_EVENTS.PLAYER.POSITION, {
         position: { x: 0, y: 1, z: -2 },
         rotation: 0,
@@ -494,7 +576,7 @@ describe("GameRoom", () => {
         now += GRENADE.throwCooldown * 1000 + 1;
         alice.send(GAME_EVENTS.GRENADE.THROW, {
           position: { x: 0, y: 0.5, z: -9.5 },
-          direction: { x: 0, y: 0, z: -0.01 },
+          direction: { x: 0, y: -1, z: 0 },
         });
         runTicks(fuseTicks);
       }
@@ -568,6 +650,7 @@ describe("GameRoom", () => {
       const [event] = alice.received(GAME_EVENTS.PLAYER.RESPAWN);
       expect(event.payload.playerId).toBe("bob");
       expect(event.payload.position).toEqual(bobPlayer.position);
+      expect(event.payload.rotation).toBeCloseTo(facingCenterYaw(event.payload.position));
       expect(bob.received(GAME_EVENTS.PLAYER.RESPAWN)).toHaveLength(1);
     });
   });

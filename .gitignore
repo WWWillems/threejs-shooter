@@ -24,6 +24,9 @@ app/dist-ssr
 *.sln
 *.sw?
 
+# Blender autosave backups next to assets/blender/*.blend
+*.blend1
+
 # Python virtual environments (For the Blender MCP)
 .venv/
 .venv-arm64/

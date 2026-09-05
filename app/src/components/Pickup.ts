@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import type { PlayerController } from "./PlayerController";
 import type { WeaponType } from "./Weapon";
+import { PICKUP_FLASH_DISTANCE, PICKUP_FLASH_INTENSITY } from "../core/Scene";
 
 // Interface for pickup data
 export interface PickupData {
@@ -104,8 +105,13 @@ export abstract class Pickup {
    * Create pickup effect when collected
    */
   protected createCollectionEffect(color = 0xff0000): void {
-    // Create a point light effect
-    const pickupEffect = new THREE.PointLight(color, 2, 5);
+    // Brief point-light flash in physical units (candela, decay 2)
+    const pickupEffect = new THREE.PointLight(
+      color,
+      PICKUP_FLASH_INTENSITY,
+      PICKUP_FLASH_DISTANCE,
+      2
+    );
     pickupEffect.position.copy(this.mesh.position);
     this.scene.add(pickupEffect);
 

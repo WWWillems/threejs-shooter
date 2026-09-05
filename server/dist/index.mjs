@@ -2,6 +2,9 @@ import express from 'express';
 import * as http from 'http';
 import { Server } from 'socket.io';
 import cors from 'cors';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 const GAME_EVENTS = {
   GAME: {
@@ -63,6 +66,15 @@ const GAME_EVENTS = {
 };
 
 const TICK_RATE = 20;
+
+const MAX_NICKNAME_LENGTH = 24;
+const UNSAFE_NICKNAME_CHARACTERS = /[\u0000-\u001F\u007F-\u009F\u00AD\u200B-\u200F\u202A-\u202E\u2060-\u2064\u2066-\u206F\uFEFF<>]/gu;
+function sanitizeNickname(value) {
+  if (typeof value !== "string") return "Player";
+  const nickname = value.slice(0, MAX_NICKNAME_LENGTH * 4).normalize("NFKC").replace(UNSAFE_NICKNAME_CHARACTERS, "").replace(/\s+/gu, " ").trim();
+  if (nickname.length === 0) return "Player";
+  return Array.from(nickname).slice(0, MAX_NICKNAME_LENGTH).join("");
+}
 
 const vec3 = (x = 0, y = 0, z = 0) => ({ x, y, z });
 const add = (a, b) => vec3(a.x + b.x, a.y + b.y, a.z + b.z);
@@ -155,12 +167,12 @@ function sweepSegmentRotatedAABB(from, to, box, yaw) {
   );
 }
 
-var __defProp$2 = Object.defineProperty;
-var __defNormalProp$2 = (obj, key, value) => key in obj ? __defProp$2(obj, key, { enumerable: true, configurable: true, writable: true, value }) : obj[key] = value;
-var __publicField$2 = (obj, key, value) => __defNormalProp$2(obj, key + "" , value);
+var __defProp$3 = Object.defineProperty;
+var __defNormalProp$3 = (obj, key, value) => key in obj ? __defProp$3(obj, key, { enumerable: true, configurable: true, writable: true, value }) : obj[key] = value;
+var __publicField$3 = (obj, key, value) => __defNormalProp$3(obj, key + "" , value);
 class Rng {
   constructor(seed) {
-    __publicField$2(this, "state");
+    __publicField$3(this, "state");
     this.state = seed >>> 0;
   }
   /** Uniform float in [0, 1). */
@@ -280,318 +292,42 @@ function integrateProjectile(p, dt, colliders, skip) {
   return { hit: null, expired: p.traveled >= p.maxRange };
 }
 
-const MAP_SEED = 20240913;
-const GROUND_SIZE = 100;
-const WALL_HEIGHT = 2.5;
-const WALL_THICKNESS = 0.5;
-const CAR_SIZE = vec3(2.4, 1.8, 5);
-const STREET_LIGHT_SIZE = vec3(0.4, 6.3, 0.4);
-const SHOP_SIZE = vec3(10, 4, 8);
-const CRATE_MAX_HP = 100;
-const TREE_TRUNK_SIZE = vec3(0.6, 1.5, 0.6);
-const PI = Math.PI;
-function generateMap(seed = MAP_SEED) {
-  const rng = new Rng(seed);
-  const cars = [
-    { id: "car-0", position: vec3(8, 0, 9), rotation: -PI / 5, tiltZ: PI / 30 },
-    { id: "car-1", position: vec3(12, 0, 15), rotation: PI / 3, tiltZ: 0 },
-    { id: "car-2", position: vec3(-15, 0, -12), rotation: PI / 8, tiltZ: 0 }
-  ];
-  const streetLights = [
-    vec3(10, 0, 12),
-    vec3(-10, 0, -8),
-    vec3(-5, 0, 15),
-    vec3(15, 0, -15)
-  ];
-  const shop = { position: vec3(0, 0, -20), size: SHOP_SIZE };
-  const crates = generateCrates(rng);
-  const cones = generateCones(rng);
-  const blockers = [
-    aabbFromBaseSize(shop.position, shop.size),
-    ...cars.map((c) => carBox(c)),
-    ...crates.map((c) => crateBox(c))
-  ];
-  const trees = generateTrees(rng, blockers);
-  const bushes = generateBushes(rng, blockers);
-  return {
-    seed,
-    walls: generateWalls(),
-    shop,
-    cars,
-    streetLights,
-    crates,
-    cones,
-    trees,
-    bushes
-  };
-}
-function generateWalls() {
-  const half = GROUND_SIZE / 2;
-  const t = WALL_THICKNESS;
-  const h = WALL_HEIGHT;
-  return [
-    // North (+Z) and South (-Z)
-    aabbFromBaseSize(vec3(0, 0, half + t / 2), vec3(GROUND_SIZE + t, h, t)),
-    aabbFromBaseSize(vec3(0, 0, -half - t / 2), vec3(GROUND_SIZE + t, h, t)),
-    // East (+X) and West (-X)
-    aabbFromBaseSize(vec3(half + t / 2, 0, 0), vec3(t, h, GROUND_SIZE + t * 2)),
-    aabbFromBaseSize(vec3(-half - t / 2, 0, 0), vec3(t, h, GROUND_SIZE + t * 2))
-  ];
-}
-function generateCrates(rng) {
-  const crates = [];
-  const push = (x, y, z, size, rotation) => crates.push({
-    id: `crate-${crates.length}`,
-    position: vec3(x, y, z),
-    size,
-    rotation
-  });
-  const pb = vec3(5, 0, 5);
-  push(pb.x - 1.1, 0.5, pb.z - 1.1, 1, 0);
-  push(pb.x + 1.1, 0.5, pb.z - 1.1, 1, PI / 6);
-  push(pb.x - 1.1, 0.5, pb.z + 1.1, 1, -PI / 8);
-  push(pb.x + 1.1, 0.5, pb.z + 1.1, 1, PI / 3);
-  push(pb.x, 1.5, pb.z - 0.5, 1, PI / 4);
-  push(pb.x, 1.5, pb.z + 0.5, 1, -PI / 4);
-  push(pb.x, 2.5, pb.z, 1, PI / 10);
-  const wallStart = vec3(-8, 0, 6);
-  const wallLength = 5;
-  const wallSpacing = 1.2;
-  for (let i = 0; i < wallLength; i++) {
-    push(
-      wallStart.x + i * wallSpacing,
-      0.5,
-      wallStart.z,
-      1,
-      i % 2 === 0 ? PI / 8 : -PI / 8
-    );
-  }
-  for (let i = 1; i < wallLength - 1; i++) {
-    push(
-      wallStart.x + i * wallSpacing,
-      1.5,
-      wallStart.z,
-      1,
-      i % 2 === 0 ? -PI / 6 : PI / 6
-    );
-  }
-  const circleCenter = vec3(5, 0, -12);
-  const circleRadius = 5;
-  const circleCount = 8;
-  for (let i = 0; i < circleCount; i++) {
-    const angle = i / circleCount * PI;
-    push(
-      circleCenter.x + Math.cos(angle) * circleRadius,
-      0.5,
-      circleCenter.z + Math.sin(angle) * circleRadius,
-      0.9 + rng.next() * 0.3,
-      rng.next() * PI
-    );
-  }
-  const tb = vec3(-15, 0, 10);
-  const ts = 1.2;
-  push(tb.x - ts / 2, 0.6, tb.z - ts / 2, ts, 0);
-  push(tb.x + ts / 2, 0.6, tb.z - ts / 2, ts, 0);
-  push(tb.x - ts / 2, 0.6, tb.z + ts / 2, ts, 0);
-  push(tb.x + ts / 2, 0.6, tb.z + ts / 2, ts, 0);
-  push(tb.x - ts / 4, ts + 0.6, tb.z, ts, PI / 4);
-  push(tb.x + ts / 4, ts + 0.6, tb.z, ts, -PI / 4);
-  push(tb.x, ts * 2 + 0.6, tb.z, ts * 1.2, PI / 5);
-  const corners = [
-    { position: vec3(18, 0, 18), size: { x: 3, z: 3 }, fillRate: 0.7 },
-    { position: vec3(-18, 0, -18), size: { x: 4, z: 3 }, fillRate: 0.6 }
-  ];
-  for (const corner of corners) {
-    for (let i = 0; i < corner.size.x; i++) {
-      for (let j = 0; j < corner.size.z; j++) {
-        if (rng.next() > 1 - corner.fillRate) {
-          push(
-            corner.position.x - i * 1.1 - rng.next() * 0.2,
-            0.5,
-            corner.position.z - j * 1.1 - rng.next() * 0.2,
-            0.8 + rng.next() * 0.4,
-            rng.next() * PI
-          );
-        }
-      }
-    }
-  }
-  return crates;
-}
-function generateCones(rng) {
-  const cones = [];
-  const lineStart = vec3(10, 0, 11);
-  for (let i = 0; i < 7; i++) {
-    cones.push({ position: vec3(lineStart.x + i * 0.8, 0, lineStart.z), rotation: 0 });
-  }
-  const curveCenter = vec3(-5, 0, -8);
-  const curveCount = 9;
-  for (let i = 0; i < curveCount; i++) {
-    const angle = i / (curveCount - 1) * PI;
-    cones.push({
-      position: vec3(
-        curveCenter.x + Math.cos(angle) * 4,
-        0,
-        curveCenter.z + Math.sin(angle) * 4
-      ),
-      rotation: rng.next() * 0.5 - 0.25
-    });
-  }
-  const crash = vec3(8, 0, 9);
-  for (let i = 0; i < 5; i++) {
-    const angle = rng.next() * PI * 2;
-    const distance = 2 + rng.next() * 3;
-    cones.push({
-      position: vec3(
-        crash.x + Math.cos(angle) * distance,
-        0,
-        crash.z + Math.sin(angle) * distance
-      ),
-      rotation: rng.next() * PI * 2
-    });
-  }
-  cones.push({ position: vec3(-16.5, 0, 8.5), rotation: 0 });
-  cones.push({ position: vec3(-13.5, 0, 8.5), rotation: 0 });
-  cones.push({ position: vec3(-15, 0, 8), rotation: 0 });
-  cones.push({ position: vec3(-3, 0, -15), rotation: 0 });
-  cones.push({ position: vec3(3, 0, -15), rotation: 0 });
-  cones.push({ position: vec3(-2, 0, -17), rotation: 0 });
-  cones.push({ position: vec3(2, 0, -17), rotation: 0 });
-  return cones;
-}
-function generateTrees(rng, blockers) {
-  const trees = [];
-  const clusters = [{ position: vec3(-18, 0, -18), radius: 4, count: 5 }];
-  for (const cluster of clusters) {
-    for (let i = 0; i < cluster.count; i++) {
-      const target = vec3(
-        cluster.position.x + rng.next() * cluster.radius - cluster.radius / 2,
-        0,
-        cluster.position.z + rng.next() * cluster.radius - cluster.radius / 2
-      );
-      const clear = findClearPosition(rng, target, 1.2, blockers);
-      if (clear) {
-        trees.push({
-          position: clear,
-          rotation: rng.next() * PI * 2,
-          scale: 0.8 + rng.next() * 0.4
-        });
-      }
-    }
-  }
-  const individuals = [vec3(15, 0, -15), vec3(-12, 0, 10), vec3(18, 0, 5), vec3(5, 0, 18)];
-  for (const target of individuals) {
-    const clear = findClearPosition(rng, target, 1.2, blockers);
-    if (clear) {
-      trees.push({
-        position: clear,
-        rotation: rng.next() * PI * 2,
-        scale: 0.9 + rng.next() * 0.3
-      });
-    }
-  }
-  return trees;
-}
-function generateBushes(rng, blockers) {
-  const bushes = [];
-  const clusters = [
-    { position: vec3(-18, 0, -18), radius: 6, count: 8 },
-    { position: vec3(12, 0, 12), radius: 2.5, count: 4 },
-    { position: vec3(-10, 0, -10), radius: 2.5, count: 3 }
-  ];
-  for (const cluster of clusters) {
-    for (let i = 0; i < cluster.count; i++) {
-      const target = vec3(
-        cluster.position.x + rng.next() * cluster.radius - cluster.radius / 2,
-        0,
-        cluster.position.z + rng.next() * cluster.radius - cluster.radius / 2
-      );
-      const clear = findClearPosition(rng, target, 0.8, blockers);
-      if (clear) {
-        bushes.push({ position: clear, rotation: rng.next() * PI * 2 });
-      }
-    }
-  }
-  const individuals = [
-    vec3(10, 0, -8),
-    vec3(-5, 0, 5),
-    vec3(0, 0, 12),
-    vec3(15, 0, 0),
-    vec3(-15, 0, -5),
-    vec3(5, 0, -15),
-    vec3(-8, 0, -3),
-    vec3(3, 0, 8)
-  ];
-  for (const target of individuals) {
-    const clear = findClearPosition(rng, target, 0.8, blockers);
-    if (clear) {
-      bushes.push({ position: clear, rotation: rng.next() * PI * 2 });
-    }
-  }
-  return bushes;
-}
-function findClearPosition(rng, target, radius, blockers) {
-  const isClear = (p) => !blockers.some(
-    (b) => p.x + radius > b.min.x && p.x - radius < b.max.x && p.z + radius > b.min.z && p.z - radius < b.max.z
-  );
-  if (isClear(target)) return target;
-  for (let attempt = 0; attempt < 8; attempt++) {
-    const angle = rng.next() * PI * 2;
-    const dist = radius * 2 + rng.next() * 3;
-    const candidate = vec3(
-      target.x + Math.cos(angle) * dist,
-      0,
-      target.z + Math.sin(angle) * dist
-    );
-    if (isClear(candidate)) return candidate;
-  }
-  return null;
-}
-const crateBox = (crate) => aabbFromCenterSize(crate.position, vec3(crate.size, crate.size, crate.size));
-const carBox = (car) => aabbFromRotatedBox(
-  vec3(car.position.x, car.position.y + CAR_SIZE.y / 2, car.position.z),
-  CAR_SIZE,
-  car.rotation
-);
-const streetLightBox = (base) => aabbFromBaseSize(base, STREET_LIGHT_SIZE);
-const shopBox = (map) => aabbFromBaseSize(map.shop.position, map.shop.size);
-const treeTrunkBox = (tree) => aabbFromBaseSize(tree.position, scale(TREE_TRUNK_SIZE, tree.scale));
-function solidColliders(map) {
-  const colliders = [];
-  map.walls.forEach(
-    (box, i) => colliders.push({ box, tag: { kind: "static", id: `wall-${i}` } })
-  );
-  colliders.push({ box: shopBox(map), tag: { kind: "static", id: "shop" } });
-  for (const car of map.cars) {
-    colliders.push({ box: carBox(car), tag: { kind: "static", id: car.id } });
-  }
-  map.streetLights.forEach(
-    (base, i) => colliders.push({
-      box: streetLightBox(base),
-      tag: { kind: "static", id: `light-${i}` }
-    })
-  );
-  map.trees.forEach(
-    (tree, i) => colliders.push({
-      box: treeTrunkBox(tree),
-      tag: { kind: "static", id: `tree-${i}` }
-    })
-  );
-  return colliders;
+const PROP_TYPES = ["trash-bag", "oil-barrel", "forklift", "fence", "fence-gate"];
+const PARTS = {
+  "trash-bag": [{ center: { x: 0, y: 0.47, z: 0 }, size: { x: 0.78, y: 0.94, z: 0.64 } }],
+  "oil-barrel": [{ center: { x: 0, y: 0.46, z: 0 }, size: { x: 0.66, y: 0.92, z: 0.66 } }],
+  fence: [{ center: { x: 0, y: 1.34, z: 0 }, size: { x: 4.18, y: 2.68, z: 0.18 } }],
+  "fence-gate": [{ center: { x: 0, y: 1.34, z: 0 }, size: { x: 4.18, y: 2.68, z: 0.24 } }],
+  forklift: [
+    { center: { x: 0, y: 1.25, z: 0.04 }, size: { x: 1.76, y: 2.5, z: 2.55 } },
+    { center: { x: 0, y: 0.15, z: -1.98 }, size: { x: 1.06, y: 0.3, z: 1.46 } }
+  ]
+};
+const isMovementOnlyProp = (type) => type === "trash-bag" || type === "fence" || type === "fence-gate";
+function propBoxes(prop) {
+  const c = Math.cos(prop.rotation), s = Math.sin(prop.rotation), k = prop.scale;
+  return PARTS[prop.type].map(({ center, size }) => aabbFromRotatedBox({
+    x: prop.position.x + k * (center.x * c + center.z * s),
+    y: prop.position.y + k * center.y,
+    z: prop.position.z + k * (-center.x * s + center.z * c)
+  }, { x: size.x * k, y: size.y * k, z: size.z * k }, prop.rotation));
 }
 
 const PLAYER_SIZE = vec3(1, 2, 1);
 const PLAYER_MAX_HP = 100;
 const SPAWN_POINTS = [
-  vec3(0, 1, 0),
-  vec3(12, 1, -4),
-  vec3(-12, 1, 0),
-  vec3(0, 1, 15),
-  vec3(-6, 1, -14),
-  vec3(14, 1, 6),
-  vec3(-14, 1, 16),
-  vec3(8, 1, -18)
+  vec3(-16, 1, -33),
+  vec3(-11, 1, -34),
+  vec3(0, 1, -34),
+  vec3(11, 1, -34),
+  vec3(16, 1, -33),
+  vec3(16, 1, 33),
+  vec3(11, 1, 34),
+  vec3(0, 1, 34),
+  vec3(-11, 1, 34),
+  vec3(-16, 1, 33)
 ];
+const facingCenterYaw = (position) => Math.atan2(position.x, position.z);
 function pickSpawnPoint(occupied, points = SPAWN_POINTS) {
   const others = [...occupied];
   if (others.length === 0) return points[0];
@@ -610,6 +346,766 @@ function pickSpawnPoint(occupied, points = SPAWN_POINTS) {
     }
   }
   return best;
+}
+
+var __defProp$2 = Object.defineProperty;
+var __defNormalProp$2 = (obj, key, value) => key in obj ? __defProp$2(obj, key, { enumerable: true, configurable: true, writable: true, value }) : obj[key] = value;
+var __publicField$2 = (obj, key, value) => __defNormalProp$2(obj, typeof key !== "symbol" ? key + "" : key, value);
+const MAP_SEED = 20240913;
+const GROUND_SIZE = 76;
+const WALL_HEIGHT = 2.5;
+const WALL_THICKNESS = 0.5;
+const CAR_SIZE = vec3(2.4, 1.8, 5);
+const STREET_LIGHT_SIZE = vec3(0.4, 6.3, 0.4);
+const SHOP_SIZE = vec3(10, 4, 8);
+const WAREHOUSE_SIZE = vec3(14, 5.5, 10);
+const TENEMENT_SIZE = vec3(7, 7.5, 8);
+const CRATE_MAX_HP = 100;
+const TREE_TRUNK_SIZE = vec3(0.6, 1.5, 0.6);
+const BUSH_SIZE = vec3(1.4, 1, 1.4);
+const CONE_SIZE = vec3(0.5, 0.8, 0.5);
+const PI = Math.PI;
+function generateMap(seed = MAP_SEED) {
+  const arena = new ArenaBuilder(new Rng(seed));
+  layoutSpawnStreet(arena);
+  layoutCoverLine(arena);
+  layoutYard(arena);
+  layoutMid(arena);
+  layoutFlanks(arena);
+  return {
+    seed,
+    walls: generateWalls(),
+    shop: { id: "shop", position: vec3(0, 0, 0), size: SHOP_SIZE },
+    buildings: arena.buildings,
+    cars: arena.cars,
+    streetLights: arena.streetLights,
+    crates: arena.crates,
+    cones: arena.cones,
+    trees: arena.trees,
+    bushes: arena.bushes,
+    props: arena.props,
+    spawnPoints: SPAWN_POINTS.map((point) => ({ ...point }))
+  };
+}
+const mirrored = (p) => vec3(-p.x || 0, p.y, -p.z || 0);
+class ArenaBuilder {
+  constructor(rng) {
+    __publicField$2(this, "rng", rng);
+    __publicField$2(this, "buildings", []);
+    __publicField$2(this, "cars", []);
+    __publicField$2(this, "streetLights", []);
+    __publicField$2(this, "crates", []);
+    __publicField$2(this, "cones", []);
+    __publicField$2(this, "trees", []);
+    __publicField$2(this, "bushes", []);
+    __publicField$2(this, "props", []);
+  }
+  building(type, id, x, z, rotation = 0) {
+    this.both(
+      vec3(x, 0, z),
+      (position, turn, side) => this.buildings.push({
+        id: `${id}-${side}`,
+        type,
+        position,
+        rotation: rotation + turn,
+        scale: 1
+      })
+    );
+  }
+  /** Run `place` for the south-side position and again for its north-side mirror. */
+  both(position, place) {
+    place(position, 0, "s");
+    place(mirrored(position), PI, "n");
+  }
+  car(x, z, rotation, tiltZ = 0) {
+    this.both(
+      vec3(x, 0, z),
+      (position, turn) => this.cars.push({
+        id: `car-${this.cars.length}`,
+        position,
+        rotation: rotation + turn,
+        scale: 1,
+        tiltZ
+      })
+    );
+  }
+  light(x, z) {
+    this.both(
+      vec3(x, 0, z),
+      (position, turn) => this.streetLights.push({
+        id: `light-${this.streetLights.length}`,
+        position,
+        rotation: turn,
+        scale: 1
+      })
+    );
+  }
+  /** A crate of `size` resting on `level` crates of the same size. */
+  crate(x, z, size, rotation, level = 0) {
+    this.both(
+      vec3(x, size * (level + 0.5), z),
+      (position, turn) => this.crates.push({
+        id: `crate-${this.crates.length}`,
+        position,
+        size,
+        rotation: rotation + turn
+      })
+    );
+  }
+  /** Four crates in a square with one on top: hard cover you cannot see over. */
+  bunker(x, z) {
+    const d = 0.55;
+    this.crate(x - d, z - d, 1, 0);
+    this.crate(x + d, z - d, 1, PI / 9);
+    this.crate(x - d, z + d, 1, -PI / 12);
+    this.crate(x + d, z + d, 1, PI / 16);
+    this.crate(x, z, 1, PI / 7, 1);
+  }
+  /** Seven crates in three tiers: a lane landmark and the tallest cover on the map. */
+  pyramid(x, z, size = 1) {
+    const d = size * 1.1;
+    this.crate(x - d, z - d, size, 0);
+    this.crate(x + d, z - d, size, PI / 6);
+    this.crate(x - d, z + d, size, -PI / 8);
+    this.crate(x + d, z + d, size, PI / 3);
+    this.crate(x, z - size / 2, size, PI / 4, 1);
+    this.crate(x, z + size / 2, size, -PI / 4, 1);
+    this.crate(x, z, size, PI / 10, 2);
+  }
+  /** `count` crates in a row along X with a staggered second row on top. */
+  crateWall(x, z, count) {
+    const spacing = 1.25;
+    const start = x - (count - 1) * spacing / 2;
+    for (let i = 0; i < count; i++) {
+      this.crate(start + i * spacing, z, 1, i % 2 === 0 ? PI / 12 : -PI / 12);
+    }
+    for (let i = 0; i < count - 1; i++) {
+      this.crate(start + (i + 0.5) * spacing, z, 1, i % 2 === 0 ? -PI / 14 : PI / 14, 1);
+    }
+  }
+  /** Oversized crates stacked three high: the flank landmark. */
+  tower(x, z) {
+    const s = 1.2;
+    const d = s / 2;
+    this.crate(x - d, z - d, s, 0);
+    this.crate(x + d, z - d, s, 0);
+    this.crate(x - d, z + d, s, 0);
+    this.crate(x + d, z + d, s, 0);
+    this.crate(x - d, z, s, PI / 12, 1);
+    this.crate(x + d, z, s, -PI / 12, 1);
+    this.crate(x, z, s, PI / 5, 2);
+  }
+  cone(x, z) {
+    const rotation = this.rng.next() * PI * 2;
+    this.both(
+      vec3(x, 0, z),
+      (position, turn) => this.cones.push({
+        id: `cone-${this.cones.length}`,
+        position,
+        scale: 1,
+        rotation: rotation + turn
+      })
+    );
+  }
+  tree(x, z, scale2) {
+    const rotation = this.rng.next() * PI * 2;
+    this.both(
+      vec3(x, 0, z),
+      (position, turn) => this.trees.push({
+        id: `tree-${this.trees.length}`,
+        position,
+        rotation: rotation + turn,
+        scale: scale2
+      })
+    );
+  }
+  bush(x, z) {
+    const rotation = this.rng.next() * PI * 2;
+    this.both(
+      vec3(x, 0, z),
+      (position, turn) => this.bushes.push({
+        id: `bush-${this.bushes.length}`,
+        position,
+        rotation: rotation + turn,
+        scale: 1
+      })
+    );
+  }
+  prop(type, id, x, z, rotation = 0) {
+    this.both(
+      vec3(x, 0, z),
+      (position, turn, side) => this.props.push({
+        id: `${id}-${side}`,
+        type,
+        position,
+        rotation: rotation + turn,
+        scale: 1
+      })
+    );
+  }
+}
+function layoutSpawnStreet(arena) {
+  arena.light(-22, -35);
+  arena.light(17, -30);
+  arena.prop("trash-bag", "bag-street-0", -4, -37.2, 0.5);
+  arena.prop("trash-bag", "bag-street-1", -3, -37.2, -1.1);
+  arena.prop("trash-bag", "bag-street-2", 10.6, -37.2, 2.2);
+  arena.tree(-31.5, -36.2, 0.9);
+  arena.bush(-33.2, -35.6);
+  arena.bush(-29.8, -36.5);
+}
+function layoutCoverLine(arena) {
+  arena.car(0, -26, PI / 2);
+  arena.bunker(-11, -27);
+  arena.bunker(11, -27);
+  arena.crateWall(-15.3, -27, 2);
+  arena.crateWall(15.3, -27, 2);
+}
+function layoutYard(arena) {
+  for (const side of ["west", "east"]) {
+    const x = side === "west" ? -19 : 19;
+    arena.prop("fence", `fence-${side}-0`, x, -20, PI / 2);
+    arena.prop("fence", `fence-${side}-1`, x, -16, PI / 2);
+    arena.prop("fence-gate", `gate-${side}`, x, -12, PI / 2);
+  }
+  arena.crateWall(-7, -17, 3);
+  arena.crateWall(-13.5, -21, 2);
+  arena.prop("forklift", "forklift-yard", 7, -20, PI / 2 + 0.3);
+  arena.prop("oil-barrel", "barrel-yard-0", 4.2, -14.2, 0.2);
+  arena.prop("oil-barrel", "barrel-yard-1", 5.15, -13.7, -0.4);
+  arena.prop("oil-barrel", "barrel-yard-2", 14, -16, 0.7);
+  arena.prop("oil-barrel", "barrel-yard-3", 14.95, -15.6, -0.1);
+  arena.prop("trash-bag", "bag-yard", 12.4, -20.7, 0.9);
+  arena.cone(5.2, -22.6);
+  arena.cone(9.4, -21.9);
+  arena.cone(8.8, -17.6);
+  arena.bush(17.6, -18.1);
+  arena.light(-14, -12);
+}
+function layoutMid(arena) {
+  arena.pyramid(-11, -7);
+  arena.crate(8, -8, 1.2, 0.3);
+  arena.crate(9.2, -7.2, 1, -0.2);
+  arena.prop("oil-barrel", "barrel-mid", 7, -6.9, 0.6);
+  arena.crateWall(-2.5, -5.3, 2);
+  arena.prop("oil-barrel", "barrel-dock-0", 1.4, -5, 0.3);
+  arena.prop("oil-barrel", "barrel-dock-1", 2.35, -5.15, -0.7);
+  arena.prop("trash-bag", "bag-dock-0", 3.4, -4.9, 0.5);
+  arena.prop("trash-bag", "bag-dock-1", 4.4, -5.9, -1.3);
+  arena.bush(-6, -5.3);
+  arena.prop("forklift", "forklift-gate", -19, 0, PI / 2);
+  arena.prop("oil-barrel", "barrel-gate-0", -19.3, -6.4, 0.1);
+  arena.prop("oil-barrel", "barrel-gate-1", -18.5, -5.4, 0.8);
+  arena.cone(-17.6, -9.3);
+  arena.cone(-16.9, -10);
+}
+function layoutFlanks(arena) {
+  arena.building("warehouse", "warehouse-flank", -25, -20);
+  arena.building("tenement", "tenement-flank", 30, 8);
+  arena.tree(-35.5, -30, 1.1);
+  arena.tree(-35.5, -12, 0.9);
+  arena.tree(-35.5, 6, 1);
+  arena.bush(-34.3, -31.3);
+  arena.bush(-36.6, -28.2);
+  arena.bush(-34.6, -10.7);
+  arena.bush(-36.3, 7.6);
+  arena.tower(26, -9);
+  arena.prop("oil-barrel", "barrel-tower-0", 28.6, -11.4, 0.4);
+  arena.prop("oil-barrel", "barrel-tower-1", 29.5, -10.9, -0.2);
+  arena.crateWall(22.5, -25.5, 2);
+  arena.tree(35.5, -24, 1.2);
+  arena.bush(34.1, -25.6);
+  arena.bush(36.5, -22.2);
+  arena.bush(34.8, -2.4);
+  for (let i = 0; i < 4; i++) arena.cone(29 + i * 0.8, -31 + i * 0.8);
+}
+function generateWalls() {
+  const half = GROUND_SIZE / 2;
+  const t = WALL_THICKNESS;
+  const h = WALL_HEIGHT;
+  return [
+    // North (+Z) and South (-Z)
+    {
+      id: "wall-north",
+      box: aabbFromBaseSize(
+        vec3(0, 0, half + t / 2),
+        vec3(GROUND_SIZE + t, h, t)
+      )
+    },
+    {
+      id: "wall-south",
+      box: aabbFromBaseSize(
+        vec3(0, 0, -half - t / 2),
+        vec3(GROUND_SIZE + t, h, t)
+      )
+    },
+    // East (+X) and West (-X)
+    {
+      id: "wall-east",
+      box: aabbFromBaseSize(
+        vec3(half + t / 2, 0, 0),
+        vec3(t, h, GROUND_SIZE + t * 2)
+      )
+    },
+    {
+      id: "wall-west",
+      box: aabbFromBaseSize(
+        vec3(-half - t / 2, 0, 0),
+        vec3(t, h, GROUND_SIZE + t * 2)
+      )
+    }
+  ];
+}
+const crateBox = (crate) => aabbFromCenterSize(crate.position, vec3(crate.size, crate.size, crate.size));
+const carBox = (car) => aabbFromRotatedBox(
+  vec3(car.position.x, car.position.y + CAR_SIZE.y / 2, car.position.z),
+  scale(CAR_SIZE, car.scale),
+  car.rotation
+);
+const streetLightBox = (base, multiplier = 1) => aabbFromBaseSize(base, scale(STREET_LIGHT_SIZE, multiplier));
+const shopBox = (map) => aabbFromBaseSize(map.shop.position, map.shop.size);
+const buildingSize = (type) => type === "warehouse" ? WAREHOUSE_SIZE : TENEMENT_SIZE;
+const buildingBox = (building) => {
+  const size = scale(buildingSize(building.type), building.scale);
+  return aabbFromRotatedBox(
+    vec3(
+      building.position.x,
+      building.position.y + size.y / 2,
+      building.position.z
+    ),
+    size,
+    building.rotation
+  );
+};
+const treeTrunkBox = (tree) => aabbFromBaseSize(tree.position, scale(TREE_TRUNK_SIZE, tree.scale));
+const bushBox = (bush) => aabbFromBaseSize(bush.position, scale(BUSH_SIZE, bush.scale));
+const coneBox = (cone) => aabbFromBaseSize(cone.position, scale(CONE_SIZE, cone.scale));
+function solidColliders(map) {
+  const colliders = [];
+  map.walls.forEach(
+    (wall) => colliders.push({
+      box: wall.box,
+      tag: { kind: "static", id: wall.id }
+    })
+  );
+  colliders.push({
+    box: shopBox(map),
+    tag: { kind: "static", id: map.shop.id }
+  });
+  for (const building of map.buildings) {
+    colliders.push({
+      box: buildingBox(building),
+      tag: { kind: "static", id: building.id }
+    });
+  }
+  for (const car of map.cars) {
+    colliders.push({ box: carBox(car), tag: { kind: "static", id: car.id } });
+  }
+  map.streetLights.forEach(
+    (light) => colliders.push({
+      box: streetLightBox(light.position, light.scale),
+      tag: { kind: "static", id: light.id }
+    })
+  );
+  map.trees.forEach(
+    (tree) => colliders.push({
+      box: treeTrunkBox(tree),
+      tag: { kind: "static", id: tree.id }
+    })
+  );
+  for (const prop of map.props) {
+    if (isMovementOnlyProp(prop.type)) continue;
+    propBoxes(prop).forEach((box, index) => colliders.push({
+      box,
+      tag: { kind: "static", id: `${prop.id}:${index}` }
+    }));
+  }
+  return colliders;
+}
+function movementOnlyColliders(map) {
+  return [
+    ...map.props.filter((prop) => isMovementOnlyProp(prop.type)).flatMap((prop) => propBoxes(prop).map((box, index) => ({ id: `${prop.id}:${index}`, box }))),
+    ...map.bushes.map((bush) => ({ id: bush.id, box: bushBox(bush) })),
+    ...map.cones.map((cone) => ({ id: cone.id, box: coneBox(cone) }))
+  ];
+}
+
+const LEVEL_SCHEMA_VERSION = 1;
+const LEVEL_OBJECT_TYPES = [
+  "wall",
+  "shop",
+  "warehouse",
+  "tenement",
+  "car",
+  "street-light",
+  "crate",
+  "traffic-cone",
+  "tree",
+  "bush",
+  ...PROP_TYPES
+];
+const LEVEL_OBJECT_TYPE_SET = new Set(LEVEL_OBJECT_TYPES);
+const copyVec3 = (value) => ({
+  x: value.x,
+  y: value.y,
+  z: value.z
+});
+function asVec3(objectTransform) {
+  return copyVec3(objectTransform.position);
+}
+function uniformScale(objectTransform, path) {
+  const { x, y, z } = objectTransform.scale;
+  if (Math.abs(x - y) > 1e-4 || Math.abs(x - z) > 1e-4) {
+    throw new Error(`${path}.scale must be uniform`);
+  }
+  return x;
+}
+function mapFromLevel(level) {
+  const walls = [];
+  let shop;
+  const buildings = [];
+  const cars = [];
+  const streetLights = [];
+  const crates = [];
+  const cones = [];
+  const trees = [];
+  const bushes = [];
+  const props = [];
+  for (const object of level.objects) {
+    const objectTransform = object.transform;
+    const position = asVec3(objectTransform);
+    switch (object.type) {
+      case "fence":
+      case "fence-gate":
+      case "trash-bag":
+      case "oil-barrel":
+      case "forklift":
+        props.push({
+          id: object.id,
+          type: object.type,
+          position,
+          rotation: objectTransform.rotation.y,
+          scale: uniformScale(objectTransform, `objects.${object.id}.transform`)
+        });
+        break;
+      case "wall":
+        walls.push({
+          id: object.id,
+          box: aabbFromCenterSize(position, copyVec3(objectTransform.scale))
+        });
+        break;
+      case "shop":
+        if (shop) throw new Error("A level can contain only one shop");
+        shop = {
+          id: object.id,
+          position,
+          size: {
+            x: SHOP_SIZE.x * objectTransform.scale.x,
+            y: SHOP_SIZE.y * objectTransform.scale.y,
+            z: SHOP_SIZE.z * objectTransform.scale.z
+          }
+        };
+        break;
+      case "warehouse":
+      case "tenement":
+        buildings.push({
+          id: object.id,
+          type: object.type,
+          position,
+          rotation: objectTransform.rotation.y,
+          scale: uniformScale(
+            objectTransform,
+            `objects.${object.id}.transform`
+          )
+        });
+        break;
+      case "car":
+        cars.push({
+          id: object.id,
+          position,
+          rotation: objectTransform.rotation.y,
+          scale: uniformScale(objectTransform, `objects.${object.id}.transform`),
+          tiltZ: objectTransform.rotation.z
+        });
+        break;
+      case "street-light":
+        streetLights.push({
+          rotation: objectTransform.rotation.y,
+          id: object.id,
+          position,
+          scale: uniformScale(objectTransform, `objects.${object.id}.transform`)
+        });
+        break;
+      case "crate":
+        crates.push({
+          id: object.id,
+          position,
+          size: uniformScale(objectTransform, `objects.${object.id}.transform`),
+          rotation: objectTransform.rotation.y
+        });
+        break;
+      case "traffic-cone":
+        cones.push({
+          id: object.id,
+          position,
+          scale: uniformScale(objectTransform, `objects.${object.id}.transform`),
+          rotation: objectTransform.rotation.y
+        });
+        break;
+      case "tree":
+        trees.push({
+          id: object.id,
+          position,
+          rotation: objectTransform.rotation.y,
+          scale: uniformScale(objectTransform, `objects.${object.id}.transform`)
+        });
+        break;
+      case "bush":
+        bushes.push({
+          id: object.id,
+          position,
+          rotation: objectTransform.rotation.y,
+          scale: uniformScale(objectTransform, `objects.${object.id}.transform`)
+        });
+        break;
+      default: {
+        const unhandled = object.type;
+        throw new Error(`Unhandled level object type: ${String(unhandled)}`);
+      }
+    }
+  }
+  if (!shop) throw new Error("A level must contain one shop");
+  return {
+    seed: level.seed,
+    walls,
+    shop,
+    buildings,
+    cars,
+    streetLights,
+    crates,
+    cones,
+    trees,
+    bushes,
+    props,
+    spawnPoints: level.spawnPoints.map((spawn) => copyVec3(spawn.position))
+  };
+}
+function isRecord(value) {
+  return typeof value === "object" && value !== null;
+}
+function isFiniteNumber(value) {
+  return typeof value === "number" && Number.isFinite(value);
+}
+function validateVec3(value, path, diagnostics) {
+  if (!isRecord(value) || !isFiniteNumber(value.x) || !isFiniteNumber(value.y) || !isFiniteNumber(value.z)) {
+    diagnostics.push({
+      path,
+      message: "Expected a vector with finite x, y, and z values",
+      severity: "error"
+    });
+    return false;
+  }
+  return true;
+}
+function validateLevel(value) {
+  const diagnostics = [];
+  if (!isRecord(value)) {
+    return [{ path: "", message: "Expected a level object", severity: "error" }];
+  }
+  if (value.schemaVersion !== LEVEL_SCHEMA_VERSION) {
+    diagnostics.push({
+      path: "schemaVersion",
+      message: `Expected schema version ${LEVEL_SCHEMA_VERSION}`,
+      severity: "error"
+    });
+  }
+  if (typeof value.id !== "string" || value.id.trim() === "") {
+    diagnostics.push({
+      path: "id",
+      message: "Level ID must be a non-empty string",
+      severity: "error"
+    });
+  }
+  if (typeof value.name !== "string" || value.name.trim() === "") {
+    diagnostics.push({
+      path: "name",
+      message: "Level name must be a non-empty string",
+      severity: "error"
+    });
+  }
+  if (!isFiniteNumber(value.seed)) {
+    diagnostics.push({
+      path: "seed",
+      message: "Seed must be a finite number",
+      severity: "error"
+    });
+  }
+  if (!isFiniteNumber(value.groundSize) || value.groundSize <= 0) {
+    diagnostics.push({
+      path: "groundSize",
+      message: "Ground size must be a positive number",
+      severity: "error"
+    });
+  }
+  const objects = Array.isArray(value.objects) ? value.objects : [];
+  if (!Array.isArray(value.objects)) {
+    diagnostics.push({
+      path: "objects",
+      message: "Objects must be an array",
+      severity: "error"
+    });
+  }
+  const ids = /* @__PURE__ */ new Set();
+  let shopCount = 0;
+  let wallCount = 0;
+  objects.forEach((object, index) => {
+    const path = `objects[${index}]`;
+    if (!isRecord(object)) {
+      diagnostics.push({ path, message: "Expected an object record", severity: "error" });
+      return;
+    }
+    const id = object.id;
+    if (typeof id !== "string" || id.trim() === "") {
+      diagnostics.push({ path: `${path}.id`, message: "Object ID must be non-empty", severity: "error" });
+    } else if (ids.has(id)) {
+      diagnostics.push({ path: `${path}.id`, message: `Duplicate object ID "${id}"`, severity: "error" });
+    } else {
+      ids.add(id);
+    }
+    const type = object.type;
+    if (typeof type !== "string" || !LEVEL_OBJECT_TYPE_SET.has(type)) {
+      diagnostics.push({ path: `${path}.type`, message: "Unsupported object type", severity: "error" });
+      return;
+    }
+    if (type === "shop") shopCount += 1;
+    if (type === "wall") wallCount += 1;
+    const objectTransform = object.transform;
+    if (!isRecord(objectTransform) || !validateVec3(objectTransform.position, `${path}.transform.position`, diagnostics) || !validateVec3(objectTransform.rotation, `${path}.transform.rotation`, diagnostics) || !validateVec3(objectTransform.scale, `${path}.transform.scale`, diagnostics)) {
+      return;
+    }
+    if ((type === "trash-bag" || type === "oil-barrel" || type === "forklift" || type === "fence" || type === "fence-gate") && (Math.abs(objectTransform.rotation.x) > 1e-4 || Math.abs(objectTransform.rotation.z) > 1e-4)) {
+      diagnostics.push({
+        path: `${path}.transform.rotation`,
+        message: `${type} supports rotation around the Y axis only`,
+        severity: "error"
+      });
+    }
+    if ((type === "warehouse" || type === "tenement") && (Math.abs(objectTransform.rotation.x) > 1e-4 || Math.abs(objectTransform.rotation.z) > 1e-4)) {
+      diagnostics.push({
+        path: `${path}.transform.rotation`,
+        message: `${type} supports rotation around the Y axis only`,
+        severity: "error"
+      });
+    }
+    const position = objectTransform.position;
+    const scale = objectTransform.scale;
+    if (scale.x <= 0 || scale.y <= 0 || scale.z <= 0) {
+      diagnostics.push({
+        path: `${path}.transform.scale`,
+        message: "Scale values must be positive",
+        severity: "error"
+      });
+    }
+    if (isFiniteNumber(value.groundSize) && (Math.abs(position.x) > value.groundSize || Math.abs(position.z) > value.groundSize)) {
+      diagnostics.push({
+        path: `${path}.transform.position`,
+        message: "Object is outside the playable world bounds",
+        severity: "error"
+      });
+    }
+    if (type === "car" || type === "warehouse" || type === "tenement" || type === "street-light" || type === "crate" || type === "traffic-cone" || type === "tree" || type === "bush" || type === "trash-bag" || type === "oil-barrel" || type === "forklift" || type === "fence" || type === "fence-gate") {
+      if (Math.abs(scale.x - scale.y) > 1e-4 || Math.abs(scale.x - scale.z) > 1e-4) {
+        diagnostics.push({
+          path: `${path}.transform.scale`,
+          message: `${type} scale must be uniform`,
+          severity: "error"
+        });
+      }
+    }
+  });
+  if (wallCount < 4) {
+    diagnostics.push({
+      path: "objects",
+      message: "A playable level needs at least four boundary walls",
+      severity: "error"
+    });
+  }
+  if (shopCount !== 1) {
+    diagnostics.push({
+      path: "objects",
+      message: "A playable level needs exactly one shop",
+      severity: "error"
+    });
+  }
+  const spawns = Array.isArray(value.spawnPoints) ? value.spawnPoints : [];
+  if (!Array.isArray(value.spawnPoints)) {
+    diagnostics.push({
+      path: "spawnPoints",
+      message: "Spawn points must be an array",
+      severity: "error"
+    });
+  }
+  if (spawns.length === 0) {
+    diagnostics.push({
+      path: "spawnPoints",
+      message: "A playable level needs at least one spawn point",
+      severity: "error"
+    });
+  }
+  const spawnIds = /* @__PURE__ */ new Set();
+  spawns.forEach((spawn, index) => {
+    const path = `spawnPoints[${index}]`;
+    if (!isRecord(spawn)) {
+      diagnostics.push({ path, message: "Expected a spawn point record", severity: "error" });
+      return;
+    }
+    if (typeof spawn.id !== "string" || spawn.id.trim() === "") {
+      diagnostics.push({ path: `${path}.id`, message: "Spawn ID must be non-empty", severity: "error" });
+    } else if (spawnIds.has(spawn.id)) {
+      diagnostics.push({ path: `${path}.id`, message: `Duplicate spawn ID "${spawn.id}"`, severity: "error" });
+    } else {
+      spawnIds.add(spawn.id);
+    }
+    if (!validateVec3(spawn.position, `${path}.position`, diagnostics)) return;
+    if (isFiniteNumber(value.groundSize) && (Math.abs(spawn.position.x) > value.groundSize / 2 || Math.abs(spawn.position.z) > value.groundSize / 2)) {
+      diagnostics.push({
+        path: `${path}.position`,
+        message: "Spawn point is outside the playable ground",
+        severity: "error"
+      });
+    }
+  });
+  if (diagnostics.some((diagnostic) => diagnostic.severity === "error")) return diagnostics;
+  try {
+    const level = value;
+    const map = mapFromLevel(level);
+    const colliders = [...solidColliders(map), ...movementOnlyColliders(map)];
+    for (const spawn of level.spawnPoints) {
+      const playerBox = aabbFromCenterSize(spawn.position, PLAYER_SIZE);
+      if (colliders.some((collider) => aabbIntersects(playerBox, collider.box))) {
+        diagnostics.push({
+          path: `spawnPoints.${spawn.id}`,
+          message: "Spawn point overlaps gameplay collision",
+          severity: "error"
+        });
+      }
+    }
+  } catch (error) {
+    diagnostics.push({
+      path: "",
+      message: error instanceof Error ? error.message : "Level could not be compiled",
+      severity: "error"
+    });
+  }
+  return diagnostics;
+}
+function parseLevelDocument(input) {
+  const diagnostics = validateLevel(input);
+  const errors = diagnostics.filter((diagnostic) => diagnostic.severity === "error");
+  if (errors.length > 0) {
+    throw new Error(errors.map((diagnostic) => `${diagnostic.path}: ${diagnostic.message}`).join("\n"));
+  }
+  return input;
 }
 
 const playerHitbox = (position, yaw) => ({
@@ -894,7 +1390,7 @@ class GameRoom {
   }
   // ---- intents -----------------------------------------------------------
   handleJoin(playerId, payload) {
-    const name = payload.name || `Player-${playerId.substring(0, 5)}`;
+    const name = sanitizeNickname(payload.name);
     this.transport.send(playerId, GAME_EVENTS.GAME.STATE, {
       selfId: playerId,
       players: this.snapshotPlayers(),
@@ -908,7 +1404,7 @@ class GameRoom {
       status: "alive",
       hp: PLAYER_MAX_HP,
       position: payload.position,
-      rotation: 0,
+      rotation: facingCenterYaw(payload.position),
       positionAt: this.clock(),
       lastShotAt: -Infinity,
       lastThrowAt: -Infinity,
@@ -942,16 +1438,17 @@ class GameRoom {
     for (const other of this.players.values()) {
       if (other.id !== playerId && other.position) others.push(other.position);
     }
-    const position = pickSpawnPoint(others);
+    const position = pickSpawnPoint(others, this.map.spawnPoints);
     player.status = "alive";
     player.hp = PLAYER_MAX_HP;
     player.position = { ...position };
-    player.rotation = 0;
+    player.rotation = facingCenterYaw(position);
     player.positionAt = this.clock();
     this.transport.broadcast(GAME_EVENTS.PLAYER.RESPAWN, {
       playerId,
       position,
-      hp: player.hp
+      hp: player.hp,
+      rotation: player.rotation
     });
   }
   handleShoot(playerId, payload) {
@@ -1290,6 +1787,16 @@ function startTickLoop(room, hz) {
   return () => clearInterval(handle);
 }
 
+const levelsDirectory = fileURLToPath(
+  new URL("../../shared/levels/", import.meta.url)
+);
+function loadServerLevel(levelId = process.env.LEVEL_ID ?? "default") {
+  const path = resolve(levelsDirectory, `${levelId}.json`);
+  const source = readFileSync(path, "utf8");
+  const level = parseLevelDocument(JSON.parse(source));
+  return mapFromLevel(level);
+}
+
 var __defProp = Object.defineProperty;
 var __defNormalProp = (obj, key, value) => key in obj ? __defProp(obj, key, { enumerable: true, configurable: true, writable: true, value }) : obj[key] = value;
 var __publicField = (obj, key, value) => __defNormalProp(obj, key + "" , value);
@@ -1368,7 +1875,9 @@ const io = new Server(server, {
   }
 });
 const PORT = process.env.PORT || 3e3;
-const room = new GameRoom(new SocketIOTransport(io));
+const room = new GameRoom(new SocketIOTransport(io), {
+  map: loadServerLevel()
+});
 attachSocketIO(io, room);
 startTickLoop(room, TICK_RATE);
 server.listen(PORT, () => {
@@ -1378,5 +1887,6 @@ app.get("/", (_req, res) => {
   res.send("<h1>Hello world</h1>");
 });
 app.get("/leaderboard", (_req, res) => {
+  res.set("Cache-Control", "no-store");
   res.send(room.leaderBoard);
 });

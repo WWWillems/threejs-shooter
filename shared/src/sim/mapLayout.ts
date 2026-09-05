@@ -8,6 +8,8 @@ import {
 import type { Collider } from "./projectile";
 import { Rng } from "./rng";
 import { scale, vec3 } from "./vec3";
+import { propBoxes, isMovementOnlyProp, type PropSpec, type PropType } from "./props";
+import { SPAWN_POINTS } from "./spawnPoints";
 
 /**
  * The map, generated deterministically from a seed so the server and every
@@ -16,13 +18,15 @@ import { scale, vec3 } from "./vec3";
  */
 
 export const MAP_SEED = 20240913;
-export const GROUND_SIZE = 100;
+export const GROUND_SIZE = 76;
 export const WALL_HEIGHT = 2.5;
 export const WALL_THICKNESS = 0.5;
 
 export const CAR_SIZE: Vec3 = vec3(2.4, 1.8, 5.0);
 export const STREET_LIGHT_SIZE: Vec3 = vec3(0.4, 6.3, 0.4);
 export const SHOP_SIZE: Vec3 = vec3(10, 4, 8);
+export const WAREHOUSE_SIZE: Vec3 = vec3(14, 5.5, 10);
+export const TENEMENT_SIZE: Vec3 = vec3(7, 7.5, 8);
 export const CRATE_MAX_HP = 100;
 /** Trunk of a scale-1 tree; the canopy is decoration. */
 export const TREE_TRUNK_SIZE: Vec3 = vec3(0.6, 1.5, 0.6);
@@ -44,353 +48,434 @@ export interface CarSpec {
   /** Base of the car on the ground. */
   position: Vec3;
   rotation: number;
+  scale: number;
   /** Small roll for the crashed car. */
   tiltZ: number;
 }
 
 export interface ConeSpec {
+  scale: number;
   position: Vec3;
   rotation: number;
 }
 
 export interface TreeSpec {
+  id: string;
   position: Vec3;
   rotation: number;
   scale: number;
 }
 
 export interface BushSpec {
+  id: string;
   position: Vec3;
   rotation: number;
+  scale: number;
+}
+
+export interface WallSpec {
+  id: string;
+  box: AABB;
+}
+
+export interface StreetLightSpec {
+  rotation: number;
+  id: string;
+  position: Vec3;
+  scale: number;
+}
+
+export type BuildingType = "warehouse" | "tenement";
+
+export interface BuildingSpec {
+  id: string;
+  type: BuildingType;
+  /** Ground-based origin, matching the Blender models. */
+  position: Vec3;
+  rotation: number;
+  scale: number;
 }
 
 export interface MapLayout {
   seed: number;
-  walls: AABB[];
-  shop: { position: Vec3; size: Vec3 };
+  walls: WallSpec[];
+  shop: { id: string; position: Vec3; size: Vec3 };
+  buildings: BuildingSpec[];
   cars: CarSpec[];
-  streetLights: Vec3[];
+  streetLights: StreetLightSpec[];
   crates: CrateSpec[];
-  cones: ConeSpec[];
+  cones: (ConeSpec & { id: string })[];
   trees: TreeSpec[];
   bushes: BushSpec[];
+  spawnPoints: Vec3[];
+  props: PropSpec[];
 }
 
 const PI = Math.PI;
 
+/**
+ * A two-sided arena for five against five. Reading from the south wall
+ * (negative Z) towards the centre, each team gets:
+ *
+ * - a **spawn street** along its wall (z < -28): five spawn points, lamps and
+ *   litter, no cover to fight over;
+ * - a **cover line** (z ≈ -27): a parked car, two crate bunkers and two crate
+ *   walls that break every sightline from mid into the street, each with a
+ *   spawn point tucked behind it. The gaps between them are the exits;
+ * - a **yard** (-27 < z < -12): the approach, with a crate wall, a forklift and
+ *   barrels to leapfrog between, fenced off from the flanks by chain-link that
+ *   bullets cross but players do not;
+ * - **mid** (|z| < 12): the shop in the centre splits it into an east and a
+ *   west lane, each with a crate pyramid at one end and low cover at the
+ *   other. Forklifts wedged in the fence gaps make the gates to the flanks;
+ * - two **flanks** (|x| > 19) running the full length of the map along the
+ *   walls: a wreck, a crate tower and trees for cover, the long way round mid.
+ *
+ * Everything is authored once for the south team and rotated 180° about the
+ * centre for the north team, so both sides play the same map.
+ */
 export function generateMap(seed: number = MAP_SEED): MapLayout {
-  const rng = new Rng(seed);
-
-  const cars: CarSpec[] = [
-    { id: "car-0", position: vec3(8, 0, 9), rotation: -PI / 5, tiltZ: PI / 30 },
-    { id: "car-1", position: vec3(12, 0, 15), rotation: PI / 3, tiltZ: 0 },
-    { id: "car-2", position: vec3(-15, 0, -12), rotation: PI / 8, tiltZ: 0 },
-  ];
-
-  const streetLights: Vec3[] = [
-    vec3(10, 0, 12),
-    vec3(-10, 0, -8),
-    vec3(-5, 0, 15),
-    vec3(15, 0, -15),
-  ];
-
-  const shop = { position: vec3(0, 0, -20), size: SHOP_SIZE };
-
-  const crates = generateCrates(rng);
-  const cones = generateCones(rng);
-
-  // Solid props that trees and bushes must not be planted inside.
-  const blockers: AABB[] = [
-    aabbFromBaseSize(shop.position, shop.size),
-    ...cars.map((c) => carBox(c)),
-    ...crates.map((c) => crateBox(c)),
-  ];
-  const trees = generateTrees(rng, blockers);
-  const bushes = generateBushes(rng, blockers);
+  const arena = new ArenaBuilder(new Rng(seed));
+  layoutSpawnStreet(arena);
+  layoutCoverLine(arena);
+  layoutYard(arena);
+  layoutMid(arena);
+  layoutFlanks(arena);
 
   return {
     seed,
     walls: generateWalls(),
-    shop,
-    cars,
-    streetLights,
-    crates,
-    cones,
-    trees,
-    bushes,
+    shop: { id: "shop", position: vec3(0, 0, 0), size: SHOP_SIZE },
+    buildings: arena.buildings,
+    cars: arena.cars,
+    streetLights: arena.streetLights,
+    crates: arena.crates,
+    cones: arena.cones,
+    trees: arena.trees,
+    bushes: arena.bushes,
+    props: arena.props,
+    spawnPoints: SPAWN_POINTS.map((point) => ({ ...point })),
   };
 }
 
-function generateWalls(): AABB[] {
+/**
+ * The north team's copy of a south-side position: rotated 180° about the
+ * centre. `|| 0` keeps positions on the axes at 0 rather than -0, which JSON
+ * would not round-trip.
+ */
+const mirrored = (p: Vec3): Vec3 => vec3(-p.x || 0, p.y, -p.z || 0);
+
+/**
+ * Collects placements for the south side and adds the north side's rotated
+ * copy of each. Ids stay unique and stable: numbered kinds count up across
+ * both copies, named props get a `-s` / `-n` suffix. The rng only jitters
+ * decoration (cone, tree and bush rotations); cover is placed by hand.
+ */
+class ArenaBuilder {
+  readonly buildings: BuildingSpec[] = [];
+  readonly cars: CarSpec[] = [];
+  readonly streetLights: StreetLightSpec[] = [];
+  readonly crates: CrateSpec[] = [];
+  readonly cones: (ConeSpec & { id: string })[] = [];
+  readonly trees: TreeSpec[] = [];
+  readonly bushes: BushSpec[] = [];
+  readonly props: PropSpec[] = [];
+
+  constructor(private readonly rng: Rng) {}
+
+  building(type: BuildingType, id: string, x: number, z: number, rotation = 0): void {
+    this.both(vec3(x, 0, z), (position, turn, side) =>
+      this.buildings.push({
+        id: `${id}-${side}`,
+        type,
+        position,
+        rotation: rotation + turn,
+        scale: 1,
+      })
+    );
+  }
+
+  /** Run `place` for the south-side position and again for its north-side mirror. */
+  private both(
+    position: Vec3,
+    place: (position: Vec3, turn: number, side: "s" | "n") => void
+  ): void {
+    place(position, 0, "s");
+    place(mirrored(position), PI, "n");
+  }
+
+  car(x: number, z: number, rotation: number, tiltZ = 0): void {
+    this.both(vec3(x, 0, z), (position, turn) =>
+      this.cars.push({
+        id: `car-${this.cars.length}`,
+        position,
+        rotation: rotation + turn,
+        scale: 1,
+        tiltZ,
+      })
+    );
+  }
+
+  light(x: number, z: number): void {
+    this.both(vec3(x, 0, z), (position, turn) =>
+      this.streetLights.push({
+        id: `light-${this.streetLights.length}`,
+        position,
+        rotation: turn,
+        scale: 1,
+      })
+    );
+  }
+
+  /** A crate of `size` resting on `level` crates of the same size. */
+  crate(x: number, z: number, size: number, rotation: number, level = 0): void {
+    this.both(vec3(x, size * (level + 0.5), z), (position, turn) =>
+      this.crates.push({
+        id: `crate-${this.crates.length}`,
+        position,
+        size,
+        rotation: rotation + turn,
+      })
+    );
+  }
+
+  /** Four crates in a square with one on top: hard cover you cannot see over. */
+  bunker(x: number, z: number): void {
+    const d = 0.55;
+    this.crate(x - d, z - d, 1, 0);
+    this.crate(x + d, z - d, 1, PI / 9);
+    this.crate(x - d, z + d, 1, -PI / 12);
+    this.crate(x + d, z + d, 1, PI / 16);
+    this.crate(x, z, 1, PI / 7, 1);
+  }
+
+  /** Seven crates in three tiers: a lane landmark and the tallest cover on the map. */
+  pyramid(x: number, z: number, size = 1): void {
+    const d = size * 1.1;
+    this.crate(x - d, z - d, size, 0);
+    this.crate(x + d, z - d, size, PI / 6);
+    this.crate(x - d, z + d, size, -PI / 8);
+    this.crate(x + d, z + d, size, PI / 3);
+    this.crate(x, z - size / 2, size, PI / 4, 1);
+    this.crate(x, z + size / 2, size, -PI / 4, 1);
+    this.crate(x, z, size, PI / 10, 2);
+  }
+
+  /** `count` crates in a row along X with a staggered second row on top. */
+  crateWall(x: number, z: number, count: number): void {
+    const spacing = 1.25;
+    const start = x - ((count - 1) * spacing) / 2;
+    for (let i = 0; i < count; i++) {
+      this.crate(start + i * spacing, z, 1, i % 2 === 0 ? PI / 12 : -PI / 12);
+    }
+    for (let i = 0; i < count - 1; i++) {
+      this.crate(start + (i + 0.5) * spacing, z, 1, i % 2 === 0 ? -PI / 14 : PI / 14, 1);
+    }
+  }
+
+  /** Oversized crates stacked three high: the flank landmark. */
+  tower(x: number, z: number): void {
+    const s = 1.2;
+    const d = s / 2;
+    this.crate(x - d, z - d, s, 0);
+    this.crate(x + d, z - d, s, 0);
+    this.crate(x - d, z + d, s, 0);
+    this.crate(x + d, z + d, s, 0);
+    this.crate(x - d, z, s, PI / 12, 1);
+    this.crate(x + d, z, s, -PI / 12, 1);
+    this.crate(x, z, s, PI / 5, 2);
+  }
+
+  cone(x: number, z: number): void {
+    const rotation = this.rng.next() * PI * 2;
+    this.both(vec3(x, 0, z), (position, turn) =>
+      this.cones.push({
+        id: `cone-${this.cones.length}`,
+        position,
+        scale: 1,
+        rotation: rotation + turn,
+      })
+    );
+  }
+
+  tree(x: number, z: number, scale: number): void {
+    const rotation = this.rng.next() * PI * 2;
+    this.both(vec3(x, 0, z), (position, turn) =>
+      this.trees.push({
+        id: `tree-${this.trees.length}`,
+        position,
+        rotation: rotation + turn,
+        scale,
+      })
+    );
+  }
+
+  bush(x: number, z: number): void {
+    const rotation = this.rng.next() * PI * 2;
+    this.both(vec3(x, 0, z), (position, turn) =>
+      this.bushes.push({
+        id: `bush-${this.bushes.length}`,
+        position,
+        rotation: rotation + turn,
+        scale: 1,
+      })
+    );
+  }
+
+  prop(type: PropType, id: string, x: number, z: number, rotation = 0): void {
+    this.both(vec3(x, 0, z), (position, turn, side) =>
+      this.props.push({
+        id: `${id}-${side}`,
+        type,
+        position,
+        rotation: rotation + turn,
+        scale: 1,
+      })
+    );
+  }
+}
+
+/** Each team's safe strip along its wall: lamps and litter, nothing to hide behind. */
+function layoutSpawnStreet(arena: ArenaBuilder): void {
+  arena.light(-22, -35);
+  arena.light(17, -30);
+  arena.prop("trash-bag", "bag-street-0", -4, -37.2, 0.5);
+  arena.prop("trash-bag", "bag-street-1", -3.0, -37.2, -1.1);
+  arena.prop("trash-bag", "bag-street-2", 10.6, -37.2, 2.2);
+  arena.tree(-31.5, -36.2, 0.9);
+  arena.bush(-33.2, -35.6);
+  arena.bush(-29.8, -36.5);
+}
+
+/**
+ * Shields the spawn street from mid. A car is parked across the middle exit,
+ * crate bunkers and walls cover the sides; the gaps between them are the exits
+ * into the yard, and a wreck at the flank entrance covers the long way round.
+ */
+function layoutCoverLine(arena: ArenaBuilder): void {
+  arena.car(0, -26, PI / 2);
+  arena.bunker(-11, -27);
+  arena.bunker(11, -27);
+  arena.crateWall(-15.3, -27, 2);
+  arena.crateWall(15.3, -27, 2);
+}
+
+/**
+ * The approach to mid. Chain-link at x = ±19 fences the yard off from the
+ * flanks (bullets cross it, players do not); the crate wall on the west and
+ * the forklift on the east are the hard cover to push up behind.
+ */
+function layoutYard(arena: ArenaBuilder): void {
+  for (const side of ["west", "east"] as const) {
+    const x = side === "west" ? -19 : 19;
+    arena.prop("fence", `fence-${side}-0`, x, -20, PI / 2);
+    arena.prop("fence", `fence-${side}-1`, x, -16, PI / 2);
+    arena.prop("fence-gate", `gate-${side}`, x, -12, PI / 2);
+  }
+  arena.crateWall(-7, -17, 3);
+  arena.crateWall(-13.5, -21, 2);
+  arena.prop("forklift", "forklift-yard", 7, -20, PI / 2 + 0.3);
+  arena.prop("oil-barrel", "barrel-yard-0", 4.2, -14.2, 0.2);
+  arena.prop("oil-barrel", "barrel-yard-1", 5.15, -13.7, -0.4);
+  arena.prop("oil-barrel", "barrel-yard-2", 14, -16, 0.7);
+  arena.prop("oil-barrel", "barrel-yard-3", 14.95, -15.6, -0.1);
+  arena.prop("trash-bag", "bag-yard", 12.4, -20.7, 0.9);
+  arena.cone(5.2, -22.6);
+  arena.cone(9.4, -21.9);
+  arena.cone(8.8, -17.6);
+  arena.bush(17.6, -18.1);
+  arena.light(-14, -12);
+}
+
+/**
+ * The shop at the centre splits mid into a west and an east lane. Each lane
+ * has a pyramid at one end and low cover at the other (the mirror puts the
+ * pyramid on the far side), a loading dock hugs the shop, and a forklift in
+ * each fence gap is the gate to the flank.
+ */
+function layoutMid(arena: ArenaBuilder): void {
+  arena.pyramid(-11, -7);
+  arena.crate(8, -8, 1.2, 0.3);
+  arena.crate(9.2, -7.2, 1, -0.2);
+  arena.prop("oil-barrel", "barrel-mid", 7, -6.9, 0.6);
+
+  arena.crateWall(-2.5, -5.3, 2);
+  arena.prop("oil-barrel", "barrel-dock-0", 1.4, -5.0, 0.3);
+  arena.prop("oil-barrel", "barrel-dock-1", 2.35, -5.15, -0.7);
+  arena.prop("trash-bag", "bag-dock-0", 3.4, -4.9, 0.5);
+  arena.prop("trash-bag", "bag-dock-1", 4.4, -5.9, -1.3);
+  arena.bush(-6, -5.3);
+
+  arena.prop("forklift", "forklift-gate", -19, 0, PI / 2);
+  arena.prop("oil-barrel", "barrel-gate-0", -19.3, -6.4, 0.1);
+  arena.prop("oil-barrel", "barrel-gate-1", -18.5, -5.4, 0.8);
+  arena.cone(-17.6, -9.3);
+  arena.cone(-16.9, -10);
+}
+
+/**
+ * The outer lanes along the walls, the long way round mid. Trees line the
+ * walls; a low crate cluster on the west and a tower plus crate wall on the
+ * east give a flanker somewhere to stop.
+ */
+function layoutFlanks(arena: ArenaBuilder): void {
+  arena.building("warehouse", "warehouse-flank", -25, -20);
+  arena.building("tenement", "tenement-flank", 30, 8);
+  arena.tree(-35.5, -30, 1.1);
+  arena.tree(-35.5, -12, 0.9);
+  arena.tree(-35.5, 6, 1);
+  arena.bush(-34.3, -31.3);
+  arena.bush(-36.6, -28.2);
+  arena.bush(-34.6, -10.7);
+  arena.bush(-36.3, 7.6);
+
+  arena.tower(26, -9);
+  arena.prop("oil-barrel", "barrel-tower-0", 28.6, -11.4, 0.4);
+  arena.prop("oil-barrel", "barrel-tower-1", 29.5, -10.9, -0.2);
+  arena.crateWall(22.5, -25.5, 2);
+  arena.tree(35.5, -24, 1.2);
+  arena.bush(34.1, -25.6);
+  arena.bush(36.5, -22.2);
+  arena.bush(34.8, -2.4);
+  for (let i = 0; i < 4; i++) arena.cone(29 + i * 0.8, -31 + i * 0.8);
+}
+
+function generateWalls(): WallSpec[] {
   const half = GROUND_SIZE / 2;
   const t = WALL_THICKNESS;
   const h = WALL_HEIGHT;
   return [
     // North (+Z) and South (-Z)
-    aabbFromBaseSize(vec3(0, 0, half + t / 2), vec3(GROUND_SIZE + t, h, t)),
-    aabbFromBaseSize(vec3(0, 0, -half - t / 2), vec3(GROUND_SIZE + t, h, t)),
+    {
+      id: "wall-north",
+      box: aabbFromBaseSize(
+        vec3(0, 0, half + t / 2),
+        vec3(GROUND_SIZE + t, h, t)
+      ),
+    },
+    {
+      id: "wall-south",
+      box: aabbFromBaseSize(
+        vec3(0, 0, -half - t / 2),
+        vec3(GROUND_SIZE + t, h, t)
+      ),
+    },
     // East (+X) and West (-X)
-    aabbFromBaseSize(vec3(half + t / 2, 0, 0), vec3(t, h, GROUND_SIZE + t * 2)),
-    aabbFromBaseSize(vec3(-half - t / 2, 0, 0), vec3(t, h, GROUND_SIZE + t * 2)),
-  ];
-}
-
-function generateCrates(rng: Rng): CrateSpec[] {
-  const crates: CrateSpec[] = [];
-  const push = (x: number, y: number, z: number, size: number, rotation: number) =>
-    crates.push({
-      id: `crate-${crates.length}`,
-      position: vec3(x, y, z),
-      size,
-      rotation,
-    });
-
-  // Main pyramid formation
-  const pb = vec3(5, 0, 5);
-  push(pb.x - 1.1, 0.5, pb.z - 1.1, 1, 0);
-  push(pb.x + 1.1, 0.5, pb.z - 1.1, 1, PI / 6);
-  push(pb.x - 1.1, 0.5, pb.z + 1.1, 1, -PI / 8);
-  push(pb.x + 1.1, 0.5, pb.z + 1.1, 1, PI / 3);
-  push(pb.x, 1.5, pb.z - 0.5, 1, PI / 4);
-  push(pb.x, 1.5, pb.z + 0.5, 1, -PI / 4);
-  push(pb.x, 2.5, pb.z, 1, PI / 10);
-
-  // Defensive wall
-  const wallStart = vec3(-8, 0, 6);
-  const wallLength = 5;
-  const wallSpacing = 1.2;
-  for (let i = 0; i < wallLength; i++) {
-    push(
-      wallStart.x + i * wallSpacing,
-      0.5,
-      wallStart.z,
-      1,
-      i % 2 === 0 ? PI / 8 : -PI / 8
-    );
-  }
-  for (let i = 1; i < wallLength - 1; i++) {
-    push(
-      wallStart.x + i * wallSpacing,
-      1.5,
-      wallStart.z,
-      1,
-      i % 2 === 0 ? -PI / 6 : PI / 6
-    );
-  }
-
-  // Semi-circle pattern
-  const circleCenter = vec3(5, 0, -12);
-  const circleRadius = 5;
-  const circleCount = 8;
-  for (let i = 0; i < circleCount; i++) {
-    const angle = (i / circleCount) * PI;
-    push(
-      circleCenter.x + Math.cos(angle) * circleRadius,
-      0.5,
-      circleCenter.z + Math.sin(angle) * circleRadius,
-      0.9 + rng.next() * 0.3,
-      rng.next() * PI
-    );
-  }
-
-  // Sniper tower
-  const tb = vec3(-15, 0, 10);
-  const ts = 1.2;
-  push(tb.x - ts / 2, 0.6, tb.z - ts / 2, ts, 0);
-  push(tb.x + ts / 2, 0.6, tb.z - ts / 2, ts, 0);
-  push(tb.x - ts / 2, 0.6, tb.z + ts / 2, ts, 0);
-  push(tb.x + ts / 2, 0.6, tb.z + ts / 2, ts, 0);
-  push(tb.x - ts / 4, ts + 0.6, tb.z, ts, PI / 4);
-  push(tb.x + ts / 4, ts + 0.6, tb.z, ts, -PI / 4);
-  push(tb.x, ts * 2 + 0.6, tb.z, ts * 1.2, PI / 5);
-
-  // Corner clusters
-  const corners = [
-    { position: vec3(18, 0, 18), size: { x: 3, z: 3 }, fillRate: 0.7 },
-    { position: vec3(-18, 0, -18), size: { x: 4, z: 3 }, fillRate: 0.6 },
-  ];
-  for (const corner of corners) {
-    for (let i = 0; i < corner.size.x; i++) {
-      for (let j = 0; j < corner.size.z; j++) {
-        if (rng.next() > 1 - corner.fillRate) {
-          push(
-            corner.position.x - i * 1.1 - rng.next() * 0.2,
-            0.5,
-            corner.position.z - j * 1.1 - rng.next() * 0.2,
-            0.8 + rng.next() * 0.4,
-            rng.next() * PI
-          );
-        }
-      }
-    }
-  }
-
-  return crates;
-}
-
-function generateCones(rng: Rng): ConeSpec[] {
-  const cones: ConeSpec[] = [];
-
-  // Line of cones
-  const lineStart = vec3(10, 0, 11);
-  for (let i = 0; i < 7; i++) {
-    cones.push({ position: vec3(lineStart.x + i * 0.8, 0, lineStart.z), rotation: 0 });
-  }
-
-  // Curved line of cones
-  const curveCenter = vec3(-5, 0, -8);
-  const curveCount = 9;
-  for (let i = 0; i < curveCount; i++) {
-    const angle = (i / (curveCount - 1)) * PI;
-    cones.push({
-      position: vec3(
-        curveCenter.x + Math.cos(angle) * 4,
-        0,
-        curveCenter.z + Math.sin(angle) * 4
+    {
+      id: "wall-east",
+      box: aabbFromBaseSize(
+        vec3(half + t / 2, 0, 0),
+        vec3(t, h, GROUND_SIZE + t * 2)
       ),
-      rotation: rng.next() * 0.5 - 0.25,
-    });
-  }
-
-  // Scattered cones near the crash site (first car)
-  const crash = vec3(8, 0, 9);
-  for (let i = 0; i < 5; i++) {
-    const angle = rng.next() * PI * 2;
-    const distance = 2 + rng.next() * 3;
-    cones.push({
-      position: vec3(
-        crash.x + Math.cos(angle) * distance,
-        0,
-        crash.z + Math.sin(angle) * distance
+    },
+    {
+      id: "wall-west",
+      box: aabbFromBaseSize(
+        vec3(-half - t / 2, 0, 0),
+        vec3(t, h, GROUND_SIZE + t * 2)
       ),
-      rotation: rng.next() * PI * 2,
-    });
-  }
-
-  // Tower base cones
-  cones.push({ position: vec3(-16.5, 0, 8.5), rotation: 0 });
-  cones.push({ position: vec3(-13.5, 0, 8.5), rotation: 0 });
-  cones.push({ position: vec3(-15, 0, 8), rotation: 0 });
-
-  // Shop entrance cones
-  cones.push({ position: vec3(-3, 0, -15), rotation: 0 });
-  cones.push({ position: vec3(3, 0, -15), rotation: 0 });
-  cones.push({ position: vec3(-2, 0, -17), rotation: 0 });
-  cones.push({ position: vec3(2, 0, -17), rotation: 0 });
-
-  return cones;
-}
-
-function generateTrees(rng: Rng, blockers: AABB[]): TreeSpec[] {
-  const trees: TreeSpec[] = [];
-
-  const clusters = [{ position: vec3(-18, 0, -18), radius: 4, count: 5 }];
-  for (const cluster of clusters) {
-    for (let i = 0; i < cluster.count; i++) {
-      const target = vec3(
-        cluster.position.x + rng.next() * cluster.radius - cluster.radius / 2,
-        0,
-        cluster.position.z + rng.next() * cluster.radius - cluster.radius / 2
-      );
-      const clear = findClearPosition(rng, target, 1.2, blockers);
-      if (clear) {
-        trees.push({
-          position: clear,
-          rotation: rng.next() * PI * 2,
-          scale: 0.8 + rng.next() * 0.4,
-        });
-      }
-    }
-  }
-
-  const individuals = [vec3(15, 0, -15), vec3(-12, 0, 10), vec3(18, 0, 5), vec3(5, 0, 18)];
-  for (const target of individuals) {
-    const clear = findClearPosition(rng, target, 1.2, blockers);
-    if (clear) {
-      trees.push({
-        position: clear,
-        rotation: rng.next() * PI * 2,
-        scale: 0.9 + rng.next() * 0.3,
-      });
-    }
-  }
-
-  return trees;
-}
-
-function generateBushes(rng: Rng, blockers: AABB[]): BushSpec[] {
-  const bushes: BushSpec[] = [];
-
-  const clusters = [
-    { position: vec3(-18, 0, -18), radius: 6, count: 8 },
-    { position: vec3(12, 0, 12), radius: 2.5, count: 4 },
-    { position: vec3(-10, 0, -10), radius: 2.5, count: 3 },
+    },
   ];
-  for (const cluster of clusters) {
-    for (let i = 0; i < cluster.count; i++) {
-      const target = vec3(
-        cluster.position.x + rng.next() * cluster.radius - cluster.radius / 2,
-        0,
-        cluster.position.z + rng.next() * cluster.radius - cluster.radius / 2
-      );
-      const clear = findClearPosition(rng, target, 0.8, blockers);
-      if (clear) {
-        bushes.push({ position: clear, rotation: rng.next() * PI * 2 });
-      }
-    }
-  }
-
-  const individuals = [
-    vec3(10, 0, -8),
-    vec3(-5, 0, 5),
-    vec3(0, 0, 12),
-    vec3(15, 0, 0),
-    vec3(-15, 0, -5),
-    vec3(5, 0, -15),
-    vec3(-8, 0, -3),
-    vec3(3, 0, 8),
-  ];
-  for (const target of individuals) {
-    const clear = findClearPosition(rng, target, 0.8, blockers);
-    if (clear) {
-      bushes.push({ position: clear, rotation: rng.next() * PI * 2 });
-    }
-  }
-
-  return bushes;
-}
-
-/**
- * Return `target` if a prop of `radius` fits there without overlapping any
- * blocker (in the XZ plane), otherwise try a few nearby spots, otherwise null.
- */
-function findClearPosition(
-  rng: Rng,
-  target: Vec3,
-  radius: number,
-  blockers: AABB[]
-): Vec3 | null {
-  const isClear = (p: Vec3) =>
-    !blockers.some(
-      (b) =>
-        p.x + radius > b.min.x &&
-        p.x - radius < b.max.x &&
-        p.z + radius > b.min.z &&
-        p.z - radius < b.max.z
-    );
-
-  if (isClear(target)) return target;
-  for (let attempt = 0; attempt < 8; attempt++) {
-    const angle = rng.next() * PI * 2;
-    const dist = radius * 2 + rng.next() * 3;
-    const candidate = vec3(
-      target.x + Math.cos(angle) * dist,
-      0,
-      target.z + Math.sin(angle) * dist
-    );
-    if (isClear(candidate)) return candidate;
-  }
-  return null;
 }
 
 /** World AABB of a crate (axis aligned, matching the client's collider). */
@@ -401,24 +486,40 @@ export const crateBox = (crate: CrateSpec): AABB =>
 export const carBox = (car: CarSpec): AABB =>
   aabbFromRotatedBox(
     vec3(car.position.x, car.position.y + CAR_SIZE.y / 2, car.position.z),
-    CAR_SIZE,
+    scale(CAR_SIZE, car.scale),
     car.rotation
   );
 
-export const streetLightBox = (base: Vec3): AABB =>
-  aabbFromBaseSize(base, STREET_LIGHT_SIZE);
+export const streetLightBox = (base: Vec3, multiplier = 1): AABB =>
+  aabbFromBaseSize(base, scale(STREET_LIGHT_SIZE, multiplier));
 
 export const shopBox = (map: MapLayout): AABB =>
   aabbFromBaseSize(map.shop.position, map.shop.size);
+
+const buildingSize = (type: BuildingType): Vec3 =>
+  type === "warehouse" ? WAREHOUSE_SIZE : TENEMENT_SIZE;
+
+export const buildingBox = (building: BuildingSpec): AABB => {
+  const size = scale(buildingSize(building.type), building.scale);
+  return aabbFromRotatedBox(
+    vec3(
+      building.position.x,
+      building.position.y + size.y / 2,
+      building.position.z
+    ),
+    size,
+    building.rotation
+  );
+};
 
 export const treeTrunkBox = (tree: TreeSpec): AABB =>
   aabbFromBaseSize(tree.position, scale(TREE_TRUNK_SIZE, tree.scale));
 
 export const bushBox = (bush: BushSpec): AABB =>
-  aabbFromBaseSize(bush.position, BUSH_SIZE);
+  aabbFromBaseSize(bush.position, scale(BUSH_SIZE, bush.scale));
 
 export const coneBox = (cone: ConeSpec): AABB =>
-  aabbFromBaseSize(cone.position, CONE_SIZE);
+  aabbFromBaseSize(cone.position, scale(CONE_SIZE, cone.scale));
 
 /** Tag on a piece of solid geometry; ids are stable per map. */
 export interface StaticTag {
@@ -433,25 +534,43 @@ export interface StaticTag {
  */
 export function solidColliders(map: MapLayout): Collider<StaticTag>[] {
   const colliders: Collider<StaticTag>[] = [];
-  map.walls.forEach((box, i) =>
-    colliders.push({ box, tag: { kind: "static", id: `wall-${i}` } })
+  map.walls.forEach((wall) =>
+    colliders.push({
+      box: wall.box,
+      tag: { kind: "static", id: wall.id },
+    })
   );
-  colliders.push({ box: shopBox(map), tag: { kind: "static", id: "shop" } });
+  colliders.push({
+    box: shopBox(map),
+    tag: { kind: "static", id: map.shop.id },
+  });
+  for (const building of map.buildings) {
+    colliders.push({
+      box: buildingBox(building),
+      tag: { kind: "static", id: building.id },
+    });
+  }
   for (const car of map.cars) {
     colliders.push({ box: carBox(car), tag: { kind: "static", id: car.id } });
   }
-  map.streetLights.forEach((base, i) =>
+  map.streetLights.forEach((light) =>
     colliders.push({
-      box: streetLightBox(base),
-      tag: { kind: "static", id: `light-${i}` },
+      box: streetLightBox(light.position, light.scale),
+      tag: { kind: "static", id: light.id },
     })
   );
-  map.trees.forEach((tree, i) =>
+  map.trees.forEach((tree) =>
     colliders.push({
       box: treeTrunkBox(tree),
-      tag: { kind: "static", id: `tree-${i}` },
+      tag: { kind: "static", id: tree.id },
     })
   );
+  for (const prop of map.props) {
+    if (isMovementOnlyProp(prop.type)) continue;
+    propBoxes(prop).forEach((box, index) => colliders.push({
+      box, tag: { kind: "static", id: `${prop.id}:${index}` },
+    }));
+  }
   return colliders;
 }
 
@@ -463,7 +582,9 @@ export function movementOnlyColliders(
   map: MapLayout
 ): { id: string; box: AABB }[] {
   return [
-    ...map.bushes.map((bush, i) => ({ id: `bush-${i}`, box: bushBox(bush) })),
-    ...map.cones.map((cone, i) => ({ id: `cone-${i}`, box: coneBox(cone) })),
+    ...map.props.filter((prop) => isMovementOnlyProp(prop.type)).flatMap((prop) =>
+      propBoxes(prop).map((box, index) => ({ id: `${prop.id}:${index}`, box }))),
+    ...map.bushes.map((bush) => ({ id: bush.id, box: bushBox(bush) })),
+    ...map.cones.map((cone) => ({ id: cone.id, box: coneBox(cone) })),
   ];
 }

@@ -41,4 +41,5 @@ export type {
   WeaponEvent,
   WorldSnapshot,
 } from "./types";
+export { MAX_NICKNAME_LENGTH, sanitizeNickname } from "./nickname";
 export * from "./sim";

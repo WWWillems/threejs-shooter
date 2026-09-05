@@ -9,7 +9,10 @@
   ],
   "scripts": {
     "dev:app": "npm run dev -w app",
+    "dev:editor": "npm run dev:editor -w app",
     "dev:server": "npm run dev -w server",
+    "import:level": "node --import tsx scripts/levels/import-level.mjs",
+    "generate:default-level": "node --import tsx scripts/levels/generate-default-level.mjs",
     "build:app": "npm run build -w app",
     "build:server": "npm run build -w server",
     "build": "npm run build:app && npm run build:server",

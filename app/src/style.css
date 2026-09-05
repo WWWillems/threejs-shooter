@@ -129,7 +129,7 @@ canvas {
   }
 }
 
-// Add inventory container styles - positioned at the bottom of the screen
+/* Inventory container at the bottom of the screen. */
 .inventory-container {
   position: fixed;
   bottom: 20px;
@@ -377,3 +377,18 @@ canvas {
   top: 0;
   left: 0;
 }
+
+/* The scene stays visible through a compact, dark HUD, as in the noir reference. */
+#app::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(ellipse at center, transparent 48%, rgba(0, 0, 0, .28) 100%);
+}
+.inventory-container { transform: none; border: 1px solid rgba(180, 172, 146, .2); }
+.inventory-container h3 { font-size: 16px; margin-bottom: 6px; }
+.inventory-container .weapon-slots { margin: 6px 0; gap: 9px; }
+.inventory-container .weapon-slot { height: 78px; }
+.inventory-container .inventory-tip { font-size: 11px; margin-top: 8px; }
+.health-bar-fill { background: linear-gradient(#36d346, #07851a); }

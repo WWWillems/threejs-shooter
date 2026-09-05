@@ -25,9 +25,9 @@ export class GrenadeRenderer {
   private readonly explosions: ExplosionEffect[] = [];
   private readonly geometry = new THREE.SphereGeometry(GRENADE.radius, 12, 10);
   private readonly material = new THREE.MeshStandardMaterial({
-    color: 0x2f4f2f,
+    color: 0x2f4f2f, // Olive-drab painted casing
     roughness: 0.6,
-    metalness: 0.3,
+    metalness: 0,
   });
 
   constructor(

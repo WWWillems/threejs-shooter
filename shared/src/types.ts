@@ -46,6 +46,7 @@ export type RespawnRequestEvent = BaseEvent;
 export interface PlayerRespawnedEvent {
   playerId: string;
   position: Vec3;
+  rotation: number;
   hp: number;
 }
 

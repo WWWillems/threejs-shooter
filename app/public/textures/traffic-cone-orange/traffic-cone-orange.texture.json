@@ -1,0 +1,59 @@
+{
+  "slug": "traffic-cone-orange",
+  "kind": "material",
+  "model": "gpt-image-2",
+  "createdAt": "2026-09-05T14:46:43.820Z",
+  "size": "1024x1024",
+  "quality": "high",
+  "prompt": "weathered orange traffic-cone plastic, faded safety orange, fine molded-plastic grain, small scuffs and rain grime, neutral surface variation suitable for a reusable game prop",
+  "fullPrompt": "Top-down orthographic photograph of a flat surface material, to be used as a video game texture. The frame is filled edge to edge by the surface only: no objects, no people, no horizon, no vignette, no border, no text, no watermark. Uniform diffuse overcast lighting; no directional shadows and no specular hotspots baked into the image. Seamlessly tileable: the left edge continues into the right edge and the top edge into the bottom edge with no visible seam. Mood: rainy urban night in a noir crime district; desaturated palette, cold grey-blue shadows, grime and wear.\n\nSurface: weathered orange traffic-cone plastic, faded safety orange, fine molded-plastic grain, small scuffs and rain grime, neutral surface variation suitable for a reusable game prop",
+  "styleRefs": [
+    "refs/style/asphalt-wet.png",
+    "refs/style/wood-weathered.png"
+  ],
+  "subjectRefs": [],
+  "requests": [
+    {
+      "step": "edit",
+      "requestId": "req_a2f89c015d55429fbfe260243af122c5",
+      "usage": {
+        "input_tokens": 2213,
+        "input_tokens_details": {
+          "image_tokens": 2048,
+          "text_tokens": 165
+        },
+        "output_tokens": 7024,
+        "output_tokens_details": {
+          "image_tokens": 7024,
+          "text_tokens": 0
+        },
+        "total_tokens": 9237
+      }
+    }
+  ],
+  "seam": {
+    "threshold": 1.8,
+    "before": 1.258749725614335,
+    "after": null,
+    "repaired": false
+  },
+  "derive": {
+    "strength": 8,
+    "blur": 1,
+    "roughnessMode": "invert",
+    "roughnessRange": [
+      0.35,
+      0.95
+    ],
+    "aoRadius": 8,
+    "aoStrength": 1
+  },
+  "files": {
+    "basecolor": "app/public/textures/traffic-cone-orange/traffic-cone-orange_basecolor.jpg",
+    "tilecheck": ".agents/skills/generate-game-textures/out/traffic-cone-orange/final_tilecheck.png",
+    "normal": "app/public/textures/traffic-cone-orange/traffic-cone-orange_normal.png",
+    "height": "app/public/textures/traffic-cone-orange/traffic-cone-orange_height.png",
+    "roughness": "app/public/textures/traffic-cone-orange/traffic-cone-orange_roughness.jpg",
+    "ao": "app/public/textures/traffic-cone-orange/traffic-cone-orange_ao.jpg"
+  }
+}

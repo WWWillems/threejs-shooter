@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { CRATE_MAX_HP } from "@threejs-shooter/shared";
 
 /**
@@ -20,280 +21,72 @@ export interface DestructibleCrate extends THREE.Group {
 }
 
 /**
- * Load textures for wooden crates
+ * The crate is a 1 m cube modelled in Blender (`assets/blender/crate.blend`)
+ * and exported without images to `app/public/models/crate.glb`. Its wood
+ * parts use the material slot `crate-planks`; the client attaches the
+ * generated `crate-planks` texture set itself so the maps can be re-derived
+ * without re-exporting the model.
  */
+const CRATE_MODEL_URL = "/models/crate.glb";
+const PLANKS_TEXTURE_DIR = "/textures/crate-planks";
+const PLANKS_MATERIAL_NAME = "crate-planks";
+
 const textureLoader = new THREE.TextureLoader();
 
-// Load once and reuse these textures
-const woodTexture = textureLoader.load(
-  "/textures/crate/Wood_Crate_001_basecolor.jpg"
-);
-const woodNormalMap = textureLoader.load(
-  "/textures/crate/Wood_Crate_001_normal.jpg"
-);
-const woodRoughnessMap = textureLoader.load(
-  "/textures/crate/Wood_Crate_001_roughness.jpg"
-);
-const woodHeightMap = textureLoader.load(
-  "/textures/crate/Wood_Crate_001_height.png"
-);
-const woodAOMap = textureLoader.load(
-  "/textures/crate/Wood_Crate_001_ambientOcclusion.jpg"
-);
+function loadPlankMap(suffix: string, colorSpace: THREE.ColorSpace): THREE.Texture {
+  const texture = textureLoader.load(`${PLANKS_TEXTURE_DIR}/crate-planks_${suffix}`);
+  texture.flipY = false;
+  texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
+  texture.colorSpace = colorSpace;
+  return texture;
+}
 
-// Configure texture properties
-woodTexture.wrapS = woodTexture.wrapT = THREE.RepeatWrapping;
-woodNormalMap.wrapS = woodNormalMap.wrapT = THREE.RepeatWrapping;
-woodRoughnessMap.wrapS = woodRoughnessMap.wrapT = THREE.RepeatWrapping;
-woodHeightMap.wrapS = woodHeightMap.wrapT = THREE.RepeatWrapping;
-woodAOMap.wrapS = woodAOMap.wrapT = THREE.RepeatWrapping;
+// Load once and reuse these textures
+const plankBaseColor = loadPlankMap("basecolor.jpg", THREE.SRGBColorSpace);
+const plankRoughness = loadPlankMap("roughness.jpg", THREE.NoColorSpace);
+const plankNormal = loadPlankMap("normal.png", THREE.NoColorSpace);
+const plankAO = loadPlankMap("ao.jpg", THREE.NoColorSpace);
 
 /**
- * Creates a wooden crate model with texture and details
+ * Shared source material; every crate gets its own clone so damage tints do not leak.
  */
-function createWoodenCrateModel(size = 1): THREE.Group {
-  const crateGroup = new THREE.Group();
+const plankMaterial = new THREE.MeshStandardMaterial({
+  map: plankBaseColor,
+  roughnessMap: plankRoughness,
+  normalMap: plankNormal,
+  normalScale: new THREE.Vector2(1, 1),
+  aoMap: plankAO,
+  metalness: 0,
+});
 
-  // Create the main crate box
-  const crateGeometry = new THREE.BoxGeometry(size, size, size);
+/** The GLB is fetched once; each crate clones the loaded scene. */
+const crateModel: Promise<THREE.Group> = new GLTFLoader()
+  .loadAsync(CRATE_MODEL_URL)
+  .then((gltf) => gltf.scene);
 
-  // Create texture-based material for the wooden crate
-  const crateMaterial = new THREE.MeshStandardMaterial({
-    map: woodTexture,
-    normalMap: woodNormalMap,
-    roughnessMap: woodRoughnessMap,
-    displacementMap: woodHeightMap,
-    displacementScale: 0.01, // Subtle displacement effect
-    aoMap: woodAOMap,
-    normalScale: new THREE.Vector2(1, 1),
-    color: 0x8a6240, // Warm brown color to enhance the wood appearance
-    roughness: 0.9,
-    metalness: 0.0,
+/**
+ * Clone the loaded crate model with per-instance materials, shadows enabled
+ * and the generated plank texture set attached to the wood parts.
+ */
+function instantiateCrateModel(source: THREE.Group, size: number): THREE.Group {
+  const model = source.clone(true);
+  model.scale.setScalar(size);
+  model.traverse((child) => {
+    if (!(child instanceof THREE.Mesh)) return;
+    child.castShadow = true;
+    child.receiveShadow = true;
+    const material = child.material;
+    if (!(material instanceof THREE.MeshStandardMaterial)) return;
+    child.material =
+      material.name.replace(/\.\d+$/, '') === PLANKS_MATERIAL_NAME ? plankMaterial.clone() : material.clone();
+    child.userData.baseColor = child.material.color.clone();
   });
-
-  // Create the main crate mesh
-  const crateMesh = new THREE.Mesh(crateGeometry, crateMaterial);
-  crateMesh.castShadow = true;
-  crateMesh.receiveShadow = true;
-
-  // Add metal frame edges to the crate for more realism
-  const addMetalEdges = () => {
-    const edgeWidth = 0.03 * size;
-    const edgeGeometry = new THREE.BoxGeometry(
-      size + 0.01,
-      edgeWidth,
-      edgeWidth
-    );
-    const edgeMaterial = new THREE.MeshStandardMaterial({
-      color: 0x3a3a3a,
-      roughness: 0.5,
-      metalness: 0.8,
-    });
-
-    // Create the 12 edges of the cube
-    // 4 edges along the top
-    const topEdge1 = new THREE.Mesh(edgeGeometry, edgeMaterial);
-    topEdge1.position.set(0, size / 2, size / 2 - edgeWidth / 2);
-    crateGroup.add(topEdge1);
-
-    const topEdge2 = new THREE.Mesh(edgeGeometry, edgeMaterial);
-    topEdge2.position.set(0, size / 2, -size / 2 + edgeWidth / 2);
-    crateGroup.add(topEdge2);
-
-    const topEdge3 = new THREE.Mesh(edgeGeometry, edgeMaterial);
-    topEdge3.rotation.y = Math.PI / 2;
-    topEdge3.position.set(size / 2 - edgeWidth / 2, size / 2, 0);
-    crateGroup.add(topEdge3);
-
-    const topEdge4 = new THREE.Mesh(edgeGeometry, edgeMaterial);
-    topEdge4.rotation.y = Math.PI / 2;
-    topEdge4.position.set(-size / 2 + edgeWidth / 2, size / 2, 0);
-    crateGroup.add(topEdge4);
-
-    // 4 edges along the bottom
-    const bottomEdge1 = new THREE.Mesh(edgeGeometry, edgeMaterial);
-    bottomEdge1.position.set(0, -size / 2, size / 2 - edgeWidth / 2);
-    crateGroup.add(bottomEdge1);
-
-    const bottomEdge2 = new THREE.Mesh(edgeGeometry, edgeMaterial);
-    bottomEdge2.position.set(0, -size / 2, -size / 2 + edgeWidth / 2);
-    crateGroup.add(bottomEdge2);
-
-    const bottomEdge3 = new THREE.Mesh(edgeGeometry, edgeMaterial);
-    bottomEdge3.rotation.y = Math.PI / 2;
-    bottomEdge3.position.set(size / 2 - edgeWidth / 2, -size / 2, 0);
-    crateGroup.add(bottomEdge3);
-
-    const bottomEdge4 = new THREE.Mesh(edgeGeometry, edgeMaterial);
-    bottomEdge4.rotation.y = Math.PI / 2;
-    bottomEdge4.position.set(-size / 2 + edgeWidth / 2, -size / 2, 0);
-    crateGroup.add(bottomEdge4);
-
-    // 4 vertical edges
-    const vertEdgeGeometry = new THREE.BoxGeometry(
-      edgeWidth,
-      size + 0.01,
-      edgeWidth
-    );
-
-    const vertEdge1 = new THREE.Mesh(vertEdgeGeometry, edgeMaterial);
-    vertEdge1.position.set(
-      size / 2 - edgeWidth / 2,
-      0,
-      size / 2 - edgeWidth / 2
-    );
-    crateGroup.add(vertEdge1);
-
-    const vertEdge2 = new THREE.Mesh(vertEdgeGeometry, edgeMaterial);
-    vertEdge2.position.set(
-      size / 2 - edgeWidth / 2,
-      0,
-      -size / 2 + edgeWidth / 2
-    );
-    crateGroup.add(vertEdge2);
-
-    const vertEdge3 = new THREE.Mesh(vertEdgeGeometry, edgeMaterial);
-    vertEdge3.position.set(
-      -size / 2 + edgeWidth / 2,
-      0,
-      size / 2 - edgeWidth / 2
-    );
-    crateGroup.add(vertEdge3);
-
-    const vertEdge4 = new THREE.Mesh(vertEdgeGeometry, edgeMaterial);
-    vertEdge4.position.set(
-      -size / 2 + edgeWidth / 2,
-      0,
-      -size / 2 + edgeWidth / 2
-    );
-    crateGroup.add(vertEdge4);
-  };
-
-  // Add metal corner brackets for more detail
-  const addCornerBrackets = () => {
-    const bracketSize = 0.08 * size;
-    const bracketThickness = 0.03 * size;
-    const bracketMaterial = new THREE.MeshStandardMaterial({
-      color: 0x505050,
-      roughness: 0.5,
-      metalness: 0.7,
-    });
-
-    // Helper to create a corner bracket
-    const createBracket = (x: number, y: number, z: number, rotY: number) => {
-      const bracketGroup = new THREE.Group();
-
-      // L-shaped bracket plates
-      const plate1Geometry = new THREE.BoxGeometry(
-        bracketSize,
-        bracketThickness,
-        bracketSize / 2
-      );
-      const plate1 = new THREE.Mesh(plate1Geometry, bracketMaterial);
-      plate1.position.set(bracketSize / 4, 0, 0);
-
-      const plate2Geometry = new THREE.BoxGeometry(
-        bracketSize / 2,
-        bracketThickness,
-        bracketSize
-      );
-      const plate2 = new THREE.Mesh(plate2Geometry, bracketMaterial);
-      plate2.position.set(0, 0, bracketSize / 4);
-
-      bracketGroup.add(plate1);
-      bracketGroup.add(plate2);
-
-      // Position and rotate the bracket
-      bracketGroup.position.set(x, y, z);
-      bracketGroup.rotation.y = rotY;
-
-      return bracketGroup;
-    };
-
-    // Create brackets at each corner
-    const offsetFromEdge = size / 2 - bracketSize / 2;
-
-    // Top brackets
-    crateGroup.add(
-      createBracket(
-        offsetFromEdge,
-        size / 2 + bracketThickness / 2,
-        offsetFromEdge,
-        0
-      )
-    );
-    crateGroup.add(
-      createBracket(
-        -offsetFromEdge,
-        size / 2 + bracketThickness / 2,
-        offsetFromEdge,
-        Math.PI / 2
-      )
-    );
-    crateGroup.add(
-      createBracket(
-        -offsetFromEdge,
-        size / 2 + bracketThickness / 2,
-        -offsetFromEdge,
-        Math.PI
-      )
-    );
-    crateGroup.add(
-      createBracket(
-        offsetFromEdge,
-        size / 2 + bracketThickness / 2,
-        -offsetFromEdge,
-        -Math.PI / 2
-      )
-    );
-
-    // Bottom brackets
-    crateGroup.add(
-      createBracket(
-        offsetFromEdge,
-        -size / 2 - bracketThickness / 2,
-        offsetFromEdge,
-        0
-      )
-    );
-    crateGroup.add(
-      createBracket(
-        -offsetFromEdge,
-        -size / 2 - bracketThickness / 2,
-        offsetFromEdge,
-        Math.PI / 2
-      )
-    );
-    crateGroup.add(
-      createBracket(
-        -offsetFromEdge,
-        -size / 2 - bracketThickness / 2,
-        -offsetFromEdge,
-        Math.PI
-      )
-    );
-    crateGroup.add(
-      createBracket(
-        offsetFromEdge,
-        -size / 2 - bracketThickness / 2,
-        -offsetFromEdge,
-        -Math.PI / 2
-      )
-    );
-  };
-
-  // Add details to make the crate more realistic
-  addMetalEdges();
-  addCornerBrackets();
-
-  // Add the main crate mesh to the group
-  crateGroup.add(crateMesh);
-
-  return crateGroup;
+  return model;
 }
 
 /**
- * Adds a destructible wooden crate to the scene
+ * Adds a destructible wooden crate to the scene. The group is returned
+ * immediately; the model is attached once the GLB has loaded.
  */
 function addToScene(
   scene: THREE.Scene,
@@ -302,7 +95,7 @@ function addToScene(
   rotation = 0,
   crateId?: string
 ): DestructibleCrate {
-  const crateGroup = createWoodenCrateModel(size);
+  const crateGroup = new THREE.Group();
   crateGroup.position.copy(position);
   crateGroup.rotation.y = rotation;
   scene.add(crateGroup);
@@ -318,7 +111,7 @@ function addToScene(
     if (this.isDestroyed || this.maxHealth === undefined) return;
     this.health = Math.max(0, hp);
 
-    // Visual feedback: darken and redden the crate as it takes damage.
+    // Damage darkens the wood without adding light to a night scene.
     // Colours are set absolutely so repeated updates do not compound.
     const intact = this.health / this.maxHealth;
     this.traverse((child) => {
@@ -326,7 +119,7 @@ function addToScene(
         child instanceof THREE.Mesh &&
         child.material instanceof THREE.MeshStandardMaterial
       ) {
-        child.material.emissive.setRGB(0.3 * (1 - intact), 0, 0);
+        child.material.emissive.setRGB(0, 0, 0);
         const base: THREE.Color | undefined = child.userData.baseColor;
         if (base) {
           child.material.color.copy(base).multiplyScalar(0.7 + 0.3 * intact);
@@ -343,13 +136,12 @@ function addToScene(
     scene.remove(this);
   };
 
-  // Remember each mesh's untinted colour for applyServerHp
-  crate.traverse((child) => {
-    if (
-      child instanceof THREE.Mesh &&
-      child.material instanceof THREE.MeshStandardMaterial
-    ) {
-      child.userData.baseColor = child.material.color.clone();
+  void crateModel.then((source) => {
+    if (crate.isDestroyed) return;
+    crate.add(instantiateCrateModel(source, size));
+    // Re-apply any damage reported while the model was still loading.
+    if (crate.health !== undefined && crate.health < CRATE_MAX_HP) {
+      crate.applyServerHp?.(crate.health);
     }
   });
 
@@ -370,8 +162,7 @@ function createDestructionEffect(
 
   // Wood chip material
   const woodMaterial = new THREE.MeshStandardMaterial({
-    map: woodTexture,
-    color: 0xa06732,
+    map: plankBaseColor,
     roughness: 1,
   });
 

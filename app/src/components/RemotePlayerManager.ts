@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { addCharacterVisual } from "./CharacterVisual";
 import type { NetworkClient } from "../net/NetworkClient";
 import type { Replication, ReplicatedPlayer } from "../net/Replication";
 import type { HUD } from "./HUD";
@@ -103,9 +104,9 @@ export class RemotePlayerManager {
       if (hp <= 0) this.handleRemoteDeath(targetId);
     });
 
-    net.on(GAME_EVENTS.PLAYER.RESPAWN, ({ playerId, position, hp }) => {
+    net.on(GAME_EVENTS.PLAYER.RESPAWN, ({ playerId, position, rotation, hp }) => {
       if (playerId === net.selfId) return;
-      this.handleRemoteRespawn(playerId, position, hp);
+      this.handleRemoteRespawn(playerId, position, rotation, hp);
     });
 
     net.on(GAME_EVENTS.WEAPON.SWITCH, ({ userId, weaponType }) => {
@@ -157,6 +158,7 @@ export class RemotePlayerManager {
     playerMesh.castShadow = true;
     playerMesh.receiveShadow = true;
     this.scene.add(playerMesh);
+    addCharacterVisual(playerMesh);
 
     // Remote weapon systems have no network client: they mirror server events
     // and never echo them back.
@@ -201,7 +203,12 @@ export class RemotePlayerManager {
     );
   }
 
-  private handleRemoteRespawn(userId: string, position: Vec3, hp: number): void {
+  private handleRemoteRespawn(
+    userId: string,
+    position: Vec3,
+    rotation: number,
+    hp: number
+  ): void {
     const player = this.ensurePlayer(userId);
     const wasDead = player.isDead;
     player.isDead = false;
@@ -209,7 +216,7 @@ export class RemotePlayerManager {
 
     // Stand back up
     player.mesh.quaternion.identity();
-    player.mesh.rotation.set(0, 0, 0);
+    player.mesh.rotation.set(0, rotation, 0);
     player.mesh.position.set(position.x, position.y, position.z);
     player.mesh.updateMatrix();
 

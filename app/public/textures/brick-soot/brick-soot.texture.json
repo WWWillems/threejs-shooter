@@ -1,0 +1,87 @@
+{
+  "slug": "brick-soot",
+  "kind": "material",
+  "model": "gpt-image-2",
+  "createdAt": "2026-09-05T18:55:55.479Z",
+  "size": "1024x1024",
+  "quality": "high",
+  "prompt": "old red brick wall darkened by soot, crumbling mortar, damp streaks",
+  "fullPrompt": "Top-down orthographic photograph of a flat surface material, to be used as a video game texture. The frame is filled edge to edge by the surface only: no objects, no people, no horizon, no vignette, no border, no text, no watermark. Uniform diffuse overcast lighting; no directional shadows and no specular hotspots baked into the image. Seamlessly tileable: the left edge continues into the right edge and the top edge into the bottom edge with no visible seam. This is a PBR albedo: evenly lit under flat overcast daylight at the material's natural mid-tone brightness, the colour it has in daylight; no night mood, no colour grading, no blue or orange tint from lighting baked in. Setting: a run-down urban crime district; the surface itself is grimy, weathered, rain-darkened and worn, in a muted, desaturated palette.\n\nSurface: old red brick wall darkened by soot, crumbling mortar, damp streaks",
+  "styleRefs": [
+    "refs/style/asphalt-wet.png",
+    "refs/style/wood-weathered.png"
+  ],
+  "subjectRefs": [],
+  "requests": [
+    {
+      "step": "edit",
+      "requestId": "req_f883c8e63771474b97ff15587ae52753",
+      "usage": {
+        "input_tokens": 2253,
+        "input_tokens_details": {
+          "image_tokens": 2048,
+          "text_tokens": 205
+        },
+        "output_tokens": 7024,
+        "output_tokens_details": {
+          "image_tokens": 7024,
+          "text_tokens": 0
+        },
+        "total_tokens": 9277
+      }
+    },
+    {
+      "step": "repair",
+      "requestId": "req_ccbd58ca836b4b77ad7cc7862f3576af",
+      "usage": {
+        "input_tokens": 1089,
+        "input_tokens_details": {
+          "image_tokens": 1024,
+          "text_tokens": 65
+        },
+        "output_tokens": 7024,
+        "output_tokens_details": {
+          "image_tokens": 7024,
+          "text_tokens": 0
+        },
+        "total_tokens": 8113
+      }
+    }
+  ],
+  "seam": {
+    "threshold": 1.8,
+    "before": 2.7319792640435114,
+    "after": 1.4813588177559878,
+    "repaired": true
+  },
+  "derive": {
+    "strength": 12,
+    "blur": 1,
+    "roughnessMode": "invert",
+    "roughnessRange": [
+      0.35,
+      0.95
+    ],
+    "aoRadius": 8,
+    "aoStrength": 1.4,
+    "albedoMean": {
+      "target": 95,
+      "before": 49.3,
+      "after": 95,
+      "gain": 3.68,
+      "clippedFraction": 0,
+      "limited": false,
+      "source": "api",
+      "appliedAt": "2026-09-05T18:55:54.617Z"
+    }
+  },
+  "files": {
+    "original": ".agents/skills/generate-game-textures/out/brick-soot/final.png",
+    "basecolor": "app/public/textures/brick-soot/brick-soot_basecolor.jpg",
+    "tilecheck": ".agents/skills/generate-game-textures/out/brick-soot/final_tilecheck.png",
+    "normal": "app/public/textures/brick-soot/brick-soot_normal.png",
+    "height": "app/public/textures/brick-soot/brick-soot_height.png",
+    "roughness": "app/public/textures/brick-soot/brick-soot_roughness.jpg",
+    "ao": "app/public/textures/brick-soot/brick-soot_ao.jpg"
+  }
+}

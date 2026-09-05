@@ -1,0 +1,70 @@
+{
+  "slug": "wet-asphalt",
+  "kind": "material",
+  "model": "gpt-image-2",
+  "createdAt": "2026-09-05T15:45:13.742Z",
+  "size": "1024x1024",
+  "quality": "high",
+  "prompt": "fine wet asphalt aggregate, shallow irregular rain puddles, scattered grit, hairline cracks, desaturated charcoal grey",
+  "fullPrompt": "Top-down orthographic photograph of a flat surface material, to be used as a video game texture. The frame is filled edge to edge by the surface only: no objects, no people, no horizon, no vignette, no border, no text, no watermark. Uniform diffuse overcast lighting; no directional shadows and no specular hotspots baked into the image. Seamlessly tileable: the left edge continues into the right edge and the top edge into the bottom edge with no visible seam. This is a PBR albedo: evenly lit under flat overcast daylight at the material's natural mid-tone brightness, the colour it has in daylight; no night mood, no colour grading, no blue or orange tint from lighting baked in. Setting: a run-down urban crime district; the surface itself is grimy, weathered, rain-darkened and worn, in a muted, desaturated palette.\n\nSurface: fine wet asphalt aggregate, shallow irregular rain puddles, scattered grit, hairline cracks, desaturated charcoal grey",
+  "styleRefs": [
+    "refs/style/asphalt-wet.png",
+    "refs/style/wood-weathered.png"
+  ],
+  "subjectRefs": [],
+  "requests": [
+    {
+      "step": "edit",
+      "requestId": "req_27a6586da2334e1da8cab9ed5cb55679",
+      "usage": {
+        "input_tokens": 2259,
+        "input_tokens_details": {
+          "image_tokens": 2048,
+          "text_tokens": 211
+        },
+        "output_tokens": 7024,
+        "output_tokens_details": {
+          "image_tokens": 7024,
+          "text_tokens": 0
+        },
+        "total_tokens": 9283
+      }
+    }
+  ],
+  "seam": {
+    "threshold": 1.8,
+    "before": 0.8226623143822769,
+    "after": null,
+    "repaired": false
+  },
+  "derive": {
+    "strength": 12,
+    "blur": 1,
+    "roughnessMode": "direct",
+    "roughnessRange": [
+      0.12,
+      0.85
+    ],
+    "aoRadius": 8,
+    "aoStrength": 1,
+    "albedoMean": {
+      "target": 72,
+      "before": 58.68,
+      "after": 72,
+      "gain": 1.5,
+      "clippedFraction": 0,
+      "limited": false,
+      "source": "api",
+      "appliedAt": "2026-09-05T15:45:13.201Z"
+    }
+  },
+  "files": {
+    "original": ".agents/skills/generate-game-textures/out/wet-asphalt/final.png",
+    "basecolor": "app/public/textures/wet-asphalt/wet-asphalt_basecolor.jpg",
+    "tilecheck": ".agents/skills/generate-game-textures/out/wet-asphalt/final_tilecheck.png",
+    "normal": "app/public/textures/wet-asphalt/wet-asphalt_normal.png",
+    "height": "app/public/textures/wet-asphalt/wet-asphalt_height.png",
+    "roughness": "app/public/textures/wet-asphalt/wet-asphalt_roughness.jpg",
+    "ao": "app/public/textures/wet-asphalt/wet-asphalt_ao.jpg"
+  }
+}

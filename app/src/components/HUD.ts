@@ -172,7 +172,7 @@ export class HUD {
     const overlay = document.createElement("div");
     overlay.className = "ui-overlay";
     overlay.innerHTML = `
-     <div id="inventory" class="inventory-container" style="position: absolute; bottom: 10px; left: 0; right: 0; margin: 0 auto; width: 400px; background: rgba(0, 0, 0, 0.6); padding: 15px; border-radius: 5px; text-align: center; pointer-events: auto;">
+     <div id="inventory" class="inventory-container" style="position: absolute; bottom: 10px; left: 0; right: 0; margin: 0 auto; width: 350px; max-width: calc(100vw - 24px); background: rgba(0, 0, 0, 0.8); padding: 10px; border-radius: 5px; text-align: center; pointer-events: auto;">
         <h3>Inventory</h3>
         <div class="weapon-slots">
           <div id="weapon-slot-0" class="weapon-slot"></div>
@@ -203,7 +203,7 @@ export class HUD {
       <div id="empty-mag-indicator" class="empty-mag-indicator hidden">Magazine Empty - Press R to Reload</div>
       <div id="no-ammo-indicator" class="no-ammo-indicator hidden">No Ammo Left!</div>
       
-      <div class="inventory" id="inventory"></div>
+
       
       <div id="crosshair" class="crosshair">+</div>
 
@@ -848,10 +848,12 @@ export class HUD {
     notificationEl.innerHTML = `
       <div class="notification-icon">${iconSvg}</div>
       <div class="notification-content">
-        <div class="notification-title">${title}</div>
-        <div class="notification-message">${message}</div>
+        <div class="notification-title"></div>
+        <div class="notification-message"></div>
       </div>
     `;
+    notificationEl.querySelector(".notification-title")!.textContent = title;
+    notificationEl.querySelector(".notification-message")!.textContent = message;
 
     // Add to container
     this.notificationContainer.appendChild(notificationEl);
@@ -981,12 +983,11 @@ export class HUD {
         row.classList.add("highlight-player");
       }
 
-      row.innerHTML = `
-        <td>${index + 1}</td>
-        <td>${player.name}</td>
-        <td>${player.score}</td>
-        <td>${player.kills}</td>
-      `;
+      for (const value of [index + 1, player.name, player.score, player.kills]) {
+        const cell = document.createElement("td");
+        cell.textContent = String(value);
+        row.appendChild(cell);
+      }
 
       leaderboardBody.appendChild(row);
     });

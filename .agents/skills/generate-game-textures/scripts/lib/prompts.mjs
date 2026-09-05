@@ -8,7 +8,8 @@ export const MATERIAL_PREAMBLE = [
   "The frame is filled edge to edge by the surface only: no objects, no people, no horizon, no vignette, no border, no text, no watermark.",
   "Uniform diffuse overcast lighting; no directional shadows and no specular hotspots baked into the image.",
   "Seamlessly tileable: the left edge continues into the right edge and the top edge into the bottom edge with no visible seam.",
-  "Mood: rainy urban night in a noir crime district; desaturated palette, cold grey-blue shadows, grime and wear.",
+  "This is a PBR albedo: evenly lit under flat overcast daylight at the material's natural mid-tone brightness, the colour it has in daylight; no night mood, no colour grading, no blue or orange tint from lighting baked in.",
+  "Setting: a run-down urban crime district; the surface itself is grimy, weathered, rain-darkened and worn, in a muted, desaturated palette.",
 ].join(" ");
 
 export const DECAL_PREAMBLE = [

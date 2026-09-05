@@ -35,7 +35,7 @@ export class NetworkClient {
 
   constructor(
     private readonly socket: RawSocket,
-    private readonly serverUrl: string
+    private readonly serverUrl: string,
   ) {
     // socket.io assigns a new id after reconnecting; the server forgot us, so
     // re-register and let everyone rebuild our presence.
@@ -73,7 +73,7 @@ export class NetworkClient {
   /** Subscribe to a server -> client event. Returns an unsubscribe function. */
   on<E extends ServerEventName>(
     event: E,
-    handler: (payload: ServerPayload<E>) => void
+    handler: (payload: ServerPayload<E>) => void,
   ): Unsubscribe {
     const listener = (...args: unknown[]) =>
       handler(args[0] as ServerPayload<E>);

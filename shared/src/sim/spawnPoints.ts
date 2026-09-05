@@ -5,17 +5,28 @@ import { vec3 } from "./vec3";
 export const PLAYER_SIZE: Vec3 = vec3(1, 2, 1);
 export const PLAYER_MAX_HP = 100;
 
-/** Open spots away from the prop clusters. Player feet are at y = 1 (mesh centre). */
+/**
+ * Five spawn points per team, spread along each spawn street with a piece of
+ * the cover line between each one and mid: the south team's along the -Z
+ * wall, the north team's along +Z (see `generateMap`). Player feet are at
+ * y = 1 (mesh centre).
+ */
 export const SPAWN_POINTS: readonly Vec3[] = [
-  vec3(0, 1, 0),
-  vec3(12, 1, -4),
-  vec3(-12, 1, 0),
-  vec3(0, 1, 15),
-  vec3(-6, 1, -14),
-  vec3(14, 1, 6),
-  vec3(-14, 1, 16),
-  vec3(8, 1, -18),
+  vec3(-16, 1, -33),
+  vec3(-11, 1, -34),
+  vec3(0, 1, -34),
+  vec3(11, 1, -34),
+  vec3(16, 1, -33),
+  vec3(16, 1, 33),
+  vec3(11, 1, 34),
+  vec3(0, 1, 34),
+  vec3(-11, 1, 34),
+  vec3(-16, 1, 33),
 ];
+
+/** Yaw that makes the player face the centre of the map from `position`. */
+export const facingCenterYaw = (position: Vec3): number =>
+  Math.atan2(position.x, position.z);
 
 /** Pick the spawn point farthest from any listed position (simple anti-spawn-camping). */
 export function pickSpawnPoint(

@@ -9,7 +9,7 @@ import { StartOverlay } from "./components/StartOverlay";
 import { RemotePlayerManager } from "./components/RemotePlayerManager";
 import { PlayerCollider } from "./components/PlayerCollider";
 import type { CollisionDetector } from "./components/CollisionInterface";
-import { GAME_EVENTS, TICK_RATE, generateMap } from "@threejs-shooter/shared";
+import { facingCenterYaw, GAME_EVENTS, TICK_RATE } from "@threejs-shooter/shared";
 import { GameScene } from "./core/Scene";
 import { Ground } from "./core/Ground";
 import { Player } from "./core/Player";
@@ -18,6 +18,7 @@ import { WorldColliders } from "./environment/WorldColliders";
 import { GameLoop } from "./core/GameLoop";
 import { NetworkClient } from "./net/NetworkClient";
 import { Replication } from "./net/Replication";
+import { loadClientLevel } from "./levelLoader";
 
 // Connect to the game server
 const net = NetworkClient.connect(
@@ -48,8 +49,14 @@ const player = playerSystem.getMesh();
 
 // The shared map: the server simulates exactly this world. Colliders come
 // from it directly, never from meshes.
-const map = generateMap();
+const map = loadClientLevel();
 const world = new WorldColliders(map);
+
+// The first spawn is client-chosen (the server only assigns respawns): start
+// on one of the map's spawn points rather than at the origin.
+const firstSpawn = map.spawnPoints[Math.floor(Math.random() * map.spawnPoints.length)];
+player.position.set(firstSpawn.x, firstSpawn.y, firstSpawn.z);
+player.rotation.y = facingCenterYaw(firstSpawn);
 
 // Cosmetic bullets stop on the world and on any player. Evaluated per frame,
 // after `remotePlayerManager` (declared below) exists.
@@ -123,7 +130,8 @@ const gameLoop = new GameLoop(
   pickupManager,
   remotePlayerManager,
   grenadeRenderer,
-  player
+  player,
+  () => gameScene.render()
 );
 
 const playerPosition = () => ({

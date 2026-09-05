@@ -6,7 +6,9 @@ import { WoodenCrate, type DestructibleCrate } from "../components/WoodenCrate";
 import { ShopBuilding } from "../components/ShopBuilding";
 import { TrafficCone } from "../components/TrafficCone";
 import { Tree } from "../components/Tree";
+import { addYardProp } from "../components/YardProp";
 import { Bush } from "../components/Bush";
+import { Building } from "../components/Building";
 
 const toVector3 = (v: Vec3) => new THREE.Vector3(v.x, v.y, v.z);
 
@@ -38,12 +40,18 @@ export class EnvironmentBuilder {
   public buildEnvironment(): void {
     this.placeCars();
     this.placeStreetLights();
+    this.placeBuildings();
     this.placeShopBuilding();
     this.placeCrates();
     this.placeTrafficCones();
     this.placeTrees();
     this.placeBushes();
     this.addWalls();
+    for (const prop of this.map.props) {
+      const visual = addYardProp(this.scene, prop.type, toVector3(prop.position));
+      visual.rotation.y = prop.rotation;
+      visual.scale.setScalar(prop.scale);
+    }
   }
 
   private placeCars(): void {
@@ -51,17 +59,31 @@ export class EnvironmentBuilder {
       const car = Car.addToScene(this.scene, toVector3(spec.position));
       car.rotation.y = spec.rotation;
       car.rotation.z = spec.tiltZ;
+      car.scale.setScalar(spec.scale);
     }
   }
 
   private placeStreetLights(): void {
-    for (const position of this.map.streetLights) {
-      StreetLight.addToScene(this.scene, toVector3(position));
+    for (const light of this.map.streetLights) {
+      const streetLight = StreetLight.addToScene(
+        this.scene,
+        toVector3(light.position)
+      );
+      streetLight.scale.setScalar(light.scale);
+      streetLight.rotation.y = light.rotation;
     }
   }
 
   private placeShopBuilding(): void {
     new ShopBuilding(toVector3(this.map.shop.position), this.scene);
+  }
+
+  private placeBuildings(): void {
+    for (const spec of this.map.buildings) {
+      const building = new Building(spec.type, toVector3(spec.position), this.scene);
+      building.getObject3D().rotation.y = spec.rotation;
+      building.getObject3D().scale.setScalar(spec.scale);
+    }
   }
 
   private placeCrates(): void {
@@ -79,7 +101,12 @@ export class EnvironmentBuilder {
 
   private placeTrafficCones(): void {
     for (const cone of this.map.cones) {
-      new TrafficCone(toVector3(cone.position), this.scene, cone.rotation);
+      const trafficCone = new TrafficCone(
+        toVector3(cone.position),
+        this.scene,
+        cone.rotation
+      );
+      trafficCone.getObject3D().scale.setScalar(cone.scale);
     }
   }
 
@@ -91,7 +118,8 @@ export class EnvironmentBuilder {
 
   private placeBushes(): void {
     for (const bush of this.map.bushes) {
-      new Bush(toVector3(bush.position), this.scene, bush.rotation);
+      const bushMesh = new Bush(toVector3(bush.position), this.scene, bush.rotation);
+      bushMesh.getObject3D().scale.setScalar(bush.scale);
     }
   }
 
@@ -105,7 +133,8 @@ export class EnvironmentBuilder {
       metalness: 0.2,
     });
 
-    for (const box of this.map.walls) {
+    for (const wall of this.map.walls) {
+      const box = wall.box;
       const size = new THREE.Vector3(
         box.max.x - box.min.x,
         box.max.y - box.min.y,
@@ -116,14 +145,14 @@ export class EnvironmentBuilder {
         (box.min.y + box.max.y) / 2,
         (box.min.z + box.max.z) / 2
       );
-      const wall = new THREE.Mesh(
+      const wallMesh = new THREE.Mesh(
         new THREE.BoxGeometry(size.x, size.y, size.z),
         wallMaterial
       );
-      wall.position.copy(center);
-      wall.castShadow = true;
-      wall.receiveShadow = true;
-      this.scene.add(wall);
+      wallMesh.position.copy(center);
+      wallMesh.castShadow = true;
+      wallMesh.receiveShadow = true;
+      this.scene.add(wallMesh);
     }
   }
 }

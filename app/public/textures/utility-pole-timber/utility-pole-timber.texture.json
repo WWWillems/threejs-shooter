@@ -1,0 +1,67 @@
+{
+  "slug": "utility-pole-timber",
+  "kind": "material",
+  "model": "gpt-image-2",
+  "createdAt": "2026-09-05T16:49:00.503Z",
+  "size": "1024x1024",
+  "quality": "high",
+  "prompt": "aged creosote treated timber, long fine vertical wood grain and narrow drying checks, muted grey brown wood with sparse weathered fibres, continuous wood surface without planks joints nails or objects",
+  "fullPrompt": "Top-down orthographic photograph of a flat surface material, to be used as a video game texture. The frame is filled edge to edge by the surface only: no objects, no people, no horizon, no vignette, no border, no text, no watermark. Uniform diffuse overcast lighting; no directional shadows and no specular hotspots baked into the image. Seamlessly tileable: the left edge continues into the right edge and the top edge into the bottom edge with no visible seam. This is a PBR albedo: evenly lit under flat overcast daylight at the material's natural mid-tone brightness, the colour it has in daylight; no night mood, no colour grading, no blue or orange tint from lighting baked in. Setting: a run-down urban crime district; the surface itself is grimy, weathered, rain-darkened and worn, in a muted, desaturated palette.\n\nSurface: aged creosote treated timber, long fine vertical wood grain and narrow drying checks, muted grey brown wood with sparse weathered fibres, continuous wood surface without planks joints nails or objects",
+  "styleRefs": [],
+  "subjectRefs": [],
+  "requests": [
+    {
+      "step": "generate",
+      "requestId": "req_68338a856d874687b1a0994bca5d608d",
+      "usage": {
+        "input_tokens": 226,
+        "input_tokens_details": {
+          "image_tokens": 0,
+          "text_tokens": 226
+        },
+        "output_tokens": 7024,
+        "output_tokens_details": {
+          "image_tokens": 7024,
+          "text_tokens": 0
+        },
+        "total_tokens": 7250
+      }
+    }
+  ],
+  "seam": {
+    "threshold": 1.8,
+    "before": 1.236717393684408,
+    "after": null,
+    "repaired": false
+  },
+  "derive": {
+    "strength": 7,
+    "blur": 1,
+    "roughnessMode": "invert",
+    "roughnessRange": [
+      0.65,
+      0.95
+    ],
+    "aoRadius": 8,
+    "aoStrength": 1,
+    "albedoMean": {
+      "target": 100,
+      "before": 77.29,
+      "after": 100,
+      "gain": 1.7,
+      "clippedFraction": 0,
+      "limited": false,
+      "source": "api",
+      "appliedAt": "2026-09-05T16:48:59.955Z"
+    }
+  },
+  "files": {
+    "original": ".agents/skills/generate-game-textures/out/utility-pole-timber/final.png",
+    "basecolor": "app/public/textures/utility-pole-timber/utility-pole-timber_basecolor.jpg",
+    "tilecheck": ".agents/skills/generate-game-textures/out/utility-pole-timber/final_tilecheck.png",
+    "normal": "app/public/textures/utility-pole-timber/utility-pole-timber_normal.png",
+    "height": "app/public/textures/utility-pole-timber/utility-pole-timber_height.png",
+    "roughness": "app/public/textures/utility-pole-timber/utility-pole-timber_roughness.jpg",
+    "ao": "app/public/textures/utility-pole-timber/utility-pole-timber_ao.jpg"
+  }
+}

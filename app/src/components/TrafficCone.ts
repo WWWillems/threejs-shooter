@@ -1,4 +1,14 @@
 import * as THREE from "three";
+import { loadTextureSet } from "../core/textures";
+
+/**
+ * Generated `traffic-cone-orange` texture set, loaded once for every cone.
+ * The lathe wraps U around the cone, so U must repeat a whole number of times
+ * or the tile seam shows; V runs up the profile and can be fractional.
+ */
+const coneTextures = loadTextureSet("traffic-cone-orange", {
+  repeat: [2, 1.5],
+});
 
 /** Decorative cone mesh. Its movement-only footprint lives in the shared map (`coneBox`). */
 export class TrafficCone {
@@ -6,7 +16,7 @@ export class TrafficCone {
 
   constructor(
     position: THREE.Vector3,
-    private scene: THREE.Scene,
+    private scene: THREE.Object3D,
     rotation: number = 0
   ) {
     // Create a group to hold all parts of the traffic cone
@@ -41,11 +51,17 @@ export class TrafficCone {
     points.push(new THREE.Vector2(baseRadius - thickness, thickness));
     points.push(new THREE.Vector2(baseRadius - thickness, 0));
 
-    const coneGeometry = new THREE.LatheGeometry(points, 32);
+    const coneGeometry = new THREE.LatheGeometry(points, 16);
+    // Weathered orange plastic. The derived roughness map spans ~0.35-0.95,
+    // so the multiplier stays at 1 and the map alone sets the finish.
     const coneMaterial = new THREE.MeshStandardMaterial({
-      color: 0xff5500, // Bright orange
-      roughness: 0.8,
-      metalness: 0.2,
+      map: coneTextures.basecolor,
+      roughnessMap: coneTextures.roughness,
+      roughness: 1,
+      normalMap: coneTextures.normal,
+      normalScale: new THREE.Vector2(1, 1),
+      aoMap: coneTextures.ao,
+      metalness: 0,
       side: THREE.DoubleSide, // Render both sides
     });
 
@@ -62,12 +78,12 @@ export class TrafficCone {
       baseRadius * 1.1,
       baseRadius * 1.1,
       baseHeight,
-      32
+      16
     );
     const baseMaterial = new THREE.MeshStandardMaterial({
-      color: 0x222222, // Dark gray/black
+      color: 0x222222, // Black rubber
       roughness: 0.9,
-      metalness: 0.1,
+      metalness: 0,
     });
 
     const base = new THREE.Mesh(baseGeometry, baseMaterial);
@@ -91,13 +107,12 @@ export class TrafficCone {
     topRadius: number,
     height: number
   ): void {
-    // Add two reflective white stripes painted directly on cone surface
+    // Two white reflective-tape stripes. Non-metallic and not self-lit: they
+    // only read bright when a light actually hits them.
     const stripeMaterial = new THREE.MeshStandardMaterial({
-      color: 0xffffff, // White
-      roughness: 0.5,
-      metalness: 0.8,
-      emissive: 0xaaaaaa, // Slight emissive property for reflective look
-      emissiveIntensity: 0.5,
+      color: 0xe6e6e6,
+      roughness: 0.4,
+      metalness: 0,
     });
 
     // First stripe at 30% height
@@ -133,17 +148,17 @@ export class TrafficCone {
     material: THREE.Material
   ): THREE.Mesh {
     // Create a thin ring directly on the cone surface
-    const stripeWidth = 0.02;
-    const stripeGeometry = new THREE.TorusGeometry(
-      radius, // Ring radius
-      stripeWidth, // Tube radius (thickness)
-      8, // Radial segments
-      32 // Tubular segments
+    const stripeHeight = .09;
+    const slope = (.25 - .1) / .8;
+    const stripeGeometry = new THREE.CylinderGeometry(
+      radius - slope * stripeHeight / 2 + .003,
+      radius + slope * stripeHeight / 2 + .003,
+      stripeHeight, 24, 1, true
     );
-
     const stripe = new THREE.Mesh(stripeGeometry, material);
-    stripe.position.set(0, height, 0);
-    stripe.rotation.x = Math.PI / 2; // Align with cone
+    stripe.position.y = height;
+    stripe.castShadow = true;
+    stripe.receiveShadow = true;
 
     return stripe;
   }
@@ -151,6 +166,10 @@ export class TrafficCone {
   // Method to get position
   public getPosition(): THREE.Vector3 {
     return this.coneMesh.position.clone();
+  }
+
+  public getObject3D(): THREE.Group {
+    return this.coneMesh;
   }
 
   public remove(): void {

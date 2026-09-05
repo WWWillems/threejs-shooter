@@ -5,7 +5,6 @@ import * as THREE from "three";
  */
 interface CameraSettings {
   cameraHeight: number;
-  crouchCameraHeight: number;
   cameraDistance: number;
   angle: number; // Camera angle in radians (default: PI/4)
 }
@@ -20,7 +19,6 @@ export class CameraController {
 
   // Camera settings
   private cameraHeight: number;
-  private crouchCameraHeight: number;
   private cameraDistance: number;
   private angle: number;
 
@@ -34,7 +32,6 @@ export class CameraController {
 
     // Default settings
     this.cameraHeight = settings?.cameraHeight || 15;
-    this.crouchCameraHeight = settings?.crouchCameraHeight || 8;
     this.cameraDistance = settings?.cameraDistance || 20;
     this.angle = settings?.angle || Math.PI / 4; // 45 degrees
 
@@ -46,31 +43,23 @@ export class CameraController {
    * Set up initial isometric view
    */
   private setupIsometricView(): void {
-    // Update camera position relative to player
-    this.updateCameraPosition(false); // Start not crouched
-
-    // Point camera to player
-    this.camera.lookAt(this.player.position);
+    this.updateCameraPosition();
   }
 
   /**
    * Update camera position to follow the player
+   * @param focusY Vertical world position to keep centered in the isometric view
    */
-  public updateCameraPosition(isCrouching: boolean): void {
-    // Determine camera height based on crouch state
-    const currentCameraHeight = isCrouching
-      ? this.crouchCameraHeight
-      : this.cameraHeight;
-
+  public updateCameraPosition(focusY = this.player.position.y): void {
     // Calculate camera position based on player position
     this.camera.position.set(
       this.player.position.x + this.cameraDistance * Math.sin(this.angle),
-      this.player.position.y + currentCameraHeight,
+      focusY + this.cameraHeight,
       this.player.position.z + this.cameraDistance * Math.cos(this.angle)
     );
 
-    // Make the camera look at the player
-    this.camera.lookAt(this.player.position);
+    // Keep the isometric target at the same height while the player crouches.
+    this.camera.lookAt(this.player.position.x, focusY, this.player.position.z);
   }
 
   /**
@@ -79,10 +68,6 @@ export class CameraController {
   public updateSettings(settings: Partial<CameraSettings>): void {
     if (settings.cameraHeight !== undefined) {
       this.cameraHeight = settings.cameraHeight;
-    }
-
-    if (settings.crouchCameraHeight !== undefined) {
-      this.crouchCameraHeight = settings.crouchCameraHeight;
     }
 
     if (settings.cameraDistance !== undefined) {

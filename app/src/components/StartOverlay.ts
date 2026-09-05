@@ -1,4 +1,8 @@
 import "../styles/overlay.css";
+import {
+  MAX_NICKNAME_LENGTH,
+  sanitizeNickname,
+} from "@threejs-shooter/shared";
 
 export class StartOverlay {
   private container: HTMLElement;
@@ -53,7 +57,7 @@ export class StartOverlay {
         </div>
         <div class="nickname-container">
           <label for="nickname-input">Enter your nickname:</label>
-          <input type="text" id="nickname-input" class="nickname-input" placeholder="Your nickname">
+          <input type="text" id="nickname-input" class="nickname-input" placeholder="Your nickname" maxlength="${MAX_NICKNAME_LENGTH}" autocomplete="nickname">
         </div>
         <button id="start-button" class="start-button" disabled>START GAME</button>
       </div>
@@ -70,7 +74,7 @@ export class StartOverlay {
     const nicknameInput = document.getElementById(
       "nickname-input"
     ) as HTMLInputElement;
-    const nickname = nicknameInput?.value.trim() || "Player";
+    const nickname = sanitizeNickname(nicknameInput?.value);
 
     // Call the start callback if provided
     if (this.onStartCallback) {

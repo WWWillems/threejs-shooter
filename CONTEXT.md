@@ -76,14 +76,14 @@ wrapper. Typed `send`/`on`, `join` with automatic re-join after reconnect,
 through it; nothing imports `socket.io-client` directly.
 
 **Solid geometry.** The static world both ends must agree on for bullets and
-grenades: walls, shop, cars, street lights, tree trunks. Defined once as
+grenades: walls, shop, warehouse and tenement shells, cars, street lights, tree trunks, oil barrels and forklifts. Defined once as
 `solidColliders(map)` in `shared/src/sim/mapLayout.ts`, with fixed sizes next
 to the specs. `GameRoom` sweeps against it; the client's world colliders stop
 cosmetic bullets on it. Crates are solid too but live (HP, destruction), so
 they are tracked separately on both ends.
 
 **Movement-only obstacle.** Geometry that blocks the Local player's movement
-but lets bullets pass: bushes, traffic cones. Movement is client-owned, so
+but lets bullets pass: bushes, traffic cones, trash bags. Movement is client-owned, so
 only the client consults these; their sizes still live in the shared map so
 every client agrees.
 
@@ -110,10 +110,63 @@ read: `app/public/textures/<slug>/<slug>_{basecolor,roughness,ao}.jpg` and
 `<slug>_{normal,height}.png`, plus a `<slug>.texture.json` sidecar recording
 how it was made. The basecolor is generated (gpt-image-2, via the
 `generate-game-textures` skill); the other maps are derived from it, never
-generated separately, so they always line up. Tileable by contract.
+generated separately, so they always line up. Tileable by contract. The
+basecolor is a lighting-neutral mid-tone albedo (how the material looks in
+flat daylight); the noir mood comes from the scene lighting, not from the
+texture.
 
 **Decal.** A single transparent PNG sprite in `app/public/decals/<slug>.png`
 laid onto a surface: impact marks, stains, posters. Not tileable, no PBR maps.
+
+**Model.** A prop modelled in Blender (`assets/blender/<name>.blend`, including
+the combined `noir-assets.blend` workshop, image
+paths relative to the repo) and exported as `app/public/models/<name>.glb`
+with geometry, UVs and material *slots* but no images. Material slot names
+match texture-set slugs (`crate-planks`); the client attaches the texture set
+itself, so re-deriving maps never needs a re-export. Modelled at game scale,
+1 unit = 1 m. Exported props have their origin at ground level; the character
+is centred on its controller hitbox. Workshop placement does not affect exports.
+
+**Yard prop.** A static trash bag, oil barrel or forklift. `shared/src/sim/props.ts`
+owns its type and collision dimensions; the level document owns its placement.
+These props do not have HP or destruction behavior.
+
+## Arena
+
+The default map is a 5v5 arena, laid out by `generateMap()` in
+`shared/src/sim/mapLayout.ts` and serialized to `shared/levels/default.json`.
+Both ends load the JSON; `generateMap()` is the source of truth you regenerate
+from (`npm run generate:default-level`).
+
+**Mirrored.** Everything is authored once for the south team (negative Z) and
+rotated 180° about the centre for the north team (`ArenaBuilder.both`), so both
+sides play the same map. Only the shop at the origin is its own twin. Tests
+enforce the symmetry and that hand-placed cover does not interpenetrate.
+
+**Spawn street.** Each team's safe strip along its wall (`z < -28` for south):
+its five `SPAWN_POINTS`, lamps and litter, nothing to hide behind and nothing
+to fight over.
+
+**Cover line.** The row at `z ≈ -27` that shields the spawn street from mid: a
+car parked across the middle exit, crate bunkers and crate walls on the sides,
+each with a spawn point tucked behind it. The gaps between them are the exits.
+
+**Yard.** The approach between the cover line and mid (`-27 < z < -12`): a
+crate wall, a forklift and barrels to leapfrog between. Chain-link at
+`x = ±19` fences it off from the flanks (bullets cross, players do not).
+
+**Mid.** `|z| < 12`. The shop splits it into a west and an east lane, each with
+a crate pyramid at one end and low cover at the other; a loading dock hugs the
+shop. Forklifts wedged in the fence gaps are the gates to the flanks.
+
+**Flanks.** The outer lanes along the walls (`|x| > 19`), running the full
+length of the map: a wreck, a crate tower and trees for cover. The long way
+round mid, with long sightlines and sparse cover.
+
+**Bunker / pyramid / crate wall / tower.** Named crate formations from
+`ArenaBuilder`: a 2×2 with one on top you cannot see over; seven crates in
+three tiers, the tallest cover on the map; a row with a staggered second row;
+oversized crates stacked three high, the flank landmark.
 
 **Style anchor.** A small material-only crop of `mockup-001.png` in the
 skill's `refs/style/`, attached to every material generation so palette and
