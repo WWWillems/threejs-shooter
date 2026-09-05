@@ -12,9 +12,13 @@
     "dev:server": "npm run dev -w server",
     "build:app": "npm run build -w app",
     "build:server": "npm run build -w server",
-    "build": "npm run build:app && npm run build:server"
+    "build": "npm run build:app && npm run build:server",
+    "typecheck": "tsc -p shared && tsc -p server --noEmit && tsc -p app",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "devDependencies": {
-    "typescript": "~5.8.2"
+    "typescript": "~5.8.2",
+    "vitest": "^3.2.4"
   }
 }

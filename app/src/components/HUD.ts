@@ -1,15 +1,9 @@
 import type { IsometricControls } from "./IsometricControls";
 import { WeaponType } from "./Weapon";
 import { getLeaderboard } from "../api/socket";
+import type { LeaderboardEntry } from "@threejs-shooter/shared";
 
-// Define leaderboard player data interface
-interface LeaderboardPlayer {
-  name: string;
-  score: number;
-  kills: number;
-  deaths: number;
-  [key: string]: string | number | boolean; // Allow for additional properties with specific types
-}
+type LeaderboardPlayer = LeaderboardEntry;
 
 export class HUD {
   private container: HTMLElement;
@@ -926,10 +920,7 @@ export class HUD {
   private async fetchLeaderboardData(): Promise<void> {
     try {
       const data = await getLeaderboard();
-      // Ensure data is an array before assigning
-      this.leaderboardData = Object.entries(data).map(
-        ([_key, value]) => value as LeaderboardPlayer
-      );
+      this.leaderboardData = Object.values(data);
 
       // Update the leaderboard display if it's visible
       if (this.leaderboardVisible) {

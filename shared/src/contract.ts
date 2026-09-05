@@ -1,0 +1,57 @@
+import { GAME_EVENTS } from "./events";
+import type {
+  GameStateEvent,
+  PlayerPositionEvent,
+  PlayerStatusEvent,
+  Stamped,
+  UserConnectionEvent,
+  UserJoinedEvent,
+  WeaponEvent,
+} from "./types";
+
+/**
+ * Events a client may send to the server, bound to their payload types.
+ * Shape follows socket.io's typed-events convention (event name -> listener signature),
+ * so it can be passed straight to `io<ClientToServerEvents, ServerToClientEvents>()`
+ * and `new Server<ClientToServerEvents, ServerToClientEvents>()`.
+ */
+export interface ClientToServerEvents {
+  [GAME_EVENTS.USER.JOINED]: (payload: UserJoinedEvent) => void;
+  [GAME_EVENTS.PLAYER.POSITION]: (payload: PlayerPositionEvent) => void;
+  [GAME_EVENTS.PLAYER.STATUS]: (payload: PlayerStatusEvent) => void;
+  [GAME_EVENTS.WEAPON.SHOOT]: (payload: WeaponEvent) => void;
+  [GAME_EVENTS.WEAPON.SWITCH]: (payload: WeaponEvent) => void;
+}
+
+/** Events the server may send to a client, bound to their payload types. */
+export interface ServerToClientEvents {
+  [GAME_EVENTS.GAME.STATE]: (payload: GameStateEvent) => void;
+  [GAME_EVENTS.USER.CONNECTED]: (payload: Stamped<UserConnectionEvent>) => void;
+  [GAME_EVENTS.USER.JOINED]: (payload: Stamped<UserJoinedEvent>) => void;
+  [GAME_EVENTS.USER.DISCONNECTED]: (
+    payload: Stamped<UserConnectionEvent>
+  ) => void;
+  [GAME_EVENTS.PLAYER.POSITION]: (payload: Stamped<PlayerPositionEvent>) => void;
+  [GAME_EVENTS.PLAYER.STATUS]: (payload: Stamped<PlayerStatusEvent>) => void;
+  [GAME_EVENTS.WEAPON.SHOOT]: (payload: Stamped<WeaponEvent>) => void;
+  [GAME_EVENTS.WEAPON.SWITCH]: (payload: Stamped<WeaponEvent>) => void;
+}
+
+export type ClientEventName = keyof ClientToServerEvents;
+export type ServerEventName = keyof ServerToClientEvents;
+
+/** Payload type of a client -> server event. */
+export type ClientPayload<E extends ClientEventName> = Parameters<
+  ClientToServerEvents[E]
+>[0];
+
+/** Payload type of a server -> client event. */
+export type ServerPayload<E extends ServerEventName> = Parameters<
+  ServerToClientEvents[E]
+>[0];
+
+/** What game code passes to `emit`: the payload without the timestamp the transport adds. */
+export type OutgoingPayload<E extends ClientEventName> = Omit<
+  ClientPayload<E>,
+  "timestamp"
+>;

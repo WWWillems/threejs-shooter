@@ -6,6 +6,7 @@ import type { WeaponSystem } from "./Weapon";
 import { WeaponType } from "./Weapon";
 import type { Weapon } from "./Weapon";
 import { GAME_EVENTS } from "@threejs-shooter/shared";
+import { EventEmitter } from "../events/eventEmitter";
 
 /**
  * Utility class for handling common player behaviors
@@ -79,6 +80,11 @@ export class PlayerController {
 
   // Store a reference to the camera
   private camera: THREE.Camera;
+  private readonly eventEmitter = EventEmitter.getInstance();
+  private readonly groundPlane = new THREE.Plane(
+    new THREE.Vector3(0, 1, 0),
+    0
+  );
 
   constructor(
     private player: THREE.Mesh,
@@ -217,6 +223,10 @@ export class PlayerController {
 
     // Update camera position to follow player
     this.cameraController.updateCameraPosition(this.isCrouching);
+    // Recalculate after the camera moves so a stationary crosshair remains
+    // accurate while the player is moving.
+    this.camera.updateMatrixWorld();
+    this.updatePlayerRotation(this.inputManager.getMousePosition());
 
     // Update bullets with collision detection
     this.weaponSystem.updateBullets(delta, this.collisionSystem);
@@ -341,9 +351,11 @@ export class PlayerController {
     raycaster.setFromCamera(mousePosition, this.camera);
 
     // Find the point of intersection with the ground plane
-    const groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
     const targetPoint = new THREE.Vector3();
-    raycaster.ray.intersectPlane(groundPlane, targetPoint);
+    if (!raycaster.ray.intersectPlane(this.groundPlane, targetPoint)) {
+      return;
+    }
+    this.weaponSystem.setAimTarget(targetPoint);
 
     // Calculate the direction the player should face
     const direction = new THREE.Vector3()
@@ -459,13 +471,7 @@ export class PlayerController {
       PlayerUtils.handlePlayerDeath(this.player);
 
       // Emit player status event for death
-      const eventEmitter =
-        (window as any).eventEmitter || this.scene.userData.eventEmitter;
-      if (eventEmitter) {
-        eventEmitter.emit(GAME_EVENTS.PLAYER.STATUS, {
-          status: "dead",
-        });
-      }
+      this.eventEmitter.emit(GAME_EVENTS.PLAYER.STATUS, { status: "dead" });
 
       // Dispatch death event
       const deathEvent = new CustomEvent("player-death");
@@ -511,21 +517,14 @@ export class PlayerController {
     this.player.updateMatrix(); // Force matrix update
 
     // Emit player status event for respawn
-    const eventEmitter =
-      (window as any).eventEmitter || this.scene.userData.eventEmitter;
-    if (eventEmitter) {
-      console.log("Emitting player alive status event"); // Debug log
-      eventEmitter.emit(GAME_EVENTS.PLAYER.STATUS, {
-        status: "alive",
-        position: {
-          x: this.player.position.x,
-          y: this.player.position.y,
-          z: this.player.position.z,
-        },
-      });
-    } else {
-      console.warn("No event emitter found for player status event");
-    }
+    this.eventEmitter.emit(GAME_EVENTS.PLAYER.STATUS, {
+      status: "alive",
+      position: {
+        x: this.player.position.x,
+        y: this.player.position.y,
+        z: this.player.position.z,
+      },
+    });
   }
 
   /**

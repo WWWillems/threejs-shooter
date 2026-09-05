@@ -1,5 +1,8 @@
 import { EventEmitter } from "./eventEmitter";
-import type { BaseEvent } from "@threejs-shooter/shared";
+import type {
+  ClientEventName,
+  OutgoingPayload,
+} from "@threejs-shooter/shared";
 
 export abstract class NetworkedEntity {
   protected eventEmitter: EventEmitter;
@@ -12,12 +15,12 @@ export abstract class NetworkedEntity {
   /**
    * Emit an event only if we're not currently handling a remote event
    */
-  protected emit<T extends BaseEvent>(
-    eventName: string,
-    data: Omit<T, "timestamp">
+  protected emit<E extends ClientEventName>(
+    event: E,
+    data: OutgoingPayload<E>
   ): void {
     if (!this.isHandlingRemoteEvent) {
-      this.eventEmitter.emit(eventName, data);
+      this.eventEmitter.emit(event, data);
     }
   }
 

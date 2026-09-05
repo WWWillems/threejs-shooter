@@ -1,9 +1,17 @@
 import socket from "../api/socket";
-import type { BaseEvent } from "@threejs-shooter/shared";
+import type {
+  ClientEventName,
+  ClientPayload,
+  ClientToServerEvents,
+  OutgoingPayload,
+} from "@threejs-shooter/shared";
+
+/** A buffered, already-typed emit waiting for the next flush. */
+type BufferedEmit = () => void;
 
 export class EventEmitter {
   private static instance: EventEmitter;
-  private eventBuffer: { event: string; data: BaseEvent }[] = [];
+  private eventBuffer: BufferedEmit[] = [];
   private readonly bufferInterval = 100; // 100ms buffer interval
 
   private constructor() {
@@ -24,34 +32,24 @@ export class EventEmitter {
   private flushBuffer(): void {
     if (this.eventBuffer.length === 0) return;
 
-    // Group similar events
-    const groupedEvents = this.eventBuffer.reduce((acc, curr) => {
-      if (!acc[curr.event]) {
-        acc[curr.event] = [];
-      }
-      acc[curr.event].push(curr.data);
-      return acc;
-    }, {} as Record<string, BaseEvent[]>);
-
-    // Emit grouped events
-    for (const [eventName, events] of Object.entries(groupedEvents)) {
-      socket.emit(eventName, events.length === 1 ? events[0] : events);
-    }
-
-    // Clear buffer
+    // Emit each buffered event individually, in order. Receivers expect one
+    // payload object per message; batching same-named events into an array
+    // silently dropped them.
+    const pending = this.eventBuffer;
     this.eventBuffer = [];
+    for (const send of pending) {
+      send();
+    }
   }
 
-  public emit<T extends Omit<BaseEvent, "timestamp">>(
-    eventName: string,
-    data: T
+  public emit<E extends ClientEventName>(
+    event: E,
+    data: OutgoingPayload<E>
   ): void {
-    this.eventBuffer.push({
-      event: eventName,
-      data: {
-        ...data,
-        timestamp: Date.now(),
-      },
-    });
+    const stamped = { ...data, timestamp: Date.now() } as ClientPayload<E>;
+    // socket.io types emit args as the listener's parameter tuple; every
+    // event in the contract takes exactly one payload argument.
+    const args = [stamped] as Parameters<ClientToServerEvents[E]>;
+    this.eventBuffer.push(() => socket.emit(event, ...args));
   }
 }

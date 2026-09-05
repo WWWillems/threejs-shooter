@@ -12,6 +12,7 @@ import { Ground } from "./core/Ground";
 import { Player } from "./core/Player";
 import { EnvironmentBuilder } from "./environment/EnvironmentBuilder";
 import { GameLoop } from "./core/GameLoop";
+import socket from "./api/socket";
 
 // Initialize the core game systems
 const gameScene = new GameScene();
@@ -87,9 +88,27 @@ const gameLoop = new GameLoop(
 
 // Setup event emission for player position
 const eventEmitter = EventEmitter.getInstance();
+let hasJoinedGame = false;
+let playerNickname = "";
 
-// Store EventEmitter in scene.userData for access elsewhere
-scene.userData.eventEmitter = eventEmitter;
+const emitPlayerJoined = (): void => {
+  eventEmitter.emit(GAME_EVENTS.USER.JOINED, {
+    position: {
+      x: player.position.x,
+      y: player.position.y,
+      z: player.position.z,
+    },
+    name: playerNickname,
+  });
+};
+
+// Socket.IO assigns a new socket id after reconnecting. Re-register this
+// client so the server and other players rebuild its presence.
+socket.on("connect", () => {
+  if (hasJoinedGame) {
+    emitPlayerJoined();
+  }
+});
 
 setInterval(() => {
   // Get player controller
@@ -119,20 +138,14 @@ const startOverlay = new StartOverlay(document.body, (nickname) => {
   controls.enableControls();
 
   // Set player nickname
-  playerSystem.setNickname(nickname);
+  playerNickname = nickname;
+  playerSystem.setNickname(playerNickname);
 
   // Update HUD with nickname
   hud.updateNickname(nickname);
 
-  // Emit USER.JOINED event with nickname
-  eventEmitter.emit(GAME_EVENTS.USER.JOINED, {
-    position: {
-      x: player.position.x,
-      y: player.position.y,
-      z: player.position.z,
-    },
-    name: nickname,
-  });
+  hasJoinedGame = true;
+  emitPlayerJoined();
 });
 
 // Start the game loop immediately

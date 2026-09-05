@@ -1,20 +1,25 @@
-import { io } from "socket.io-client";
+import { io, type Socket } from "socket.io-client";
+import type {
+  ClientToServerEvents,
+  Leaderboard,
+  ServerToClientEvents,
+} from "@threejs-shooter/shared";
+
+export type GameSocket = Socket<ServerToClientEvents, ClientToServerEvents>;
 
 const url = import.meta.env.VITE_SERVER_URL || "http://localhost:3000";
-const socket = io(url);
+const socket: GameSocket = io(url);
 
-export const getLeaderboard = async () => {
+export const getLeaderboard = async (): Promise<Leaderboard> => {
   try {
     const response = await fetch(`${url}/leaderboard`);
     if (!response.ok) {
       throw new Error(`Failed to fetch leaderboard: ${response.status}`);
     }
-    const data = await response.json();
-
-    return data;
+    return (await response.json()) as Leaderboard;
   } catch (error) {
     console.error("Error fetching leaderboard:", error);
-    return [];
+    return {};
   }
 };
 

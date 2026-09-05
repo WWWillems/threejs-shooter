@@ -4,6 +4,10 @@ import { Server } from 'socket.io';
 import cors from 'cors';
 
 const GAME_EVENTS = {
+  GAME: {
+    /** Server -> joining client: snapshot of all players currently in the game. */
+    STATE: "game:state"
+  },
   USER: {
     CONNECTED: "user:connected",
     JOINED: "user:joined",
@@ -39,7 +43,7 @@ const io = new Server(server, {
   }
 });
 const PORT = process.env.PORT || 3e3;
-let activePlayers = [];
+const players = /* @__PURE__ */ new Map();
 const leaderBoard = {};
 server.listen(PORT, () => {
   console.log(`\u2705 Server listening on port ${PORT}`);
@@ -58,11 +62,21 @@ io.on("connection", (socket) => {
     message: "Welcome to the server"
   });
   socket.on(GAME_EVENTS.USER.JOINED, (payload) => {
-    activePlayers.push(socket.id);
+    const name = payload.name || `Player-${socket.id.substring(0, 5)}`;
+    const state = { players: [...players.values()] };
+    socket.emit(GAME_EVENTS.GAME.STATE, state);
+    players.set(socket.id, {
+      id: socket.id,
+      userId: socket.id,
+      name,
+      status: "alive",
+      position: payload.position,
+      rotation: 0
+    });
     leaderBoard[socket.id] = {
       id: socket.id,
       userId: socket.id,
-      name: payload.name || `Player-${socket.id.substring(0, 5)}`,
+      name,
       kills: 0,
       deaths: 0,
       score: 0
@@ -74,6 +88,11 @@ io.on("connection", (socket) => {
     });
   });
   socket.on(GAME_EVENTS.PLAYER.POSITION, (payload) => {
+    const player = players.get(socket.id);
+    if (player) {
+      player.position = payload.position;
+      player.rotation = payload.rotation;
+    }
     socket.broadcast.emit(GAME_EVENTS.PLAYER.POSITION, {
       id: socket.id,
       userId: socket.id,
@@ -81,6 +100,13 @@ io.on("connection", (socket) => {
     });
   });
   socket.on(GAME_EVENTS.PLAYER.STATUS, (payload) => {
+    const player = players.get(socket.id);
+    if (player) {
+      player.status = payload.status;
+      if (payload.position) {
+        player.position = payload.position;
+      }
+    }
     socket.broadcast.emit(GAME_EVENTS.PLAYER.STATUS, {
       id: socket.id,
       userId: socket.id,
@@ -119,7 +145,7 @@ io.on("connection", (socket) => {
   });
   socket.on("disconnect", () => {
     console.log("User disconnected:", socket.id);
-    activePlayers = activePlayers.filter((player) => player !== socket.id);
+    players.delete(socket.id);
     delete leaderBoard[socket.id];
     socket.broadcast.emit(GAME_EVENTS.USER.DISCONNECTED, {
       id: socket.id,

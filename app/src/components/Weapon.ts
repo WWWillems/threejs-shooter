@@ -4,7 +4,7 @@ import type { CollisionDetector } from "./CollisionInterface";
 import { WeaponPickup } from "./WeaponPickup";
 import type { PickupManager } from "./PickupManager";
 import { NetworkedEntity } from "../events/networkedEntity";
-import { GAME_EVENTS, type WeaponEvent } from "@threejs-shooter/shared";
+import { GAME_EVENTS } from "@threejs-shooter/shared";
 
 // Define the Weapon interface
 export interface Weapon {
@@ -47,6 +47,7 @@ export class WeaponSystem extends NetworkedEntity {
   private bullets: Bullet[] = [];
   private gunOffset = new THREE.Vector3(0.7, -0.1, -0.3);
   private pickupManager: PickupManager | null = null;
+  private aimTarget: THREE.Vector3 | null = null;
 
   // Add muzzle flash properties
   private muzzleFlash: THREE.Mesh | null = null;
@@ -352,15 +353,17 @@ export class WeaponSystem extends NetworkedEntity {
     barrelTip.applyQuaternion(currentWeapon.model.quaternion);
     barrelPosition.add(barrelTip);
 
-    // Get direction based on player rotation
-    const direction = new THREE.Vector3(0, 0, -1);
-    direction.applyQuaternion(this.player.quaternion);
+    // Aim from the barrel to the point under the crosshair. Falling back to
+    // player rotation keeps shooting safe before the first aim update.
+    const direction = this.aimTarget
+      ? this.aimTarget.clone().sub(barrelPosition).normalize()
+      : new THREE.Vector3(0, 0, -1).applyQuaternion(this.player.quaternion);
 
     // Create the bullet
     const bullet = this.createBullet(scene, barrelPosition, direction);
 
     // Emit weapon event for network synchronization
-    this.emit<WeaponEvent>(GAME_EVENTS.WEAPON.SHOOT, {
+    this.emit(GAME_EVENTS.WEAPON.SHOOT, {
       weaponType: currentWeapon.name,
       action: "shoot",
       data: {
@@ -709,15 +712,6 @@ export class WeaponSystem extends NetworkedEntity {
     // Start reloading
     currentWeapon.isReloading = true;
     currentWeapon.reloadStartTime = performance.now();
-
-    this.emit<WeaponEvent>(GAME_EVENTS.WEAPON.RELOAD, {
-      weaponType: currentWeapon.name,
-      action: "reload",
-      data: {
-        ammo: currentWeapon.bulletsInMagazine,
-        totalAmmo: currentWeapon.totalBullets,
-      },
-    });
   }
 
   // Check if reload is allowed
@@ -814,7 +808,7 @@ export class WeaponSystem extends NetworkedEntity {
       }
 
       // Emit weapon switch event
-      this.emit<WeaponEvent>(GAME_EVENTS.WEAPON.SWITCH, {
+      this.emit(GAME_EVENTS.WEAPON.SWITCH, {
         weaponType: newWeapon.name,
         action: "switch",
         data: {
@@ -1037,6 +1031,10 @@ export class WeaponSystem extends NetworkedEntity {
    */
   public setPickupManager(pickupManager: PickupManager): void {
     this.pickupManager = pickupManager;
+  }
+
+  public setAimTarget(target: THREE.Vector3): void {
+    this.aimTarget = target.clone();
   }
 
   // Set mouse down state (call this when mouse button is pressed)

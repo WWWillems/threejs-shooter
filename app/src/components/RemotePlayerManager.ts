@@ -2,7 +2,12 @@ import * as THREE from "three";
 import socket from "../api/socket";
 import type { HUD } from "./HUD";
 import { WeaponSystem } from "./Weapon";
-import { GAME_EVENTS, type WeaponEvent } from "@threejs-shooter/shared";
+import {
+  GAME_EVENTS,
+  type PlayerSnapshot,
+  type PlayerStatus,
+  type Vec3,
+} from "@threejs-shooter/shared";
 import type { CollisionDetector } from "./CollisionInterface";
 import { PlayerCollider, PLAYER_DIMENSIONS } from "./PlayerCollider";
 import { PlayerUtils } from "./PlayerController";
@@ -44,8 +49,12 @@ export class RemotePlayerManager {
    * Set up socket listeners for remote player events
    */
   private setupSocketListeners(): void {
-    // Listen for new player connections
-    socket.on(GAME_EVENTS.USER.CONNECTED, (_payload) => {});
+    // Snapshot of players already in the game, sent to us right after we join
+    socket.on(GAME_EVENTS.GAME.STATE, ({ players }) => {
+      for (const snapshot of players) {
+        this.addPlayerFromSnapshot(snapshot);
+      }
+    });
 
     socket.on(GAME_EVENTS.USER.JOINED, ({ userId, name }) => {
       this.addPlayer(userId);
@@ -81,42 +90,36 @@ export class RemotePlayerManager {
     });
 
     // Listen for player weapon updates
-    socket.on(
-      GAME_EVENTS.WEAPON.SWITCH,
-      ({ userId, weaponType, action }: { userId: string } & WeaponEvent) => {
-        if (action === "switch") {
-          this.updatePlayerWeapon(userId, this.getWeaponIndex(weaponType));
-        }
+    socket.on(GAME_EVENTS.WEAPON.SWITCH, ({ userId, weaponType, action }) => {
+      if (action === "switch") {
+        this.updatePlayerWeapon(userId, this.getWeaponIndex(weaponType));
       }
-    );
+    });
 
     // Listen for weapon shoot events
-    socket.on(
-      GAME_EVENTS.WEAPON.SHOOT,
-      ({ userId, data }: { userId: string } & WeaponEvent) => {
-        const player = this.players.get(userId);
-        if (!player || !data?.position || !data?.direction) {
-          console.warn("Invalid remote shoot data:", { player, data });
-          return;
-        }
-
-        const position = new THREE.Vector3(
-          data.position.x,
-          data.position.y,
-          data.position.z
-        );
-        const direction = new THREE.Vector3(
-          data.direction.x,
-          data.direction.y,
-          data.direction.z
-        );
-
-        player.weaponSystem.handleRemoteEvent(() => {
-          // Create bullet at the remote player's position with the correct direction
-          player.weaponSystem.shootRemote(this.scene, position, direction);
-        });
+    socket.on(GAME_EVENTS.WEAPON.SHOOT, ({ userId, data }) => {
+      const player = this.players.get(userId);
+      if (!player || !data?.position || !data?.direction) {
+        console.warn("Invalid remote shoot data:", { player, data });
+        return;
       }
-    );
+
+      const position = new THREE.Vector3(
+        data.position.x,
+        data.position.y,
+        data.position.z
+      );
+      const direction = new THREE.Vector3(
+        data.direction.x,
+        data.direction.y,
+        data.direction.z
+      );
+
+      player.weaponSystem.handleRemoteEvent(() => {
+        // Create bullet at the remote player's position with the correct direction
+        player.weaponSystem.shootRemote(this.scene, position, direction);
+      });
+    });
   }
 
   /**
@@ -191,6 +194,34 @@ export class RemotePlayerManager {
   }
 
   /**
+   * Add a player that was already in the game when we joined, placed at its
+   * last known position and state, without join/death notifications.
+   */
+  private addPlayerFromSnapshot(snapshot: PlayerSnapshot): void {
+    if (this.players.has(snapshot.id)) {
+      return;
+    }
+
+    this.addPlayer(snapshot.id);
+    const player = this.players.get(snapshot.id);
+    if (!player) {
+      return;
+    }
+
+    if (snapshot.position) {
+      this.updatePlayerPosition(snapshot.id, snapshot.position, snapshot.rotation);
+      // Snap straight to the known position instead of interpolating from the spawn point
+      player.mesh.position.copy(player.position);
+      player.mesh.rotation.y = snapshot.rotation;
+    }
+
+    if (snapshot.status === "dead") {
+      PlayerUtils.handlePlayerDeath(player.mesh);
+      player.isDead = true;
+    }
+  }
+
+  /**
    * Remove a remote player from the scene
    */
   private removePlayer(userId: string): void {
@@ -212,7 +243,7 @@ export class RemotePlayerManager {
    */
   private updatePlayerPosition(
     userId: string,
-    position: { x: number; y: number; z: number },
+    position: Vec3,
     rotation: number
   ): void {
     // Validate userId to prevent errors
@@ -382,8 +413,8 @@ export class RemotePlayerManager {
    */
   private handlePlayerStatusChange(
     userId: string,
-    status: "dead" | "alive",
-    position?: { x: number; y: number; z: number }
+    status: PlayerStatus,
+    position?: Vec3
   ): void {
     const player = this.players.get(userId);
 
