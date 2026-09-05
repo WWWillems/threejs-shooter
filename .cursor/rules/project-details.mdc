@@ -9,20 +9,39 @@ alwaysApply: true
 We're making an isometric multiplayer shooter game using real-time sockets.
 This repo is an npm-workspaces monorepo; install once from the root with `npm install`.
 
+Architecture: hybrid authority. Clients own their own movement; the server owns every outcome
+(hits, HP, kills, crates, pickups, grenades) in a 20 Hz fixed-tick simulation and replicates it
+as a `world:snapshot` stream plus discrete outcome events. Vocabulary in `CONTEXT.md`, rationale
+in `docs/adr/0001-hybrid-authority.md`. Tests: `npm test` (Vitest at the root).
+
 ## Packages
 - `app/` (`@threejs-shooter/app`): browser client. TypeScript, Three.js, Vite, plain CSS.
-  Networking via `socket.io-client` in `app/src/api/socket.ts`. Reads `VITE_SERVER_URL`
-  (default `http://localhost:3000`). Run with `npm run dev:app`.
+  Reads `VITE_SERVER_URL` (default `http://localhost:3000`). Run with `npm run dev:app`.
+  - `src/net/NetworkClient.ts`: the only socket wrapper (typed send/on, join, auto re-join).
+  - `src/net/Replication.ts`: snapshot buffer + time-based interpolation.
+  - Renderers of server state: `RemotePlayerManager`, `GrenadeRenderer`, `CrateSync`,
+    `PickupManager`. Local player: `PlayerController`, `WeaponSystem` (intents + cosmetic bullets).
 - `server/` (`@threejs-shooter/server`): Node game server. Express + `socket.io`, entry
-  `server/src/index.ts`. Relays player/weapon/combat events and serves `/leaderboard`.
+  `server/src/index.ts` (Express + adapter wiring only). Serves `/leaderboard`.
   Run with `npm run dev:server` (tsx watch). Built with pkgroll into `server/dist/index.mjs`,
   which is committed and deployed as-is (see `server/README.md`).
-- `shared/` (`@threejs-shooter/shared`): the event contract shared by app and server.
-  `GAME_EVENTS` (socket event names) and the event payload types live here and nowhere else.
-  Source-only TypeScript, no build step. Import with `import { GAME_EVENTS } from "@threejs-shooter/shared"`.
+  - `src/room/GameRoom.ts`: all game state, `join`/`leave`/`applyIntent`/`tick`. Pure TS,
+    talks outward via the `RoomTransport` port (`room/transport.ts`). `room/tickLoop.ts` drives it.
+  - `src/adapters/socketio.ts` (production) and `src/adapters/memory.ts` (tests) implement the port.
+- `shared/` (`@threejs-shooter/shared`): source-only TypeScript, no build step.
+  Import with `import { GAME_EVENTS } from "@threejs-shooter/shared"`.
+  - `src/events.ts`, `src/types.ts`, `src/contract.ts`: the event contract. `ClientToServerEvents`
+    and `ServerToClientEvents` bind names to payloads; `GAME_EVENTS` is derived from them.
+  - `src/sim/`: deterministic simulation with no Three.js or sockets: `vec3`, `aabb` (swept
+    segment), `projectile`, `grenade`, `weapons` (stat table), `pickups`, `mapLayout` (seeded map
+    both ends build identically), `spawnPoints`, `rng`.
 
 ## Conventions
 - Never duplicate socket event names or payload types in `app` or `server`; add them to `shared`.
+- New mechanics follow the intent/outcome shape: client sends an intent, `GameRoom` resolves it,
+  clients render the outcome. Test the mechanic through `GameRoom` with the memory adapter.
+- Physics and game rules go in `shared/src/sim`, never in `app` components or the socket adapter.
+- Weapon stats live once in `shared/src/sim/weapons.ts`; the client builds its weapons from it.
 - `server` lists `@threejs-shooter/shared` as a devDependency on purpose so pkgroll inlines it.
 - `typescript` is a root devDependency; do not add it to individual packages.
 - Node 22 (`.nvmrc`), npm workspaces (no yarn/pnpm lockfiles).
