@@ -886,18 +886,16 @@ export class HUD {
    */
   private getWeaponNameFromType(weaponType: WeaponType): string {
     switch (weaponType) {
-      case WeaponType.DEFAULT:
-        return "Default";
       case WeaponType.PISTOL:
         return "Pistol";
       case WeaponType.RIFLE:
         return "Assault Rifle";
       case WeaponType.SHOTGUN:
         return "Shotgun";
-      case WeaponType.SNIPER:
-        return "Sniper";
-      default:
-        return "Unknown";
+      default: {
+        const unhandled: never = weaponType;
+        return unhandled;
+      }
     }
   }
 

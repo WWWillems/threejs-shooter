@@ -12,7 +12,7 @@ export class AmmoPickup extends Pickup {
   constructor(
     scene: THREE.Scene,
     position: THREE.Vector3,
-    weaponType = WeaponType.DEFAULT,
+    weaponType: WeaponType,
     ammoAmount = 30
   ) {
     // Pass the weapon type to parent constructor through data object
@@ -40,7 +40,7 @@ export class AmmoPickup extends Pickup {
     // Accent stripe
     const stripeGeometry = new THREE.BoxGeometry(0.52, 0.1, 0.82);
     const stripeMaterial = new THREE.MeshStandardMaterial({
-      color: this.getColorForWeaponType(this.pickupData.weaponType),
+      color: this.getColorForWeaponType(this.weaponType),
     });
     const stripe = new THREE.Mesh(stripeGeometry, stripeMaterial);
     stripe.position.y = 0.2;
@@ -71,12 +71,7 @@ export class AmmoPickup extends Pickup {
     return 0xcccc00;
   }
 
-  private getColorForWeaponType(weaponType?: WeaponType): number {
-    if (!weaponType) {
-      return 0xffffff; // White for default/undefined weapon type
-    }
-
-    // Return different colors based on weapon type
+  private getColorForWeaponType(weaponType: WeaponType): number {
     switch (weaponType) {
       case WeaponType.PISTOL:
         return 0x4444ff; // Blue
@@ -84,10 +79,10 @@ export class AmmoPickup extends Pickup {
         return 0xff4444; // Red
       case WeaponType.RIFLE:
         return 0x44ff44; // Green
-      case WeaponType.SNIPER:
-        return 0x8800ff; // Purple
-      default:
-        return 0xffffff; // White
+      default: {
+        const unhandled: never = weaponType;
+        return unhandled;
+      }
     }
   }
 

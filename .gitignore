@@ -23,3 +23,13 @@ app/dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Python virtual environments (For the Blender MCP)
+.venv/
+.venv-arm64/
+
+# Secrets (OPENAI_API_KEY for the generate-game-textures skill)
+.env
+
+# Texture drafts and tile checks; only finals go into app/public
+.agents/skills/generate-game-textures/out/

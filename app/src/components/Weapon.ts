@@ -35,8 +35,6 @@ export enum WeaponType {
   PISTOL = "pistol",
   RIFLE = "rifle",
   SHOTGUN = "shotgun",
-  SNIPER = "sniper",
-  DEFAULT = "default",
 }
 
 // Define a type for impact animation functions

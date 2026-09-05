@@ -1,0 +1,12 @@
+{
+  "name": "generate-game-textures-scripts",
+  "private": true,
+  "type": "module",
+  "description": "Scripts for the generate-game-textures skill. Not part of the npm workspaces on purpose.",
+  "engines": {
+    "node": ">=22"
+  },
+  "dependencies": {
+    "sharp": "^0.34.3"
+  }
+}

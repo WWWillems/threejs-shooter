@@ -26,7 +26,6 @@ export class GameLoop {
   private grenadeRenderer: GrenadeRenderer;
   private player: THREE.Mesh;
   private lastFrameTime: number;
-  private decorationCubes: THREE.Mesh[] = [];
 
   constructor(
     scene: THREE.Scene,
@@ -37,8 +36,7 @@ export class GameLoop {
     pickupManager: PickupManager,
     remotePlayerManager: RemotePlayerManager,
     grenadeRenderer: GrenadeRenderer,
-    player: THREE.Mesh,
-    decorationCubes: THREE.Mesh[] = []
+    player: THREE.Mesh
   ) {
     this.scene = scene;
     this.camera = camera;
@@ -49,7 +47,6 @@ export class GameLoop {
     this.remotePlayerManager = remotePlayerManager;
     this.grenadeRenderer = grenadeRenderer;
     this.player = player;
-    this.decorationCubes = decorationCubes;
     this.lastFrameTime = performance.now();
   }
 

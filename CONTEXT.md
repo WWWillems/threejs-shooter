@@ -103,6 +103,23 @@ or react to outcome events; they never decide anything.
 sends intents. Ignores its own entry in snapshots (its position is
 authoritative locally) but accepts its own HP/status from outcome events.
 
+## Art assets
+
+**Texture set.** One surface material as files the game and Blender both
+read: `app/public/textures/<slug>/<slug>_{basecolor,roughness,ao}.jpg` and
+`<slug>_{normal,height}.png`, plus a `<slug>.texture.json` sidecar recording
+how it was made. The basecolor is generated (gpt-image-2, via the
+`generate-game-textures` skill); the other maps are derived from it, never
+generated separately, so they always line up. Tileable by contract.
+
+**Decal.** A single transparent PNG sprite in `app/public/decals/<slug>.png`
+laid onto a surface: impact marks, stains, posters. Not tileable, no PBR maps.
+
+**Style anchor.** A small material-only crop of `mockup-001.png` in the
+skill's `refs/style/`, attached to every material generation so palette and
+grime level stay consistent. It carries look, not subject; if a material starts
+growing crates, the anchor is leaking and is dropped for that call.
+
 ## Things that are deliberately client-trusted (for now)
 
 Position and rotation, ammo counts and reloads, weapon switching, dropped
