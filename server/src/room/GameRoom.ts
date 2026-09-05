@@ -26,10 +26,9 @@ import {
   playerCollider,
   rollCrateDrop,
   rollPickupContents,
-  shopBox,
+  solidColliders,
   spawnGrenade,
   spawnPellets,
-  streetLightBox,
   type ClientEventName,
   type ClientPayload,
   type Collider,
@@ -43,6 +42,7 @@ import {
   type MapLayout,
   type PickupClaimEvent,
   type PickupSpec,
+  type StaticTag,
   type PlayerPositionEvent,
   type PlayerSnapshot,
   type Projectile,
@@ -55,7 +55,7 @@ import type { RoomTransport } from "./transport";
 
 /** What a server bullet can hit. */
 export type WorldTag =
-  | { kind: "static"; id: string }
+  | StaticTag
   | { kind: "crate"; id: string }
   | { kind: "player"; id: string };
 
@@ -121,6 +121,7 @@ export class GameRoom {
 
   private readonly clock: () => number;
   private readonly rng: Rng;
+  /** Shared solid geometry; crates and players are added per query. */
   private readonly staticColliders: Collider<WorldTag>[];
   private tickCount = 0;
   private nextProjectileId = 1;
@@ -136,7 +137,7 @@ export class GameRoom {
     this.clock = options.clock ?? Date.now;
     this.rng = new Rng(options.seed ?? (Date.now() & 0xffffffff));
     this.map = options.map ?? generateMap();
-    this.staticColliders = buildStaticColliders(this.map);
+    this.staticColliders = solidColliders(this.map);
     for (const spec of this.map.crates) {
       this.crates.set(spec.id, { spec, hp: CRATE_MAX_HP });
     }
@@ -677,22 +678,4 @@ export class GameRoom {
       })
     );
   }
-}
-
-function buildStaticColliders(map: MapLayout): Collider<WorldTag>[] {
-  const colliders: Collider<WorldTag>[] = [];
-  map.walls.forEach((box, i) =>
-    colliders.push({ box, tag: { kind: "static", id: `wall-${i}` } })
-  );
-  colliders.push({ box: shopBox(map), tag: { kind: "static", id: "shop" } });
-  for (const car of map.cars) {
-    colliders.push({ box: carBox(car), tag: { kind: "static", id: car.id } });
-  }
-  map.streetLights.forEach((base, i) =>
-    colliders.push({
-      box: streetLightBox(base),
-      tag: { kind: "static", id: `light-${i}` },
-    })
-  );
-  return colliders;
 }

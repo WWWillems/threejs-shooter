@@ -1,14 +1,12 @@
 import * as THREE from "three";
-import type { CollisionSystem } from "./CollisionSystem";
 
+/** Decorative tree mesh. Its trunk collider lives in the shared map (`treeTrunkBox`). */
 export class Tree {
   private treeMesh: THREE.Group;
-  private collisionBox: THREE.Box3;
 
   constructor(
     position: THREE.Vector3,
     private scene: THREE.Scene,
-    private collisionSystem?: CollisionSystem,
     rotation: number = 0,
     scale: number = 1
   ) {
@@ -24,14 +22,6 @@ export class Tree {
 
     // Add to scene
     this.scene.add(this.treeMesh);
-
-    // Create collision box
-    this.collisionBox = new THREE.Box3().setFromObject(this.treeMesh);
-
-    // Add to collision system if provided
-    if (this.collisionSystem) {
-      this.addToCollisionSystem();
-    }
   }
 
   private createTree(scale: number): void {
@@ -85,17 +75,11 @@ export class Tree {
     this.treeMesh.add(foliage3);
   }
 
-  private addToCollisionSystem(): void {
-    this.collisionSystem?.addCustomObstacle(this.collisionBox);
-  }
-
   public getPosition(): THREE.Vector3 {
     return this.treeMesh.position.clone();
   }
 
   public remove(): void {
-    // Note: CollisionSystem doesn't have a method to remove individual custom obstacles
-    // In a full implementation, we'd need to track and remove them specifically
     this.scene.remove(this.treeMesh);
   }
 }

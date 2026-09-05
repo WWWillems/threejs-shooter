@@ -1,18 +1,14 @@
 import * as THREE from "three";
-import type { CollisionSystem } from "./CollisionSystem";
 
+/** Shop mesh. Its collider is the shared `shopBox`; the mesh must stay inside it. */
 export class ShopBuilding {
   private shopMesh: THREE.Group;
-  private collisionBoxes: THREE.Box3[] = [];
-  private boundingBox: THREE.Box3;
 
   constructor(
     position: THREE.Vector3,
-    private scene: THREE.Scene,
-    private collisionSystem?: CollisionSystem
+    private scene: THREE.Scene
   ) {
     this.shopMesh = new THREE.Group();
-    this.boundingBox = new THREE.Box3();
 
     // Create the shop building
     this.createShopBuilding();
@@ -22,11 +18,6 @@ export class ShopBuilding {
 
     // Add to scene
     this.scene.add(this.shopMesh);
-
-    // Add collision objects if collision system is provided
-    if (this.collisionSystem) {
-      this.addToCollisionSystem();
-    }
   }
 
   private createShopBuilding(): void {
@@ -52,10 +43,6 @@ export class ShopBuilding {
     building.castShadow = true;
     building.receiveShadow = true;
     this.shopMesh.add(building);
-
-    // Add to collision objects
-    const buildingBox = new THREE.Box3().setFromObject(building);
-    this.collisionBoxes.push(buildingBox);
 
     // 2. Create a roof (triangular prism)
     const roofHeight = 1.5;
@@ -172,10 +159,6 @@ export class ShopBuilding {
     roof.castShadow = true;
     roof.receiveShadow = true;
     this.shopMesh.add(roof);
-
-    // Add to collision objects - Roof has complex geometry, so we'll simplify with a box
-    const roofBox = new THREE.Box3().setFromObject(roof);
-    this.collisionBoxes.push(roofBox);
 
     // 3. Create a door
     const doorWidth = 1.5;
@@ -319,9 +302,6 @@ export class ShopBuilding {
 
     // 7. Add parking space next to the building
     this.createParkingSpace(buildingWidth, buildingDepth);
-
-    // Update the bounding box of the entire shop
-    this.boundingBox.setFromObject(this.shopMesh);
   }
 
   private createParkingSpace(
@@ -411,31 +391,9 @@ export class ShopBuilding {
     }
   }
 
-  private addToCollisionSystem(): void {
-    if (this.collisionSystem) {
-      // Add each collision box to the collision system
-      for (const box of this.collisionBoxes) {
-        // Update the bounding box based on the current world position
-        const worldBoundingBox = new THREE.Box3().copy(box);
-        worldBoundingBox.translate(this.shopMesh.position);
-
-        // Add to collision system
-        this.collisionSystem.addCustomObstacle(worldBoundingBox);
-      }
-
-      // Also add the entire building's bounding box for good measure
-      const entireBuildingBox = new THREE.Box3().copy(this.boundingBox);
-      entireBuildingBox.translate(this.shopMesh.position);
-      this.collisionSystem.addCustomObstacle(entireBuildingBox);
-    }
-  }
-
   public dispose(): void {
     // Remove from scene
     this.scene.remove(this.shopMesh);
-
-    // Note: The collision system doesn't have a method to remove custom obstacles
-    // If that's needed, it would require an update to the CollisionSystem class
 
     // Dispose geometries and materials
     this.shopMesh.traverse((child) => {

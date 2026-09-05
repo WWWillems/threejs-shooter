@@ -288,6 +288,7 @@ const CAR_SIZE = vec3(2.4, 1.8, 5);
 const STREET_LIGHT_SIZE = vec3(0.4, 6.3, 0.4);
 const SHOP_SIZE = vec3(10, 4, 8);
 const CRATE_MAX_HP = 100;
+const TREE_TRUNK_SIZE = vec3(0.6, 1.5, 0.6);
 const PI = Math.PI;
 function generateMap(seed = MAP_SEED) {
   const rng = new Rng(seed);
@@ -554,6 +555,30 @@ const carBox = (car) => aabbFromRotatedBox(
 );
 const streetLightBox = (base) => aabbFromBaseSize(base, STREET_LIGHT_SIZE);
 const shopBox = (map) => aabbFromBaseSize(map.shop.position, map.shop.size);
+const treeTrunkBox = (tree) => aabbFromBaseSize(tree.position, scale(TREE_TRUNK_SIZE, tree.scale));
+function solidColliders(map) {
+  const colliders = [];
+  map.walls.forEach(
+    (box, i) => colliders.push({ box, tag: { kind: "static", id: `wall-${i}` } })
+  );
+  colliders.push({ box: shopBox(map), tag: { kind: "static", id: "shop" } });
+  for (const car of map.cars) {
+    colliders.push({ box: carBox(car), tag: { kind: "static", id: car.id } });
+  }
+  map.streetLights.forEach(
+    (base, i) => colliders.push({
+      box: streetLightBox(base),
+      tag: { kind: "static", id: `light-${i}` }
+    })
+  );
+  map.trees.forEach(
+    (tree, i) => colliders.push({
+      box: treeTrunkBox(tree),
+      tag: { kind: "static", id: `tree-${i}` }
+    })
+  );
+  return colliders;
+}
 
 const PLAYER_SIZE = vec3(1, 2, 1);
 const PLAYER_MAX_HP = 100;
@@ -784,6 +809,7 @@ class GameRoom {
     __publicField$1(this, "pickups", /* @__PURE__ */ new Map());
     __publicField$1(this, "clock");
     __publicField$1(this, "rng");
+    /** Shared solid geometry; crates and players are added per query. */
     __publicField$1(this, "staticColliders");
     __publicField$1(this, "tickCount", 0);
     __publicField$1(this, "nextProjectileId", 1);
@@ -794,7 +820,7 @@ class GameRoom {
     this.clock = options.clock ?? Date.now;
     this.rng = new Rng(options.seed ?? Date.now() & 4294967295);
     this.map = options.map ?? generateMap();
-    this.staticColliders = buildStaticColliders(this.map);
+    this.staticColliders = solidColliders(this.map);
     for (const spec of this.map.crates) {
       this.crates.set(spec.id, { spec, hp: CRATE_MAX_HP });
     }
@@ -1241,23 +1267,6 @@ class GameRoom {
       })
     );
   }
-}
-function buildStaticColliders(map) {
-  const colliders = [];
-  map.walls.forEach(
-    (box, i) => colliders.push({ box, tag: { kind: "static", id: `wall-${i}` } })
-  );
-  colliders.push({ box: shopBox(map), tag: { kind: "static", id: "shop" } });
-  for (const car of map.cars) {
-    colliders.push({ box: carBox(car), tag: { kind: "static", id: car.id } });
-  }
-  map.streetLights.forEach(
-    (base, i) => colliders.push({
-      box: streetLightBox(base),
-      tag: { kind: "static", id: `light-${i}` }
-    })
-  );
-  return colliders;
 }
 
 function startTickLoop(room, hz) {

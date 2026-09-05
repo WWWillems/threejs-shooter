@@ -1,14 +1,12 @@
 import * as THREE from "three";
-import type { CollisionSystem } from "./CollisionSystem";
 
+/** Decorative bush mesh. Its movement-only footprint lives in the shared map (`bushBox`). */
 export class Bush {
   private bushMesh: THREE.Group;
-  private collisionBox: THREE.Box3;
 
   constructor(
     position: THREE.Vector3,
     private scene: THREE.Scene,
-    private collisionSystem?: CollisionSystem,
     rotation: number = 0
   ) {
     // Create a group to hold all parts of the bush
@@ -23,14 +21,6 @@ export class Bush {
 
     // Add to scene
     this.scene.add(this.bushMesh);
-
-    // Create collision box
-    this.collisionBox = new THREE.Box3().setFromObject(this.bushMesh);
-
-    // Add to collision system if provided
-    if (this.collisionSystem) {
-      this.addToCollisionSystem();
-    }
   }
 
   private createBush(): void {
@@ -89,17 +79,11 @@ export class Bush {
     }
   }
 
-  private addToCollisionSystem(): void {
-    this.collisionSystem?.addCustomObstacle(this.collisionBox);
-  }
-
   public getPosition(): THREE.Vector3 {
     return this.bushMesh.position.clone();
   }
 
   public remove(): void {
-    // Note: CollisionSystem doesn't have a method to remove individual custom obstacles
-    // In a full implementation, we'd need to track and remove them specifically
     this.scene.remove(this.bushMesh);
   }
 }

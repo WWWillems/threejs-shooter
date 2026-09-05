@@ -5,13 +5,14 @@ import {
   aabbFromCenterSize,
   aabbFromRotatedBox,
 } from "./aabb";
+import type { Collider } from "./projectile";
 import { Rng } from "./rng";
-import { vec3 } from "./vec3";
+import { scale, vec3 } from "./vec3";
 
 /**
  * The map, generated deterministically from a seed so the server and every
- * client agree on where every prop is. Clients render these specs; the server
- * turns the solid ones into colliders.
+ * client agree on where every prop is. Clients render these specs; both ends
+ * turn them into colliders through `solidColliders` / `movementOnlyColliders`.
  */
 
 export const MAP_SEED = 20240913;
@@ -23,6 +24,12 @@ export const CAR_SIZE: Vec3 = vec3(2.4, 1.8, 5.0);
 export const STREET_LIGHT_SIZE: Vec3 = vec3(0.4, 6.3, 0.4);
 export const SHOP_SIZE: Vec3 = vec3(10, 4, 8);
 export const CRATE_MAX_HP = 100;
+/** Trunk of a scale-1 tree; the canopy is decoration. */
+export const TREE_TRUNK_SIZE: Vec3 = vec3(0.6, 1.5, 0.6);
+/** Footprint of a bush (movement-only). */
+export const BUSH_SIZE: Vec3 = vec3(1.4, 1.0, 1.4);
+/** Footprint of a traffic cone (movement-only). */
+export const CONE_SIZE: Vec3 = vec3(0.5, 0.8, 0.5);
 
 export interface CrateSpec {
   id: string;
@@ -403,3 +410,60 @@ export const streetLightBox = (base: Vec3): AABB =>
 
 export const shopBox = (map: MapLayout): AABB =>
   aabbFromBaseSize(map.shop.position, map.shop.size);
+
+export const treeTrunkBox = (tree: TreeSpec): AABB =>
+  aabbFromBaseSize(tree.position, scale(TREE_TRUNK_SIZE, tree.scale));
+
+export const bushBox = (bush: BushSpec): AABB =>
+  aabbFromBaseSize(bush.position, BUSH_SIZE);
+
+export const coneBox = (cone: ConeSpec): AABB =>
+  aabbFromBaseSize(cone.position, CONE_SIZE);
+
+/** Tag on a piece of solid geometry; ids are stable per map. */
+export interface StaticTag {
+  kind: "static";
+  id: string;
+}
+
+/**
+ * The static world both ends must agree on for bullets and grenades: walls,
+ * shop, cars, street lights, tree trunks. Crates are solid too but live
+ * (HP, destruction), so callers add `crateBox` for the survivors themselves.
+ */
+export function solidColliders(map: MapLayout): Collider<StaticTag>[] {
+  const colliders: Collider<StaticTag>[] = [];
+  map.walls.forEach((box, i) =>
+    colliders.push({ box, tag: { kind: "static", id: `wall-${i}` } })
+  );
+  colliders.push({ box: shopBox(map), tag: { kind: "static", id: "shop" } });
+  for (const car of map.cars) {
+    colliders.push({ box: carBox(car), tag: { kind: "static", id: car.id } });
+  }
+  map.streetLights.forEach((base, i) =>
+    colliders.push({
+      box: streetLightBox(base),
+      tag: { kind: "static", id: `light-${i}` },
+    })
+  );
+  map.trees.forEach((tree, i) =>
+    colliders.push({
+      box: treeTrunkBox(tree),
+      tag: { kind: "static", id: `tree-${i}` },
+    })
+  );
+  return colliders;
+}
+
+/**
+ * Geometry that blocks a player's movement but lets bullets pass: bushes and
+ * traffic cones. Movement is client-owned, so only clients consult these.
+ */
+export function movementOnlyColliders(
+  map: MapLayout
+): { id: string; box: AABB }[] {
+  return [
+    ...map.bushes.map((bush, i) => ({ id: `bush-${i}`, box: bushBox(bush) })),
+    ...map.cones.map((cone, i) => ({ id: `cone-${i}`, box: coneBox(cone) })),
+  ];
+}

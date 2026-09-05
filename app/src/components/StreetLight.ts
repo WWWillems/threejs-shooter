@@ -1,10 +1,6 @@
 import * as THREE from "three";
 
-// Define street light collision dimensions if needed for collision detection
-export interface StreetLightCollisionInfo {
-  dimensions: THREE.Vector3;
-  heightOffset: number;
-}
+// Street light mesh only; its collider is the shared `streetLightBox` in the map.
 
 // Create a street light model using basic geometry
 function createStreetLightModel(): THREE.Group {
@@ -89,14 +85,6 @@ function createStreetLightModel(): THREE.Group {
   return streetLightGroup;
 }
 
-// Get collision dimensions for the street light
-function getCollisionDimensions(): StreetLightCollisionInfo {
-  return {
-    dimensions: new THREE.Vector3(0.4, 6.3, 0.4), // Width, height, depth
-    heightOffset: 3.15, // Center of the collision box should be this height from the ground
-  };
-}
-
 // Add a street light to the scene at the specified position
 export function addToScene(
   scene: THREE.Scene,
@@ -111,5 +99,4 @@ export function addToScene(
 export const StreetLight = {
   createStreetLightModel,
   addToScene,
-  getCollisionDimensions,
 };

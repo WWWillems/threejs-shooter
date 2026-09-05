@@ -2,13 +2,20 @@ import { describe, expect, it } from "vitest";
 import {
   aabbFromCenterSize,
   aabbFromRotatedBox,
+  aabbIntersects,
   rotatedAabbContains,
   sweepSegmentAABB,
   sweepSegmentRotatedAABB,
 } from "./aabb";
 import { playerCollider, playerHitbox, playerHitboxContains } from "./playerHitbox";
 import { GRENADE, blastDamage, integrateGrenade, spawnGrenade } from "./grenade";
-import { generateMap, crateBox } from "./mapLayout";
+import {
+  TREE_TRUNK_SIZE,
+  crateBox,
+  generateMap,
+  movementOnlyColliders,
+  solidColliders,
+} from "./mapLayout";
 import { integrateProjectile, spawnPellets, type Collider } from "./projectile";
 import {
   PICKUP_REACH,
@@ -17,7 +24,7 @@ import {
   rollPickupContents,
 } from "./pickups";
 import { Rng } from "./rng";
-import { pickSpawnPoint } from "./spawnPoints";
+import { PLAYER_SIZE, SPAWN_POINTS, pickSpawnPoint } from "./spawnPoints";
 import { WEAPONS, pelletYawOffsets } from "./weapons";
 import { vec3 } from "./vec3";
 
@@ -178,6 +185,48 @@ describe("map", () => {
           tree.position.z < box.max.z;
         expect(inside).toBe(false);
       }
+    }
+  });
+
+  it("builds solid geometry with stable, unique ids and tree trunks included", () => {
+    const map = generateMap();
+    const solid = solidColliders(map);
+    const ids = solid.map((c) => c.tag.id);
+    expect(new Set(ids).size).toBe(ids.length);
+    expect(solid).toEqual(solidColliders(generateMap()));
+
+    const trunks = solid.filter((c) => c.tag.id.startsWith("tree-"));
+    expect(trunks).toHaveLength(map.trees.length);
+    const trunk = trunks[0].box;
+    expect(trunk.max.x - trunk.min.x).toBeCloseTo(
+      TREE_TRUNK_SIZE.x * map.trees[0].scale
+    );
+    expect(trunk.min.y).toBeCloseTo(map.trees[0].position.y);
+
+    for (const kind of ["wall-0", "shop", "light-0"]) {
+      expect(ids).toContain(kind);
+    }
+    for (const car of map.cars) expect(ids).toContain(car.id);
+  });
+
+  it("keeps bushes and cones movement-only, off the solid list", () => {
+    const map = generateMap();
+    const soft = movementOnlyColliders(map);
+    expect(soft).toHaveLength(map.bushes.length + map.cones.length);
+    const solidIds = new Set(solidColliders(map).map((c) => c.tag.id));
+    for (const { id } of soft) expect(solidIds.has(id)).toBe(false);
+  });
+
+  it("leaves every spawn point clear of solid and movement-only geometry", () => {
+    const map = generateMap();
+    const obstacles = [
+      ...solidColliders(map).map((c) => c.box),
+      ...movementOnlyColliders(map).map((c) => c.box),
+      ...map.crates.map(crateBox),
+    ];
+    for (const spawn of SPAWN_POINTS) {
+      const player = aabbFromCenterSize(spawn, PLAYER_SIZE);
+      expect(obstacles.some((box) => aabbIntersects(player, box))).toBe(false);
     }
   });
 });

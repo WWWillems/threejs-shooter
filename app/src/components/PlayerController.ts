@@ -1,6 +1,8 @@
 import * as THREE from "three";
 import type { InputManager } from "./InputManager";
-import type { CollisionSystem } from "./CollisionSystem";
+import type { CollisionDetector } from "./CollisionInterface";
+import type { WorldColliders } from "../environment/WorldColliders";
+import { PlayerCollider } from "./PlayerCollider";
 import type { CameraController } from "./CameraController";
 import type { WeaponSystem } from "./Weapon";
 import { WeaponType } from "./Weapon";
@@ -93,7 +95,9 @@ export class PlayerController {
     private player: THREE.Mesh,
     private scene: THREE.Scene,
     private inputManager: InputManager,
-    private collisionSystem: CollisionSystem,
+    private readonly world: WorldColliders,
+    /** What cosmetic bullets stop on: the world plus other players. */
+    private readonly bulletStops: CollisionDetector,
     private cameraController: CameraController,
     private weaponSystem: WeaponSystem,
     private net: NetworkClient,
@@ -253,7 +257,7 @@ export class PlayerController {
     this.updatePlayerRotation(this.inputManager.getMousePosition());
 
     // Update bullets with collision detection
-    this.weaponSystem.updateBullets(delta, this.collisionSystem);
+    this.weaponSystem.updateBullets(delta, this.bulletStops);
 
     this.prevTime = time;
   }
@@ -332,9 +336,7 @@ export class PlayerController {
       : this.normalHeight;
 
     // Apply X movement only if there's no collision
-    if (
-      !this.collisionSystem.checkPlayerCollision(newPositionX, playerHeight)
-    ) {
+    if (!this.blockedAt(newPositionX, playerHeight)) {
       this.player.position.x = newPositionX.x;
     }
 
@@ -349,9 +351,7 @@ export class PlayerController {
     );
 
     // Apply Z movement only if there's no collision
-    if (
-      !this.collisionSystem.checkPlayerCollision(newPositionZ, playerHeight)
-    ) {
+    if (!this.blockedAt(newPositionZ, playerHeight)) {
       this.player.position.z = newPositionZ.z;
     }
 
@@ -600,11 +600,11 @@ export class PlayerController {
       case WeaponType.SHOTGUN:
         weaponName = "Shotgun";
         break;
-      case WeaponType.SNIPER:
-        weaponName = "Sniper";
+      default: {
+        const unhandled: never = weaponType;
+        weaponName = unhandled;
         break;
-      default:
-        weaponName = weaponType;
+      }
     }
 
     const weapon = inventory.find((w) => w.name === weaponName);
@@ -635,11 +635,11 @@ export class PlayerController {
     this.weaponSystem.switchToWeapon(index);
   }
 
-  /**
-   * Update the collision system reference
-   */
-  public updateCollisionSystem(collisionSystem: CollisionSystem): void {
-    this.collisionSystem = collisionSystem;
+  /** Would standing at `position` (feet-to-head `playerHeight`) overlap the world? */
+  private blockedAt(position: THREE.Vector3, playerHeight: number): boolean {
+    return this.world.blocksMovement(
+      PlayerCollider.movementBox(position, playerHeight)
+    );
   }
 
   /**

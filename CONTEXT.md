@@ -75,6 +75,25 @@ wrapper. Typed `send`/`on`, `join` with automatic re-join after reconnect,
 `getLeaderboard`. Everything on the client that talks to the server goes
 through it; nothing imports `socket.io-client` directly.
 
+**Solid geometry.** The static world both ends must agree on for bullets and
+grenades: walls, shop, cars, street lights, tree trunks. Defined once as
+`solidColliders(map)` in `shared/src/sim/mapLayout.ts`, with fixed sizes next
+to the specs. `GameRoom` sweeps against it; the client's world colliders stop
+cosmetic bullets on it. Crates are solid too but live (HP, destruction), so
+they are tracked separately on both ends.
+
+**Movement-only obstacle.** Geometry that blocks the Local player's movement
+but lets bullets pass: bushes, traffic cones. Movement is client-owned, so
+only the client consults these; their sizes still live in the shared map so
+every client agrees.
+
+**World colliders (client).** `app/src/environment/WorldColliders.ts`: the
+client's mirror of the server's collision world, built from the shared
+`MapLayout` and never from meshes: solid geometry, live crates, movement-only
+obstacles. Answers `blocksMovement` and `stopsBullet`; the debug overlay draws
+exactly what it holds. Players are not in it; they come from the Local player
+and Replication and are composed in by the bullet-stop check.
+
 **Renderer (client).** A client class whose only job is to mirror server state
 in the scene: `RemotePlayerManager`, `GrenadeRenderer`, `CrateSync`,
 `PickupManager` (for server-owned pickups). Renderers read from `Replication`

@@ -1,12 +1,6 @@
 import * as THREE from "three";
 import { CRATE_MAX_HP } from "@threejs-shooter/shared";
 
-// Define wooden crate collision dimensions for collision detection
-export interface WoodenCrateCollisionInfo {
-  dimensions: THREE.Vector3;
-  heightOffset: number;
-}
-
 /**
  * A crate mesh that mirrors server state. The server owns crate HP; the
  * client only shows damage (`applyServerHp`) and removes destroyed crates
@@ -299,16 +293,6 @@ function createWoodenCrateModel(size = 1): THREE.Group {
 }
 
 /**
- * Get collision dimensions for wooden crate
- */
-function getCollisionDimensions(size = 1): WoodenCrateCollisionInfo {
-  return {
-    dimensions: new THREE.Vector3(size, size, size),
-    heightOffset: size / 2, // Center of the collision box
-  };
-}
-
-/**
  * Adds a destructible wooden crate to the scene
  */
 function addToScene(
@@ -485,6 +469,5 @@ function createDestructionEffect(
 // Export module functions
 export const WoodenCrate = {
   addToScene,
-  getCollisionDimensions,
   createDestructionEffect,
 };

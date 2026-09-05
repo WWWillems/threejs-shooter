@@ -1,14 +1,12 @@
 import * as THREE from "three";
-import type { CollisionSystem } from "./CollisionSystem";
 
+/** Decorative cone mesh. Its movement-only footprint lives in the shared map (`coneBox`). */
 export class TrafficCone {
   private coneMesh: THREE.Group;
-  private collisionBox: THREE.Box3;
 
   constructor(
     position: THREE.Vector3,
     private scene: THREE.Scene,
-    private collisionSystem?: CollisionSystem,
     rotation: number = 0
   ) {
     // Create a group to hold all parts of the traffic cone
@@ -23,14 +21,6 @@ export class TrafficCone {
 
     // Add to scene
     this.scene.add(this.coneMesh);
-
-    // Create collision box
-    this.collisionBox = new THREE.Box3().setFromObject(this.coneMesh);
-
-    // Add to collision system if provided
-    if (this.collisionSystem) {
-      this.addToCollisionSystem();
-    }
   }
 
   private createTrafficCone(): void {
@@ -158,24 +148,12 @@ export class TrafficCone {
     return stripe;
   }
 
-  private addToCollisionSystem(): void {
-    if (this.collisionSystem) {
-      this.collisionSystem.addCustomObstacle(this.collisionBox);
-    }
-  }
-
   // Method to get position
   public getPosition(): THREE.Vector3 {
     return this.coneMesh.position.clone();
   }
 
-  // Method to remove cone from scene and collision system
   public remove(): void {
-    if (this.scene) {
-      this.scene.remove(this.coneMesh);
-    }
-
-    // Note: There's no direct method to remove custom obstacles in the CollisionSystem
-    // This would need to be implemented in CollisionSystem if needed
+    this.scene.remove(this.coneMesh);
   }
 }

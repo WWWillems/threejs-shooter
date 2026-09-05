@@ -1,9 +1,12 @@
 import * as THREE from "three";
 import {
   PLAYER_SIZE,
+  aabbFromCenterSize,
   playerHitbox,
   playerHitboxContains,
+  type AABB,
   type PlayerHitbox,
+  type Vec3,
 } from "@threejs-shooter/shared";
 
 /**
@@ -70,21 +73,18 @@ export class PlayerCollider {
   }
 
   /**
-   * Axis-aligned box for movement collision against the static world (cars,
-   * lights, crates). Movement is client-owned and does not use the rotated
-   * hitbox; this keeps the previous behaviour.
+   * Axis-aligned box for movement against the world colliders. Movement is
+   * client-owned and does not use the rotated hitbox; `playerHeight` shrinks
+   * the box while crouching.
    */
-  public static createMovementBox(
-    position: THREE.Vector3,
-    playerHeight: number = PLAYER_DIMENSIONS.height
-  ): THREE.Box3 {
-    return new THREE.Box3().setFromCenterAndSize(
-      position.clone(),
-      new THREE.Vector3(
-        PLAYER_DIMENSIONS.width,
-        playerHeight,
-        PLAYER_DIMENSIONS.depth
-      )
-    );
+  public static movementBox(
+    position: Vec3,
+    playerHeight: number = PLAYER_SIZE.y
+  ): AABB {
+    return aabbFromCenterSize(position, {
+      x: PLAYER_SIZE.x,
+      y: playerHeight,
+      z: PLAYER_SIZE.z,
+    });
   }
 }

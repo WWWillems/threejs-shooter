@@ -31,20 +31,21 @@ export class RemotePlayerManager {
   private hud: HUD;
   private net: NetworkClient;
   private replication: Replication;
-  private collisionDetector?: CollisionDetector;
+  /** What remote players' cosmetic bullets stop on. */
+  private readonly bulletStops: CollisionDetector;
 
   constructor(
     scene: THREE.Scene,
     hud: HUD,
     net: NetworkClient,
     replication: Replication,
-    collisionDetector?: CollisionDetector
+    bulletStops: CollisionDetector
   ) {
     this.scene = scene;
     this.hud = hud;
     this.net = net;
     this.replication = replication;
-    this.collisionDetector = collisionDetector;
+    this.bulletStops = bulletStops;
     this.setupNetworkListeners();
   }
 
@@ -237,7 +238,7 @@ export class RemotePlayerManager {
 
     for (const player of this.players.values()) {
       player.weaponSystem.updateWeaponPosition(false);
-      player.weaponSystem.updateBullets(delta, this.collisionDetector);
+      player.weaponSystem.updateBullets(delta, this.bulletStops);
     }
   }
 
@@ -290,10 +291,6 @@ export class RemotePlayerManager {
     for (const playerId of [...this.players.keys()]) {
       this.removePlayer(playerId);
     }
-  }
-
-  public setCollisionDetector(detector: CollisionDetector): void {
-    this.collisionDetector = detector;
   }
 
   /**

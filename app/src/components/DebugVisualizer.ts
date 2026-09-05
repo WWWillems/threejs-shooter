@@ -1,34 +1,50 @@
 import * as THREE from "three";
-import type { CollisionSystem } from "./CollisionSystem";
-import type { RemotePlayerManager } from "./RemotePlayerManager";
+import type { AABB } from "@threejs-shooter/shared";
+import type {
+  WorldColliderKind,
+  WorldColliders,
+} from "../environment/WorldColliders";
 import { PlayerCollider } from "./PlayerCollider";
 
+const COLOURS = {
+  localPlayer: 0x00ff00,
+  remotePlayer: 0xff0000,
+  solid: 0xff4444,
+  crate: 0xffa500,
+  movementOnly: 0xffff00,
+} as const;
+
+const colourFor = (kind: WorldColliderKind): number => {
+  switch (kind) {
+    case "solid":
+      return COLOURS.solid;
+    case "crate":
+      return COLOURS.crate;
+    case "movement-only":
+      return COLOURS.movementOnly;
+    default: {
+      const exhaustive: never = kind;
+      return exhaustive;
+    }
+  }
+};
+
 /**
- * Handles debug visualization for the game
+ * Debug overlay (toggle with B). Draws exactly what the game collides with:
+ * every world collider as held by `WorldColliders`, and every player hitbox
+ * as `PlayerCollider` tests it, so what you see is what bullets hit.
  */
 export class DebugVisualizer {
-  private scene: THREE.Scene;
-  private collisionSystem: CollisionSystem;
   private debugHelpers: THREE.Object3D[] = [];
   private debugMode = false;
-  private player: THREE.Object3D;
-  private remotePlayerManager?: RemotePlayerManager;
 
   constructor(
-    scene: THREE.Scene,
-    collisionSystem: CollisionSystem,
-    player: THREE.Object3D,
-    remotePlayerManager?: RemotePlayerManager
-  ) {
-    this.scene = scene;
-    this.collisionSystem = collisionSystem;
-    this.player = player;
-    this.remotePlayerManager = remotePlayerManager;
-  }
+    private readonly scene: THREE.Scene,
+    private readonly world: WorldColliders,
+    private readonly player: THREE.Object3D,
+    private readonly remotePlayerMeshes: () => Iterable<THREE.Object3D>
+  ) {}
 
-  /**
-   * Toggle debug visualization mode
-   */
   public toggleDebugMode(): void {
     this.debugMode = !this.debugMode;
     if (!this.debugMode) {
@@ -36,248 +52,63 @@ export class DebugVisualizer {
     }
   }
 
-  /**
-   * Get current debug mode state
-   */
   public isDebugMode(): boolean {
     return this.debugMode;
   }
 
-  /**
-   * Update the collision system reference
-   */
-  public updateCollisionSystem(collisionSystem: CollisionSystem): void {
-    this.collisionSystem = collisionSystem;
-  }
-
-  /**
-   * Update the RemotePlayerManager reference
-   */
-  public updateRemotePlayerManager(
-    remotePlayerManager: RemotePlayerManager
-  ): void {
-    this.remotePlayerManager = remotePlayerManager;
-  }
-
-  /**
-   * Update debug visualization
-   */
+  /** Rebuild the overlay for this frame. */
   public updateDebugVisualization(): void {
-    // Remove existing debug helpers
     this.clearDebugHelpers();
-
     if (!this.debugMode) return;
 
-    // Create player hitbox visualization
-    this.createPlayerColliderVisualization();
+    for (const collider of this.world.colliders()) {
+      this.add(wireframeBox(collider.box, colourFor(collider.kind)));
+    }
 
-    // Create car collider visualizations
-    this.createCarColliderVisualizations();
-
-    // Create street light collider visualizations
-    this.createStreetLightColliderVisualizations();
-
-    // Create wooden crate collider visualizations
-    this.createWoodenCrateColliderVisualizations();
-
-    // Create remote player collider visualizations
-    this.createRemotePlayerColliderVisualizations();
+    this.add(PlayerCollider.createDebugMesh(this.player, COLOURS.localPlayer));
+    for (const mesh of this.remotePlayerMeshes()) {
+      this.add(PlayerCollider.createDebugMesh(mesh, COLOURS.remotePlayer));
+    }
   }
 
-  /**
-   * Clear all debug visualization helpers
-   */
+  private add(helper: THREE.Object3D): void {
+    this.scene.add(helper);
+    this.debugHelpers.push(helper);
+  }
+
   private clearDebugHelpers(): void {
     for (const helper of this.debugHelpers) {
       this.scene.remove(helper);
-      if (helper instanceof THREE.Mesh) {
-        if (helper.geometry) helper.geometry.dispose();
-        if (helper.material) {
-          if (Array.isArray(helper.material)) {
-            for (const material of helper.material) {
-              material.dispose();
-            }
-          } else {
-            helper.material.dispose();
-          }
-        }
-      } else if (helper instanceof THREE.Line) {
-        if (helper.geometry) helper.geometry.dispose();
-        if (helper.material) {
-          if (Array.isArray(helper.material)) {
-            for (const material of helper.material) {
-              material.dispose();
-            }
-          } else {
-            helper.material.dispose();
-          }
-        }
+      if (helper instanceof THREE.Mesh || helper instanceof THREE.Line) {
+        helper.geometry?.dispose();
+        const materials = Array.isArray(helper.material)
+          ? helper.material
+          : [helper.material];
+        for (const material of materials) material?.dispose();
       }
     }
-
     this.debugHelpers = [];
   }
+}
 
-  /**
-   * Create visual representations of car colliders
-   */
-  private createCarColliderVisualizations(): void {
-    // Access car colliders from CollisionSystem
-    const carColliders = this.collisionSystem.getCarColliders();
-
-    if (!carColliders || carColliders.length === 0) return;
-
-    for (const carData of carColliders) {
-      // Create a box geometry based on the car's dimensions
-      const { dimensions } = carData;
-      const boxGeometry = new THREE.BoxGeometry(
-        dimensions.x,
-        dimensions.y,
-        dimensions.z
-      );
-
-      // Create a wireframe material
-      const boxMaterial = new THREE.MeshBasicMaterial({
-        color: 0xff0000, // Red for car colliders
-        wireframe: true,
-        transparent: true,
-        opacity: 0.5,
-      });
-
-      // Create mesh and position it to match the car
-      const boxMesh = new THREE.Mesh(boxGeometry, boxMaterial);
-      boxMesh.position.copy(carData.carObj.position);
-
-      // Adjust height based on heightOffset
-      boxMesh.position.y += carData.heightOffset;
-
-      // Match the car's rotation
-      boxMesh.rotation.y = carData.carObj.rotation.y;
-
-      // Add to scene and track for cleanup
-      this.scene.add(boxMesh);
-      this.debugHelpers.push(boxMesh);
-    }
-  }
-
-  /**
-   * Create visual representations of street light colliders
-   */
-  private createStreetLightColliderVisualizations(): void {
-    // Access street light colliders from CollisionSystem
-    const lightColliders = this.collisionSystem.getStreetLightColliders();
-
-    if (!lightColliders || lightColliders.length === 0) return;
-
-    for (const lightData of lightColliders) {
-      // Create a box geometry based on the light's dimensions
-      const { dimensions } = lightData;
-      const boxGeometry = new THREE.BoxGeometry(
-        dimensions.x,
-        dimensions.y,
-        dimensions.z
-      );
-
-      // Create a wireframe material
-      const boxMaterial = new THREE.MeshBasicMaterial({
-        color: 0x0000ff, // Blue for street light colliders
-        wireframe: true,
-        transparent: true,
-        opacity: 0.5,
-      });
-
-      // Create mesh and position it
-      const boxMesh = new THREE.Mesh(boxGeometry, boxMaterial);
-
-      // Position the box at the street light position
-      boxMesh.position.copy(lightData.lightObj.position);
-
-      // Adjust height based on heightOffset (half the height)
-      boxMesh.position.y += dimensions.y / 2;
-
-      // Add to scene and track for cleanup
-      this.scene.add(boxMesh);
-      this.debugHelpers.push(boxMesh);
-    }
-  }
-
-  /**
-   * Create visual representations of wooden crate colliders
-   */
-  private createWoodenCrateColliderVisualizations(): void {
-    // Access wooden crate colliders from CollisionSystem
-    const crateColliders = this.collisionSystem.getWoodenCrateColliders();
-
-    if (!crateColliders || crateColliders.length === 0) return;
-
-    for (const crateData of crateColliders) {
-      // Create a box geometry based on the crate's dimensions
-      const { dimensions } = crateData;
-      const boxGeometry = new THREE.BoxGeometry(
-        dimensions.x,
-        dimensions.y,
-        dimensions.z
-      );
-
-      // Create a wireframe material
-      const boxMaterial = new THREE.MeshBasicMaterial({
-        color: 0xffa500, // Orange for wooden crate colliders
-        wireframe: true,
-        transparent: true,
-        opacity: 0.5,
-      });
-
-      // Create mesh and position it
-      const boxMesh = new THREE.Mesh(boxGeometry, boxMaterial);
-
-      // Copy the crate position exactly for accurate visualization
-      boxMesh.position.copy(crateData.crateObj.position);
-
-      // The crate model's origin is at its center (due to THREE.BoxGeometry)
-      // No need for additional y-offset as the collision box and model should match exactly
-
-      // Match the crate's rotation
-      boxMesh.rotation.y = crateData.crateObj.rotation.y;
-
-      // Add to scene and track for cleanup
-      this.scene.add(boxMesh);
-      this.debugHelpers.push(boxMesh);
-    }
-  }
-
-  /**
-   * Draw the local player's hitbox (the shared, rotated box the server sweeps
-   * bullets against).
-   */
-  private createPlayerColliderVisualization(): void {
-    const playerMesh = PlayerCollider.createDebugMesh(
-      this.player,
-      0x00ff00, // Green for local player
-      0.5
-    );
-
-    this.scene.add(playerMesh);
-    this.debugHelpers.push(playerMesh);
-  }
-
-  /**
-   * Draw each remote player's hitbox at its interpolated position and facing.
-   */
-  private createRemotePlayerColliderVisualizations(): void {
-    if (!this.remotePlayerManager) return;
-
-    const remotePlayers = this.remotePlayerManager.getPlayers();
-    if (!remotePlayers) return;
-
-    for (const player of remotePlayers.values()) {
-      const playerMesh = PlayerCollider.createDebugMesh(
-        player.mesh,
-        0xff0000, // Red for remote players
-        0.5
-      );
-
-      this.scene.add(playerMesh);
-      this.debugHelpers.push(playerMesh);
-    }
-  }
+function wireframeBox(box: AABB, color: number): THREE.Mesh {
+  const mesh = new THREE.Mesh(
+    new THREE.BoxGeometry(
+      box.max.x - box.min.x,
+      box.max.y - box.min.y,
+      box.max.z - box.min.z
+    ),
+    new THREE.MeshBasicMaterial({
+      color,
+      wireframe: true,
+      transparent: true,
+      opacity: 0.5,
+    })
+  );
+  mesh.position.set(
+    (box.min.x + box.max.x) / 2,
+    (box.min.y + box.max.y) / 2,
+    (box.min.z + box.max.z) / 2
+  );
+  return mesh;
 }

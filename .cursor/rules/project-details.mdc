@@ -21,6 +21,9 @@ in `docs/adr/0001-hybrid-authority.md`. Tests: `npm test` (Vitest at the root).
   - `src/net/Replication.ts`: snapshot buffer + time-based interpolation.
   - Renderers of server state: `RemotePlayerManager`, `GrenadeRenderer`, `CrateSync`,
     `PickupManager`. Local player: `PlayerController`, `WeaponSystem` (intents + cosmetic bullets).
+  - `src/environment/WorldColliders.ts`: the client's collision world, built from the shared
+    `MapLayout` (`solidColliders`, `movementOnlyColliders`, `crateBox`), never from meshes.
+    Prop classes (`Car`, `Tree`, `WoodenCrate`, ...) are meshes only.
 - `server/` (`@threejs-shooter/server`): Node game server. Express + `socket.io`, entry
   `server/src/index.ts` (Express + adapter wiring only). Serves `/leaderboard`.
   Run with `npm run dev:server` (tsx watch). Built with pkgroll into `server/dist/index.mjs`,
@@ -34,7 +37,8 @@ in `docs/adr/0001-hybrid-authority.md`. Tests: `npm test` (Vitest at the root).
     and `ServerToClientEvents` bind names to payloads; `GAME_EVENTS` is derived from them.
   - `src/sim/`: deterministic simulation with no Three.js or sockets: `vec3`, `aabb` (swept
     segment), `projectile`, `grenade`, `weapons` (stat table), `pickups`, `mapLayout` (seeded map
-    both ends build identically), `spawnPoints`, `rng`.
+    both ends build identically, plus the collider sizes and `solidColliders` /
+    `movementOnlyColliders` both ends collide against), `spawnPoints`, `rng`.
 
 ## Conventions
 - Never duplicate socket event names or payload types in `app` or `server`; add them to `shared`.

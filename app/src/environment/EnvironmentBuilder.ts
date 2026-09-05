@@ -1,38 +1,35 @@
 import * as THREE from "three";
-import { generateMap, type MapLayout } from "@threejs-shooter/shared";
+import type { MapLayout, Vec3 } from "@threejs-shooter/shared";
+import { Car } from "../components/Car";
+import { StreetLight } from "../components/StreetLight";
+import { WoodenCrate, type DestructibleCrate } from "../components/WoodenCrate";
 import { ShopBuilding } from "../components/ShopBuilding";
 import { TrafficCone } from "../components/TrafficCone";
 import { Tree } from "../components/Tree";
 import { Bush } from "../components/Bush";
-import { IsometricControls } from "../components/IsometricControls";
-import { CollisionSystem } from "../components/CollisionSystem";
 
-const toVector3 = (v: { x: number; y: number; z: number }) =>
-  new THREE.Vector3(v.x, v.y, v.z);
+const toVector3 = (v: Vec3) => new THREE.Vector3(v.x, v.y, v.z);
 
 /**
- * Renders the shared, deterministic map. Every prop's position comes from
- * `generateMap`, so this client sees exactly the world the server simulates.
+ * Renders the shared, deterministic map. Every prop's position comes from the
+ * `MapLayout`, so this client sees exactly the world the server simulates.
+ * Meshes only: collision lives in `WorldColliders`, built from the same map.
  */
 export class EnvironmentBuilder {
-  private scene: THREE.Scene;
-  private controls: IsometricControls;
-  private collisionSystem: CollisionSystem;
-  private readonly map: MapLayout;
+  /** Crate meshes by shared crate id, for `CrateSync` to damage and remove. */
+  private readonly crates = new Map<string, DestructibleCrate>();
 
   constructor(
-    scene: THREE.Scene,
-    controls: IsometricControls,
-    map: MapLayout = generateMap()
-  ) {
-    this.scene = scene;
-    this.controls = controls;
-    this.collisionSystem = controls.getCollisionSystem();
-    this.map = map;
-  }
+    private readonly scene: THREE.Scene,
+    private readonly map: MapLayout
+  ) {}
 
   public getMap(): MapLayout {
     return this.map;
+  }
+
+  public getCrate(crateId: string): DestructibleCrate | undefined {
+    return this.crates.get(crateId);
   }
 
   /**
@@ -51,7 +48,7 @@ export class EnvironmentBuilder {
 
   private placeCars(): void {
     for (const spec of this.map.cars) {
-      const car = this.controls.addCarToScene(toVector3(spec.position));
+      const car = Car.addToScene(this.scene, toVector3(spec.position));
       car.rotation.y = spec.rotation;
       car.rotation.z = spec.tiltZ;
     }
@@ -59,65 +56,47 @@ export class EnvironmentBuilder {
 
   private placeStreetLights(): void {
     for (const position of this.map.streetLights) {
-      this.controls.addStreetLightToScene(toVector3(position));
+      StreetLight.addToScene(this.scene, toVector3(position));
     }
   }
 
   private placeShopBuilding(): void {
-    new ShopBuilding(
-      toVector3(this.map.shop.position),
-      this.scene,
-      this.collisionSystem
-    );
+    new ShopBuilding(toVector3(this.map.shop.position), this.scene);
   }
 
   private placeCrates(): void {
-    for (const crate of this.map.crates) {
-      this.controls.addWoodenCrateToScene(
-        toVector3(crate.position),
-        crate.size,
-        crate.rotation,
-        crate.id
+    for (const spec of this.map.crates) {
+      const crate = WoodenCrate.addToScene(
+        this.scene,
+        toVector3(spec.position),
+        spec.size,
+        spec.rotation,
+        spec.id
       );
+      this.crates.set(spec.id, crate);
     }
   }
 
   private placeTrafficCones(): void {
     for (const cone of this.map.cones) {
-      new TrafficCone(
-        toVector3(cone.position),
-        this.scene,
-        this.collisionSystem,
-        cone.rotation
-      );
+      new TrafficCone(toVector3(cone.position), this.scene, cone.rotation);
     }
   }
 
   private placeTrees(): void {
     for (const tree of this.map.trees) {
-      new Tree(
-        toVector3(tree.position),
-        this.scene,
-        this.collisionSystem,
-        tree.rotation,
-        tree.scale
-      );
+      new Tree(toVector3(tree.position), this.scene, tree.rotation, tree.scale);
     }
   }
 
   private placeBushes(): void {
     for (const bush of this.map.bushes) {
-      new Bush(
-        toVector3(bush.position),
-        this.scene,
-        this.collisionSystem,
-        bush.rotation
-      );
+      new Bush(toVector3(bush.position), this.scene, bush.rotation);
     }
   }
 
   /**
-   * Add walls around the game area; geometry mirrors `generateWalls` in shared.
+   * Walls around the game area; geometry mirrors `generateWalls` in shared.
    */
   private addWalls(): void {
     const wallMaterial = new THREE.MeshStandardMaterial({
@@ -145,10 +124,6 @@ export class EnvironmentBuilder {
       wall.castShadow = true;
       wall.receiveShadow = true;
       this.scene.add(wall);
-
-      this.collisionSystem.addCustomObstacle(
-        new THREE.Box3(toVector3(box.min), toVector3(box.max))
-      );
     }
   }
 }

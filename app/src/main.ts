@@ -7,11 +7,14 @@ import { CrateSync } from "./components/CrateSync";
 import { GrenadeRenderer } from "./components/GrenadeRenderer";
 import { StartOverlay } from "./components/StartOverlay";
 import { RemotePlayerManager } from "./components/RemotePlayerManager";
-import { GAME_EVENTS, TICK_RATE } from "@threejs-shooter/shared";
+import { PlayerCollider } from "./components/PlayerCollider";
+import type { CollisionDetector } from "./components/CollisionInterface";
+import { GAME_EVENTS, TICK_RATE, generateMap } from "@threejs-shooter/shared";
 import { GameScene } from "./core/Scene";
 import { Ground } from "./core/Ground";
 import { Player } from "./core/Player";
 import { EnvironmentBuilder } from "./environment/EnvironmentBuilder";
+import { WorldColliders } from "./environment/WorldColliders";
 import { GameLoop } from "./core/GameLoop";
 import { NetworkClient } from "./net/NetworkClient";
 import { Replication } from "./net/Replication";
@@ -43,14 +46,33 @@ const ground = new Ground(scene);
 const playerSystem = new Player(scene, false);
 const player = playerSystem.getMesh();
 
+// The shared map: the server simulates exactly this world. Colliders come
+// from it directly, never from meshes.
+const map = generateMap();
+const world = new WorldColliders(map);
+
+// Cosmetic bullets stop on the world and on any player. Evaluated per frame,
+// after `remotePlayerManager` (declared below) exists.
+const bulletStops: CollisionDetector = {
+  checkForBulletCollision: (point) =>
+    world.stopsBullet(point) ||
+    PlayerCollider.containsPoint(player, point) ||
+    remotePlayerManager.containsPoint(point),
+};
+
 // Initialize controls
 const controls = new IsometricControls(
   camera,
   renderer.domElement,
   player,
   net,
-  undefined,
-  scene
+  scene,
+  {
+    world,
+    bulletStops,
+    remotePlayerMeshes: (): THREE.Object3D[] =>
+      [...remotePlayerManager.getPlayers().values()].map((p) => p.mesh),
+  }
 );
 
 // Disable player input initially
@@ -67,14 +89,9 @@ const remotePlayerManager = new RemotePlayerManager(
   scene,
   hud,
   net,
-  replication
+  replication,
+  bulletStops
 );
-
-// Update controls with RemotePlayerManager
-controls.updateCollisionSystem(remotePlayerManager);
-
-// Set collision detector for RemotePlayerManager
-remotePlayerManager.setCollisionDetector(controls.getCollisionSystem());
 
 // Pickups are server-owned; this renders them and sends claim intents
 const pickupManager = new PickupManager(
@@ -88,10 +105,10 @@ const pickupManager = new PickupManager(
 // Set pickup manager in controls (dropped weapons)
 controls.setPickupManager(pickupManager);
 
-// Build the environment from the shared map, then mirror crate HP from the server
-const environmentBuilder = new EnvironmentBuilder(scene, controls);
+// Render the shared map, then mirror crate HP and destruction from the server
+const environmentBuilder = new EnvironmentBuilder(scene, map);
 environmentBuilder.buildEnvironment();
-new CrateSync(net, controls.getCollisionSystem(), environmentBuilder.getMap());
+new CrateSync(net, world, environmentBuilder, map);
 
 // Grenades are server-simulated; this draws them from the snapshot stream
 const grenadeRenderer = new GrenadeRenderer(scene, net, replication);
@@ -106,8 +123,7 @@ const gameLoop = new GameLoop(
   pickupManager,
   remotePlayerManager,
   grenadeRenderer,
-  player,
-  []
+  player
 );
 
 const playerPosition = () => ({

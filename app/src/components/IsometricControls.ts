@@ -1,23 +1,29 @@
 import type * as THREE from "three";
 import { WeaponSystem } from "./Weapon";
 import type { Weapon } from "./Weapon";
-import { Car } from "./Car";
 import type { CollisionDetector } from "./CollisionInterface";
 import { InputManager } from "./InputManager";
-import { CollisionSystem } from "./CollisionSystem";
 import { CameraController } from "./CameraController";
 import { PlayerController } from "./PlayerController";
 import { DebugVisualizer } from "./DebugVisualizer";
-import { StreetLight } from "./StreetLight";
-import { WoodenCrate } from "./WoodenCrate";
 import type { PickupManager } from "./PickupManager";
-import type { RemotePlayerManager } from "./RemotePlayerManager";
 import type { NetworkClient } from "../net/NetworkClient";
+import type { WorldColliders } from "../environment/WorldColliders";
+
+/** What the Local player's systems need from the rest of the game. */
+export interface ControlsWorld {
+  /** Static world + live crates + movement-only obstacles, from the shared map. */
+  world: WorldColliders;
+  /** Everything a cosmetic bullet stops on: the world plus players. */
+  bulletStops: CollisionDetector;
+  /** Remote player meshes, for the debug overlay's hitboxes. */
+  remotePlayerMeshes: () => Iterable<THREE.Object3D>;
+}
 
 /**
  * Main game controls class using composition pattern to integrate all systems
  */
-export class IsometricControls implements CollisionDetector {
+export class IsometricControls {
   // Core game objects
   public camera: THREE.Camera;
   public scene: THREE.Scene;
@@ -25,13 +31,11 @@ export class IsometricControls implements CollisionDetector {
 
   // Component systems using composition
   private inputManager: InputManager;
-  private collisionSystem: CollisionSystem;
   private cameraController: CameraController;
   private weaponSystem: WeaponSystem;
   private playerController: PlayerController;
   private debugVisualizer: DebugVisualizer;
   private pickupManager?: PickupManager;
-  private remotePlayerManager?: RemotePlayerManager;
 
   // Track if controls are enabled
   private enabled = true;
@@ -42,27 +46,23 @@ export class IsometricControls implements CollisionDetector {
     domElement: HTMLCanvasElement,
     player: THREE.Mesh,
     net: NetworkClient,
-    remotePlayerManager?: RemotePlayerManager,
-    scene?: THREE.Scene
+    scene: THREE.Scene,
+    { world, bulletStops, remotePlayerMeshes }: ControlsWorld
   ) {
     this.camera = camera;
     this.player = player;
-    this.scene = scene || (player.parent as THREE.Scene);
-    this.remotePlayerManager = remotePlayerManager;
+    this.scene = scene;
 
     // Initialize component systems
     this.inputManager = new InputManager(domElement);
-    this.collisionSystem = new CollisionSystem(
-      remotePlayerManager,
-      this.player
-    );
     this.cameraController = new CameraController(camera, player);
     this.weaponSystem = new WeaponSystem(this.scene, this.player, net);
     this.playerController = new PlayerController(
       player,
       this.scene,
       this.inputManager,
-      this.collisionSystem,
+      world,
+      bulletStops,
       this.cameraController,
       this.weaponSystem,
       net
@@ -73,9 +73,9 @@ export class IsometricControls implements CollisionDetector {
 
     this.debugVisualizer = new DebugVisualizer(
       this.scene,
-      this.collisionSystem,
+      world,
       player,
-      remotePlayerManager
+      remotePlayerMeshes
     );
 
     // Set up debug visualization toggle
@@ -127,51 +127,6 @@ export class IsometricControls implements CollisionDetector {
   }
 
   /**
-   * Implement CollisionDetector interface method
-   */
-  public checkForBulletCollision(bulletPosition: THREE.Vector3): boolean {
-    return this.collisionSystem.checkForBulletCollision(bulletPosition);
-  }
-
-  /**
-   * Add a car to the scene and collision system
-   */
-  public addCarToScene(position: THREE.Vector3): THREE.Group {
-    const car = Car.addToScene(this.scene, position);
-    this.collisionSystem.addCar(car);
-    return car;
-  }
-
-  /**
-   * Add a street light to the scene and collision system
-   */
-  public addStreetLightToScene(position: THREE.Vector3): THREE.Group {
-    const streetLight = StreetLight.addToScene(this.scene, position);
-    this.collisionSystem.addStreetLight(streetLight);
-    return streetLight;
-  }
-
-  /**
-   * Add a wooden crate to the scene and collision system
-   */
-  public addWoodenCrateToScene(
-    position: THREE.Vector3,
-    size = 1.5,
-    rotation = 0,
-    crateId?: string
-  ): THREE.Group {
-    const crate = WoodenCrate.addToScene(
-      this.scene,
-      position,
-      size,
-      rotation,
-      crateId
-    );
-    this.collisionSystem.addWoodenCrate(crate, size);
-    return crate;
-  }
-
-  /**
    * Get ammo info for HUD
    */
   public getAmmoInfo() {
@@ -207,24 +162,10 @@ export class IsometricControls implements CollisionDetector {
   }
 
   /**
-   * Get car colliders for collision detection
-   */
-  public getCarColliders() {
-    return this.collisionSystem.getCarColliders();
-  }
-
-  /**
    * Get the player controller
    */
   public getPlayerController(): PlayerController {
     return this.playerController;
-  }
-
-  /**
-   * Get the collision system
-   */
-  public getCollisionSystem(): CollisionSystem {
-    return this.collisionSystem;
   }
 
   /**
@@ -243,13 +184,6 @@ export class IsometricControls implements CollisionDetector {
   }
 
   /**
-   * Get current gun (for backwards compatibility)
-   */
-  get gun(): THREE.Group {
-    return this.weaponSystem.getCurrentWeapon().model;
-  }
-
-  /**
    * Set the pickup manager
    */
   public setPickupManager(pickupManager: PickupManager): void {
@@ -259,25 +193,6 @@ export class IsometricControls implements CollisionDetector {
     if (this.weaponSystem) {
       this.weaponSystem.setPickupManager(pickupManager);
     }
-  }
-
-  /**
-   * Update the collision system with a new RemotePlayerManager
-   */
-  public updateCollisionSystem(remotePlayerManager: RemotePlayerManager): void {
-    this.remotePlayerManager = remotePlayerManager;
-    this.collisionSystem = new CollisionSystem(
-      remotePlayerManager,
-      this.player
-    );
-
-    // Update references to the new collision system
-    this.playerController.updateCollisionSystem(this.collisionSystem);
-    this.debugVisualizer.updateCollisionSystem(this.collisionSystem);
-    this.debugVisualizer.updateRemotePlayerManager(remotePlayerManager);
-
-    // Ensure the player's userData.controller is updated
-    this.player.userData.controller = this.playerController;
   }
 
   /**

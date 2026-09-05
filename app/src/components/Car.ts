@@ -1,10 +1,6 @@
 import * as THREE from "three";
 
-// Define car collision dimensions for accurate collision detection
-export interface CarCollisionInfo {
-  dimensions: THREE.Vector3;
-  heightOffset: number;
-}
+// Car mesh only; its collider is the shared `carBox` (CAR_SIZE) in the map.
 
 // Function to generate a random car color
 function getRandomCarColor() {
@@ -420,20 +416,6 @@ function createCarModel(carColor: number = 0x2255bb): THREE.Group {
   return carGroup;
 }
 
-// Get optimal collision dimensions for the car
-function getCollisionDimensions(): CarCollisionInfo {
-  // These dimensions are based on the actual car model
-  // When the car is rotated 90 degrees (Math.PI/2) around Y axis:
-  // - The car's length becomes its width (x-axis)
-  // - The car's width becomes its depth (z-axis)
-  return {
-    // Car is rotated 90 degrees, so we need to swap width and length
-    // to match the car's visual orientation after rotation
-    dimensions: new THREE.Vector3(2.4, 1.8, 5.0),
-    heightOffset: 0.9, // Center of the collision box should be this height from the ground
-  };
-}
-
 // Add a car to the scene at the specified position
 export function addToScene(
   scene: THREE.Scene,
@@ -457,6 +439,5 @@ export function addToScene(
 export const Car = {
   createCarModel,
   addToScene,
-  getCollisionDimensions,
   getRandomCarColor,
 };
