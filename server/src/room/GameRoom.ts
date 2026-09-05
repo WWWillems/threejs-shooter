@@ -240,6 +240,7 @@ export class GameRoom {
       hp: PLAYER_MAX_HP,
       position: payload.position,
       rotation: 0,
+      positionAt: this.clock(),
       lastShotAt: -Infinity,
       lastThrowAt: -Infinity,
       pendingHazardDamage: 0,
@@ -268,6 +269,7 @@ export class GameRoom {
     // Ingest only; positions reach other clients through the snapshot stream.
     player.position = payload.position;
     player.rotation = payload.rotation;
+    player.positionAt = this.clock();
   }
 
   private handleRespawn(playerId: string, _payload: RespawnRequestEvent): void {
@@ -284,6 +286,7 @@ export class GameRoom {
     player.hp = PLAYER_MAX_HP;
     player.position = { ...position };
     player.rotation = 0;
+    player.positionAt = this.clock();
 
     this.transport.broadcast(GAME_EVENTS.PLAYER.RESPAWN, {
       playerId,
@@ -662,7 +665,7 @@ export class GameRoom {
 
   private snapshotPlayers(): PlayerSnapshot[] {
     return [...this.players.values()].map(
-      ({ id, userId, name, status, hp, position, rotation }) => ({
+      ({ id, userId, name, status, hp, position, rotation, positionAt }) => ({
         id,
         userId,
         name,
@@ -670,6 +673,7 @@ export class GameRoom {
         hp,
         position,
         rotation,
+        positionAt,
       })
     );
   }

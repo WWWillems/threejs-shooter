@@ -91,6 +91,25 @@ describe("GameRoom", () => {
       expect(alice.received(GAME_EVENTS.WORLD.SNAPSHOT)).toHaveLength(1);
     });
 
+    it("stamps each player's position with the time it was reported", () => {
+      const { alice, bob } = twoPlayers();
+
+      const reportedAt = now;
+      alice.send(GAME_EVENTS.PLAYER.POSITION, {
+        position: { x: 1, y: 1, z: 0 },
+        rotation: 0,
+      });
+      runTicks(3); // the report is repeated in three snapshots
+
+      const snapshots = bob.received(GAME_EVENTS.WORLD.SNAPSHOT);
+      expect(snapshots).toHaveLength(3);
+      for (const { payload } of snapshots) {
+        const a = payload.players.find((p) => p.id === "alice")!;
+        expect(a.positionAt).toBe(reportedAt);
+        expect(payload.serverTime).toBeGreaterThan(reportedAt);
+      }
+    });
+
     it("numbers ticks monotonically", () => {
       const { alice } = twoPlayers();
       runTicks(3);

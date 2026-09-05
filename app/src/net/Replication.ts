@@ -36,12 +36,29 @@ export interface ReplicationOptions {
 }
 
 /**
+ * One position report from a player, as seen through the snapshot stream.
+ * Consecutive snapshots repeat a player's last report until a new one lands,
+ * so a track holds only the distinct reports (keyed on `positionAt`).
+ */
+interface Keyframe {
+  at: number;
+  snap: PlayerSnapshot;
+}
+
+/**
  * Buffers world snapshots and samples a smooth world state at any point in
  * server time. Rendering happens `interpolationDelayMs` behind the newest
  * snapshot so there is (almost) always a pair to interpolate between.
+ *
+ * Players are interpolated between the moments their positions were actually
+ * reported (`PlayerSnapshot.positionAt`), not between snapshots: a snapshot
+ * that merely repeats a stale position would otherwise read as "stood still
+ * for a tick", which shows up as stop-go motion. Grenades are server
+ * simulated and fresh every tick, so they interpolate between snapshots.
  */
 export class Replication {
   private readonly snapshots: WorldSnapshot[] = [];
+  private readonly tracks = new Map<string, Keyframe[]>();
   private readonly interpolationDelayMs: number;
   private readonly maxSnapshots: number;
   /** serverTime - localTime, smoothed. Null until the first snapshot. */
@@ -65,6 +82,7 @@ export class Replication {
     if (this.snapshots.length > this.maxSnapshots) {
       this.snapshots.shift();
     }
+    this.recordKeyframes(snapshot);
 
     const offset = snapshot.serverTime - localNow;
     this.clockOffset =
@@ -106,8 +124,12 @@ export class Replication {
     const last = this.snapshots[this.snapshots.length - 1];
 
     // Clamp: no extrapolation beyond what the server has told us.
-    if (t <= first.serverTime) return toStates(first);
-    if (t >= last.serverTime) return toStates(last);
+    if (t <= first.serverTime) {
+      return { players: this.samplePlayers(first, t), grenades: grenadeStates(first) };
+    }
+    if (t >= last.serverTime) {
+      return { players: this.samplePlayers(last, t), grenades: grenadeStates(last) };
+    }
 
     // Find the pair [a, b] with a.serverTime <= t < b.serverTime.
     let hi = 1;
@@ -117,13 +139,6 @@ export class Replication {
 
     const span = b.serverTime - a.serverTime;
     const alpha = span > 0 ? (t - a.serverTime) / span : 1;
-
-    const players = new Map<string, ReplicatedPlayer>();
-    const previous = new Map(a.players.map((p) => [p.id, p]));
-    for (const to of b.players) {
-      const from = previous.get(to.id);
-      players.set(to.id, from ? lerpPlayer(from, to, alpha) : toState(to));
-    }
 
     const grenades = new Map<string, ReplicatedGrenade>();
     const previousGrenades = new Map(a.grenades.map((g) => [g.id, g]));
@@ -136,17 +151,68 @@ export class Replication {
       });
     }
 
-    return { players, grenades };
+    return { players: this.samplePlayers(b, t), grenades };
+  }
+
+  /** Append each player's report to its track if it is newer than the last one. */
+  private recordKeyframes(snapshot: WorldSnapshot): void {
+    const present = new Set<string>();
+    for (const snap of snapshot.players) {
+      present.add(snap.id);
+      let track = this.tracks.get(snap.id);
+      if (!track) {
+        track = [];
+        this.tracks.set(snap.id, track);
+      }
+      const newest = track[track.length - 1];
+      if (newest && snap.positionAt <= newest.at) {
+        // Same report as before; only the discrete fields (hp, status) may have moved on.
+        newest.snap = snap;
+        continue;
+      }
+      track.push({ at: snap.positionAt, snap });
+      if (track.length > this.maxSnapshots) track.shift();
+    }
+    for (const id of this.tracks.keys()) {
+      if (!present.has(id)) this.tracks.delete(id);
+    }
+  }
+
+  /**
+   * The players that exist in `membership` (the snapshot bracketing `t`),
+   * each placed by interpolating its own reports around `t`.
+   */
+  private samplePlayers(
+    membership: WorldSnapshot,
+    t: number
+  ): Map<string, ReplicatedPlayer> {
+    const players = new Map<string, ReplicatedPlayer>();
+    for (const snap of membership.players) {
+      players.set(snap.id, this.samplePlayer(snap, t));
+    }
+    return players;
+  }
+
+  private samplePlayer(fallback: PlayerSnapshot, t: number): ReplicatedPlayer {
+    const track = this.tracks.get(fallback.id);
+    if (!track || track.length === 0) return toState(fallback);
+
+    // Newest report at or before t.
+    let i = track.length - 1;
+    while (i > 0 && track[i].at > t) i -= 1;
+    const from = track[i];
+    const to = track[i + 1];
+
+    // Hold when t precedes the first report or follows the newest one.
+    if (!to || t <= from.at) return toState(from.snap);
+
+    const alpha = (t - from.at) / (to.at - from.at);
+    return lerpPlayer(from.snap, to.snap, alpha);
   }
 }
 
-function toStates(snapshot: WorldSnapshot): ReplicatedWorld {
-  return {
-    players: new Map(snapshot.players.map((p) => [p.id, toState(p)])),
-    grenades: new Map(
-      snapshot.grenades.map((g) => [g.id, toGrenadeState(g)])
-    ),
-  };
+function grenadeStates(snapshot: WorldSnapshot): Map<string, ReplicatedGrenade> {
+  return new Map(snapshot.grenades.map((g) => [g.id, toGrenadeState(g)]));
 }
 
 function toGrenadeState(g: GrenadeSnapshot): ReplicatedGrenade {

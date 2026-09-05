@@ -6,6 +6,9 @@ import type {
 } from "@threejs-shooter/shared";
 import { Replication, lerpAngle } from "./Replication";
 
+/** Marker for "reported at the snapshot's own serverTime"; `snapshot()` fills it in. */
+const AT_SNAPSHOT = -1;
+
 const player = (
   id: string,
   x: number,
@@ -19,6 +22,7 @@ const player = (
   hp: 100,
   position: { x, y: 1, z: 0 },
   rotation,
+  positionAt: AT_SNAPSHOT,
   ...extra,
 });
 
@@ -27,7 +31,14 @@ const snapshot = (
   serverTime: number,
   players: PlayerSnapshot[],
   grenades: GrenadeSnapshot[] = []
-): WorldSnapshot => ({ tick, serverTime, players, grenades });
+): WorldSnapshot => ({
+  tick,
+  serverTime,
+  players: players.map((p) =>
+    p.positionAt === AT_SNAPSHOT ? { ...p, positionAt: serverTime } : p
+  ),
+  grenades,
+});
 
 describe("Replication", () => {
   it("returns nothing before the first snapshot", () => {
@@ -78,6 +89,53 @@ describe("Replication", () => {
     r.push(snapshot(2, 1050, [player("a", 10)]), 1050);
     r.push(snapshot(1, 1000, [player("a", 0)]), 1060);
     expect(r.latest!.tick).toBe(2);
+  });
+
+  it("interpolates between reports, not between snapshots repeating a stale one", () => {
+    // Reports land every 100 ms but snapshots go out every 50 ms, so every
+    // other snapshot repeats the previous report.
+    const r = new Replication({ interpolationDelayMs: 0 });
+    const report = (x: number, at: number) => player("a", x, 0, { positionAt: at });
+    r.push(snapshot(1, 1000, [report(0, 1000)]), 1000);
+    r.push(snapshot(2, 1050, [report(0, 1000)]), 1050); // stale repeat
+    r.push(snapshot(3, 1100, [report(10, 1100)]), 1100);
+    r.push(snapshot(4, 1150, [report(10, 1100)]), 1150); // stale repeat
+    r.push(snapshot(5, 1200, [report(20, 1200)]), 1200);
+
+    // Linear the whole way: no 50 ms holds between the reports.
+    expect(r.sampleAtServerTime(1025).get("a")!.position.x).toBeCloseTo(2.5);
+    expect(r.sampleAtServerTime(1075).get("a")!.position.x).toBeCloseTo(7.5);
+    expect(r.sampleAtServerTime(1125).get("a")!.position.x).toBeCloseTo(12.5);
+    expect(r.sampleAtServerTime(1175).get("a")!.position.x).toBeCloseTo(17.5);
+  });
+
+  it("holds a player who keeps reporting the same spot, then moves off cleanly", () => {
+    const r = new Replication({ interpolationDelayMs: 0 });
+    const report = (x: number, at: number) => player("a", x, 0, { positionAt: at });
+    r.push(snapshot(1, 1000, [report(0, 1000)]), 1000);
+    r.push(snapshot(2, 1050, [report(0, 1050)]), 1050);
+    r.push(snapshot(3, 1100, [report(0, 1100)]), 1100);
+    r.push(snapshot(4, 1150, [report(5, 1150)]), 1150);
+
+    expect(r.sampleAtServerTime(1075).get("a")!.position.x).toBe(0);
+    expect(r.sampleAtServerTime(1125).get("a")!.position.x).toBeCloseTo(2.5);
+  });
+
+  it("does not extrapolate past the newest report", () => {
+    const r = new Replication({ interpolationDelayMs: 0 });
+    r.push(snapshot(1, 1000, [player("a", 0)]), 1000);
+    r.push(snapshot(2, 1050, [player("a", 10)]), 1050);
+    r.push(snapshot(3, 1100, [player("a", 10, 0, { positionAt: 1050 })]), 1100);
+
+    expect(r.sampleAtServerTime(1200).get("a")!.position.x).toBe(10);
+  });
+
+  it("forgets a player's track once they leave the snapshots", () => {
+    const r = new Replication({ interpolationDelayMs: 0 });
+    r.push(snapshot(1, 1000, [player("a", 0), player("b", 0)]), 1000);
+    r.push(snapshot(2, 1050, [player("a", 1)]), 1050);
+
+    expect(r.sampleAtServerTime(1050).has("b")).toBe(false);
   });
 
   it("interpolates grenade positions and drops grenades that vanished", () => {

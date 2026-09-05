@@ -37,10 +37,13 @@ broadcast once per tick. Carries continuous state only; discrete happenings go
 through outcome events. Snapshots are full, not delta-compressed.
 
 **Replication.** The client module (`app/src/net/Replication.ts`) that buffers
-snapshots and answers "where was everything at server time _t_?" by
-interpolating between the two surrounding snapshots. Rendering runs ~100 ms
-behind the newest snapshot (`interpolationDelayMs`) to hide network jitter.
-Never extrapolates.
+snapshots and answers "where was everything at server time _t_?". Grenades are
+interpolated between the two surrounding snapshots. Players are interpolated
+between their _reports_: each `PlayerSnapshot` carries `positionAt`, the server
+time the owning client last sent `player:position`, and a snapshot that merely
+repeats the previous report adds nothing. Rendering runs ~100 ms behind the
+newest snapshot (`interpolationDelayMs`) to hide network jitter. Never
+extrapolates.
 
 ## Modules
 

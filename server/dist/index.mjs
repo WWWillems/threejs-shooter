@@ -883,6 +883,7 @@ class GameRoom {
       hp: PLAYER_MAX_HP,
       position: payload.position,
       rotation: 0,
+      positionAt: this.clock(),
       lastShotAt: -Infinity,
       lastThrowAt: -Infinity,
       pendingHazardDamage: 0
@@ -906,6 +907,7 @@ class GameRoom {
     if (!player || player.status === "dead") return;
     player.position = payload.position;
     player.rotation = payload.rotation;
+    player.positionAt = this.clock();
   }
   handleRespawn(playerId, _payload) {
     const player = this.players.get(playerId);
@@ -919,6 +921,7 @@ class GameRoom {
     player.hp = PLAYER_MAX_HP;
     player.position = { ...position };
     player.rotation = 0;
+    player.positionAt = this.clock();
     this.transport.broadcast(GAME_EVENTS.PLAYER.RESPAWN, {
       playerId,
       position,
@@ -1226,14 +1229,15 @@ class GameRoom {
   }
   snapshotPlayers() {
     return [...this.players.values()].map(
-      ({ id, userId, name, status, hp, position, rotation }) => ({
+      ({ id, userId, name, status, hp, position, rotation, positionAt }) => ({
         id,
         userId,
         name,
         status,
         hp,
         position,
-        rotation
+        rotation,
+        positionAt
       })
     );
   }

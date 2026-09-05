@@ -7,7 +7,7 @@ import { CrateSync } from "./components/CrateSync";
 import { GrenadeRenderer } from "./components/GrenadeRenderer";
 import { StartOverlay } from "./components/StartOverlay";
 import { RemotePlayerManager } from "./components/RemotePlayerManager";
-import { GAME_EVENTS } from "@threejs-shooter/shared";
+import { GAME_EVENTS, TICK_RATE } from "@threejs-shooter/shared";
 import { GameScene } from "./core/Scene";
 import { Ground } from "./core/Ground";
 import { Player } from "./core/Player";
@@ -116,7 +116,8 @@ const playerPosition = () => ({
   z: player.position.z,
 });
 
-// Report our position to the server at 10 Hz while alive
+// Report our position to the server at the tick rate while alive, so every
+// snapshot the server sends carries a fresh report (see Replication).
 setInterval(() => {
   const playerController = controls.getPlayerController();
   if (playerController && !playerController.getHealth().isDead) {
@@ -125,7 +126,7 @@ setInterval(() => {
       rotation: player.rotation.y,
     });
   }
-}, 100);
+}, 1000 / TICK_RATE);
 
 // Create the start overlay
 const startOverlay = new StartOverlay(document.body, (nickname) => {

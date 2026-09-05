@@ -162,6 +162,12 @@ export interface PlayerSnapshot {
   hp: number;
   position?: Vec3;
   rotation: number;
+  /**
+   * Server time (ms) at which `position`/`rotation` were last reported by the
+   * owning client. Lets receivers interpolate between actual reports instead
+   * of between snapshots that may repeat a stale position.
+   */
+  positionAt: number;
 }
 
 /** Sent to a client right after it joins so it can render players already in the game. */
