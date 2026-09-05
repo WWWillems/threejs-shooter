@@ -1,0 +1,28 @@
+---
+description: Project overview, monorepo layout and how the packages relate
+globs:
+alwaysApply: true
+---
+# Project Details
+
+## Summary
+We're making an isometric multiplayer shooter game using real-time sockets.
+This repo is an npm-workspaces monorepo; install once from the root with `npm install`.
+
+## Packages
+- `app/` (`@threejs-shooter/app`): browser client. TypeScript, Three.js, Vite, plain CSS.
+  Networking via `socket.io-client` in `app/src/api/socket.ts`. Reads `VITE_SERVER_URL`
+  (default `http://localhost:3000`). Run with `npm run dev:app`.
+- `server/` (`@threejs-shooter/server`): Node game server. Express + `socket.io`, entry
+  `server/src/index.ts`. Relays player/weapon/combat events and serves `/leaderboard`.
+  Run with `npm run dev:server` (tsx watch). Built with pkgroll into `server/dist/index.mjs`,
+  which is committed and deployed as-is (see `server/README.md`).
+- `shared/` (`@threejs-shooter/shared`): the event contract shared by app and server.
+  `GAME_EVENTS` (socket event names) and the event payload types live here and nowhere else.
+  Source-only TypeScript, no build step. Import with `import { GAME_EVENTS } from "@threejs-shooter/shared"`.
+
+## Conventions
+- Never duplicate socket event names or payload types in `app` or `server`; add them to `shared`.
+- `server` lists `@threejs-shooter/shared` as a devDependency on purpose so pkgroll inlines it.
+- `typescript` is a root devDependency; do not add it to individual packages.
+- Node 22 (`.nvmrc`), npm workspaces (no yarn/pnpm lockfiles).

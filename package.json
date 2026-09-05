@@ -1,0 +1,20 @@
+{
+  "name": "threejs-shooter",
+  "private": true,
+  "version": "0.0.0",
+  "workspaces": [
+    "app",
+    "server",
+    "shared"
+  ],
+  "scripts": {
+    "dev:app": "npm run dev -w app",
+    "dev:server": "npm run dev -w server",
+    "build:app": "npm run build -w app",
+    "build:server": "npm run build -w server",
+    "build": "npm run build:app && npm run build:server"
+  },
+  "devDependencies": {
+    "typescript": "~5.8.2"
+  }
+}

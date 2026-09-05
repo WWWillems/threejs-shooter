@@ -1,0 +1,25 @@
+{
+  "name": "@threejs-shooter/server",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch ./src/index.ts",
+    "build": "pkgroll",
+    "start": "node ./dist/index.mjs"
+  },
+  "exports": "./dist/index.mjs",
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.21.2",
+    "http": "^0.0.1-security",
+    "socket.io": "^4.8.1"
+  },
+  "devDependencies": {
+    "@threejs-shooter/shared": "*",
+    "@types/cors": "^2.8.17",
+    "@types/express": "^5.0.0",
+    "pkgroll": "^2.11.2",
+    "tsx": "^4.19.3"
+  }
+}
