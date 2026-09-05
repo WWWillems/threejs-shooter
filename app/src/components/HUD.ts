@@ -1,6 +1,6 @@
 import type { IsometricControls } from "./IsometricControls";
 import { WeaponType } from "./Weapon";
-import { getLeaderboard } from "../api/socket";
+import type { NetworkClient } from "../net/NetworkClient";
 import type { LeaderboardEntry } from "@threejs-shooter/shared";
 
 type LeaderboardPlayer = LeaderboardEntry;
@@ -44,7 +44,11 @@ export class HUD {
   private frameCount = 0;
   private lastTime = performance.now();
 
-  constructor(container: HTMLElement, private controls: IsometricControls) {
+  constructor(
+    container: HTMLElement,
+    private controls: IsometricControls,
+    private net: NetworkClient
+  ) {
     this.container = container;
     this.uiOverlay = this.createUIOverlay();
     this.container.appendChild(this.uiOverlay);
@@ -919,7 +923,7 @@ export class HUD {
    */
   private async fetchLeaderboardData(): Promise<void> {
     try {
-      const data = await getLeaderboard();
+      const data = await this.net.getLeaderboard();
       this.leaderboardData = Object.values(data);
 
       // Update the leaderboard display if it's visible

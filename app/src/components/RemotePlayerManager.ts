@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import socket from "../api/socket";
+import type { NetworkClient } from "../net/NetworkClient";
 import type { HUD } from "./HUD";
 import { WeaponSystem } from "./Weapon";
 import {
@@ -32,31 +32,36 @@ export class RemotePlayerManager {
   private players: Map<string, RemotePlayer> = new Map();
   private scene: THREE.Scene;
   private hud: HUD;
+  private net: NetworkClient;
   private collisionDetector?: CollisionDetector;
 
   constructor(
     scene: THREE.Scene,
     hud: HUD,
+    net: NetworkClient,
     collisionDetector?: CollisionDetector
   ) {
     this.scene = scene;
     this.hud = hud;
+    this.net = net;
     this.collisionDetector = collisionDetector;
-    this.setupSocketListeners();
+    this.setupNetworkListeners();
   }
 
   /**
-   * Set up socket listeners for remote player events
+   * Set up listeners for remote player events
    */
-  private setupSocketListeners(): void {
+  private setupNetworkListeners(): void {
+    const { net } = this;
+
     // Snapshot of players already in the game, sent to us right after we join
-    socket.on(GAME_EVENTS.GAME.STATE, ({ players }) => {
+    net.on(GAME_EVENTS.GAME.STATE, ({ players }) => {
       for (const snapshot of players) {
         this.addPlayerFromSnapshot(snapshot);
       }
     });
 
-    socket.on(GAME_EVENTS.USER.JOINED, ({ userId, name }) => {
+    net.on(GAME_EVENTS.USER.JOINED, ({ userId, name }) => {
       this.addPlayer(userId);
 
       this.hud.showNotification(
@@ -68,7 +73,7 @@ export class RemotePlayerManager {
     });
 
     // Listen for player disconnections
-    socket.on(GAME_EVENTS.USER.DISCONNECTED, ({ message, userId }) => {
+    net.on(GAME_EVENTS.USER.DISCONNECTED, ({ message, userId }) => {
       this.removePlayer(userId);
 
       this.hud.showNotification(
@@ -80,24 +85,24 @@ export class RemotePlayerManager {
     });
 
     // Listen for player position updates
-    socket.on(GAME_EVENTS.PLAYER.POSITION, ({ userId, position, rotation }) => {
+    net.on(GAME_EVENTS.PLAYER.POSITION, ({ userId, position, rotation }) => {
       this.updatePlayerPosition(userId, position, rotation);
     });
 
     // Listen for player status updates (death/respawn)
-    socket.on(GAME_EVENTS.PLAYER.STATUS, ({ userId, status, position }) => {
+    net.on(GAME_EVENTS.PLAYER.STATUS, ({ userId, status, position }) => {
       this.handlePlayerStatusChange(userId, status, position);
     });
 
     // Listen for player weapon updates
-    socket.on(GAME_EVENTS.WEAPON.SWITCH, ({ userId, weaponType, action }) => {
+    net.on(GAME_EVENTS.WEAPON.SWITCH, ({ userId, weaponType, action }) => {
       if (action === "switch") {
         this.updatePlayerWeapon(userId, this.getWeaponIndex(weaponType));
       }
     });
 
     // Listen for weapon shoot events
-    socket.on(GAME_EVENTS.WEAPON.SHOOT, ({ userId, data }) => {
+    net.on(GAME_EVENTS.WEAPON.SHOOT, ({ userId, data }) => {
       const player = this.players.get(userId);
       if (!player || !data?.position || !data?.direction) {
         console.warn("Invalid remote shoot data:", { player, data });
@@ -115,10 +120,8 @@ export class RemotePlayerManager {
         data.direction.z
       );
 
-      player.weaponSystem.handleRemoteEvent(() => {
-        // Create bullet at the remote player's position with the correct direction
-        player.weaponSystem.shootRemote(this.scene, position, direction);
-      });
+      // Create bullet at the remote player's position with the correct direction
+      player.weaponSystem.shootRemote(this.scene, position, direction);
     });
   }
 
@@ -172,10 +175,10 @@ export class RemotePlayerManager {
     // Add to scene
     this.scene.add(playerMesh);
 
-    const weaponSystem = new WeaponSystem(this.scene, playerMesh);
-    weaponSystem.handleRemoteEvent(() => {
-      weaponSystem.switchToWeapon(0);
-    });
+    // Remote weapon systems have no network client: they mirror server events
+    // and never echo them back.
+    const weaponSystem = new WeaponSystem(this.scene, playerMesh, null);
+    weaponSystem.switchToWeapon(0);
 
     // Immediately update the weapon position
     weaponSystem.updateWeaponPosition(false);
@@ -296,9 +299,7 @@ export class RemotePlayerManager {
     if (!player) {
       return;
     }
-    player.weaponSystem.handleRemoteEvent(() => {
-      player.weaponSystem.switchToWeapon(weaponIndex);
-    });
+    player.weaponSystem.switchToWeapon(weaponIndex);
   }
 
   /**

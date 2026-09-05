@@ -12,6 +12,7 @@ import { StreetLight } from "./StreetLight";
 import { WoodenCrate } from "./WoodenCrate";
 import type { PickupManager } from "./PickupManager";
 import type { RemotePlayerManager } from "./RemotePlayerManager";
+import type { NetworkClient } from "../net/NetworkClient";
 
 /**
  * Main game controls class using composition pattern to integrate all systems
@@ -40,6 +41,7 @@ export class IsometricControls implements CollisionDetector {
     camera: THREE.Camera,
     domElement: HTMLCanvasElement,
     player: THREE.Mesh,
+    net: NetworkClient,
     remotePlayerManager?: RemotePlayerManager,
     scene?: THREE.Scene
   ) {
@@ -55,14 +57,15 @@ export class IsometricControls implements CollisionDetector {
       this.player
     );
     this.cameraController = new CameraController(camera, player);
-    this.weaponSystem = new WeaponSystem(this.scene, this.player);
+    this.weaponSystem = new WeaponSystem(this.scene, this.player, net);
     this.playerController = new PlayerController(
       player,
       this.scene,
       this.inputManager,
       this.collisionSystem,
       this.cameraController,
-      this.weaponSystem
+      this.weaponSystem,
+      net
     );
 
     // Store reference to the player controller in player's userData

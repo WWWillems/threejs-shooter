@@ -3,8 +3,12 @@ import { Bullet } from "./Bullet";
 import type { CollisionDetector } from "./CollisionInterface";
 import { WeaponPickup } from "./WeaponPickup";
 import type { PickupManager } from "./PickupManager";
-import { NetworkedEntity } from "../events/networkedEntity";
-import { GAME_EVENTS } from "@threejs-shooter/shared";
+import type { NetworkClient } from "../net/NetworkClient";
+import {
+  GAME_EVENTS,
+  type ClientEventName,
+  type OutgoingPayload,
+} from "@threejs-shooter/shared";
 
 // Define the Weapon interface
 export interface Weapon {
@@ -39,7 +43,7 @@ declare global {
   }
 }
 
-export class WeaponSystem extends NetworkedEntity {
+export class WeaponSystem {
   private weapons: Weapon[] = [];
   private currentWeaponIndex = 0;
   private scene: THREE.Scene;
@@ -48,6 +52,8 @@ export class WeaponSystem extends NetworkedEntity {
   private gunOffset = new THREE.Vector3(0.7, -0.1, -0.3);
   private pickupManager: PickupManager | null = null;
   private aimTarget: THREE.Vector3 | null = null;
+  /** Null for remote players' weapon systems: they mirror the network, never talk to it. */
+  private readonly net: NetworkClient | null;
 
   // Add muzzle flash properties
   private muzzleFlash: THREE.Mesh | null = null;
@@ -60,12 +66,12 @@ export class WeaponSystem extends NetworkedEntity {
   constructor(
     scene: THREE.Scene,
     player: THREE.Mesh,
+    net: NetworkClient | null,
     pickupManager?: PickupManager
   ) {
-    super();
-
     this.scene = scene;
     this.player = player;
+    this.net = net;
     this.pickupManager = pickupManager || null;
 
     // Initialize weapons
@@ -75,6 +81,14 @@ export class WeaponSystem extends NetworkedEntity {
     if (!window.__impactAnimations) {
       window.__impactAnimations = [];
     }
+  }
+
+  /** Send to the server if this is the local player's weapon system. */
+  private emit<E extends ClientEventName>(
+    event: E,
+    payload: OutgoingPayload<E>
+  ): void {
+    this.net?.send(event, payload);
   }
 
   // Initialize available weapons

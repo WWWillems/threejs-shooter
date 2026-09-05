@@ -6,7 +6,7 @@ import type { WeaponSystem } from "./Weapon";
 import { WeaponType } from "./Weapon";
 import type { Weapon } from "./Weapon";
 import { GAME_EVENTS } from "@threejs-shooter/shared";
-import { EventEmitter } from "../events/eventEmitter";
+import type { NetworkClient } from "../net/NetworkClient";
 
 /**
  * Utility class for handling common player behaviors
@@ -80,7 +80,6 @@ export class PlayerController {
 
   // Store a reference to the camera
   private camera: THREE.Camera;
-  private readonly eventEmitter = EventEmitter.getInstance();
   private readonly groundPlane = new THREE.Plane(
     new THREE.Vector3(0, 1, 0),
     0
@@ -93,6 +92,7 @@ export class PlayerController {
     private collisionSystem: CollisionSystem,
     private cameraController: CameraController,
     private weaponSystem: WeaponSystem,
+    private net: NetworkClient,
     movementSettings?: Partial<PlayerMovementSettings>,
     dimensions?: Partial<PlayerDimensions>
   ) {
@@ -471,7 +471,7 @@ export class PlayerController {
       PlayerUtils.handlePlayerDeath(this.player);
 
       // Emit player status event for death
-      this.eventEmitter.emit(GAME_EVENTS.PLAYER.STATUS, { status: "dead" });
+      this.net.send(GAME_EVENTS.PLAYER.STATUS, { status: "dead" });
 
       // Dispatch death event
       const deathEvent = new CustomEvent("player-death");
@@ -517,7 +517,7 @@ export class PlayerController {
     this.player.updateMatrix(); // Force matrix update
 
     // Emit player status event for respawn
-    this.eventEmitter.emit(GAME_EVENTS.PLAYER.STATUS, {
+    this.net.send(GAME_EVENTS.PLAYER.STATUS, {
       status: "alive",
       position: {
         x: this.player.position.x,

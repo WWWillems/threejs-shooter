@@ -37,7 +37,7 @@ The refactoring employs several important design patterns:
 
 ```typescript
 // Create the main controls
-const controls = new IsometricControls(camera, canvas, playerMesh);
+const controls = new IsometricControls(camera, canvas, playerMesh, net);
 
 // Add a car to the scene
 controls.addCarToScene(new THREE.Vector3(10, 0, 10));

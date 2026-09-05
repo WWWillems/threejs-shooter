@@ -5,14 +5,18 @@ import { HUD } from "./components/HUD";
 import { PickupManager } from "./components/PickupManager";
 import { StartOverlay } from "./components/StartOverlay";
 import { RemotePlayerManager } from "./components/RemotePlayerManager";
-import { EventEmitter } from "./events/eventEmitter";
 import { GAME_EVENTS } from "@threejs-shooter/shared";
 import { GameScene } from "./core/Scene";
 import { Ground } from "./core/Ground";
 import { Player } from "./core/Player";
 import { EnvironmentBuilder } from "./environment/EnvironmentBuilder";
 import { GameLoop } from "./core/GameLoop";
-import socket from "./api/socket";
+import { NetworkClient } from "./net/NetworkClient";
+
+// Connect to the game server
+const net = NetworkClient.connect(
+  import.meta.env.VITE_SERVER_URL || "http://localhost:3000"
+);
 
 // Initialize the core game systems
 const gameScene = new GameScene();
@@ -35,6 +39,7 @@ const controls = new IsometricControls(
   camera,
   renderer.domElement,
   player,
+  net,
   undefined,
   scene
 );
@@ -43,13 +48,13 @@ const controls = new IsometricControls(
 controls.disableControls();
 
 // Initialize HUD
-const hud = new HUD(document.body, controls);
+const hud = new HUD(document.body, controls, net);
 
 // Store HUD reference in scene.userData
 scene.userData.hud = hud;
 
 // Initialize RemotePlayerManager
-const remotePlayerManager = new RemotePlayerManager(scene, hud);
+const remotePlayerManager = new RemotePlayerManager(scene, hud, net);
 
 // Update controls with RemotePlayerManager
 controls.updateCollisionSystem(remotePlayerManager);
@@ -86,42 +91,18 @@ const gameLoop = new GameLoop(
   []
 );
 
-// Setup event emission for player position
-const eventEmitter = EventEmitter.getInstance();
-let hasJoinedGame = false;
-let playerNickname = "";
-
-const emitPlayerJoined = (): void => {
-  eventEmitter.emit(GAME_EVENTS.USER.JOINED, {
-    position: {
-      x: player.position.x,
-      y: player.position.y,
-      z: player.position.z,
-    },
-    name: playerNickname,
-  });
-};
-
-// Socket.IO assigns a new socket id after reconnecting. Re-register this
-// client so the server and other players rebuild its presence.
-socket.on("connect", () => {
-  if (hasJoinedGame) {
-    emitPlayerJoined();
-  }
+const playerPosition = () => ({
+  x: player.position.x,
+  y: player.position.y,
+  z: player.position.z,
 });
 
+// Report our position to the server at 10 Hz while alive
 setInterval(() => {
-  // Get player controller
   const playerController = controls.getPlayerController();
-
-  // Only emit position updates if the player is alive
   if (playerController && !playerController.getHealth().isDead) {
-    eventEmitter.emit(GAME_EVENTS.PLAYER.POSITION, {
-      position: {
-        x: player.position.x,
-        y: player.position.y,
-        z: player.position.z,
-      },
+    net.send(GAME_EVENTS.PLAYER.POSITION, {
+      position: playerPosition(),
       rotation: player.rotation.y,
     });
   }
@@ -138,14 +119,13 @@ const startOverlay = new StartOverlay(document.body, (nickname) => {
   controls.enableControls();
 
   // Set player nickname
-  playerNickname = nickname;
-  playerSystem.setNickname(playerNickname);
+  playerSystem.setNickname(nickname);
 
   // Update HUD with nickname
   hud.updateNickname(nickname);
 
-  hasJoinedGame = true;
-  emitPlayerJoined();
+  // Join the game; NetworkClient re-joins automatically after a reconnect
+  net.join(nickname, playerPosition);
 });
 
 // Start the game loop immediately
