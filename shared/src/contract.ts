@@ -7,6 +7,7 @@ import type {
   UserConnectionEvent,
   UserJoinedEvent,
   WeaponEvent,
+  WorldSnapshot,
 } from "./types";
 
 /**
@@ -26,12 +27,12 @@ export interface ClientToServerEvents {
 /** Events the server may send to a client, bound to their payload types. */
 export interface ServerToClientEvents {
   [GAME_EVENTS.GAME.STATE]: (payload: GameStateEvent) => void;
+  [GAME_EVENTS.WORLD.SNAPSHOT]: (payload: WorldSnapshot) => void;
   [GAME_EVENTS.USER.CONNECTED]: (payload: Stamped<UserConnectionEvent>) => void;
   [GAME_EVENTS.USER.JOINED]: (payload: Stamped<UserJoinedEvent>) => void;
   [GAME_EVENTS.USER.DISCONNECTED]: (
     payload: Stamped<UserConnectionEvent>
   ) => void;
-  [GAME_EVENTS.PLAYER.POSITION]: (payload: Stamped<PlayerPositionEvent>) => void;
   [GAME_EVENTS.PLAYER.STATUS]: (payload: Stamped<PlayerStatusEvent>) => void;
   [GAME_EVENTS.WEAPON.SHOOT]: (payload: Stamped<WeaponEvent>) => void;
   [GAME_EVENTS.WEAPON.SWITCH]: (payload: Stamped<WeaponEvent>) => void;

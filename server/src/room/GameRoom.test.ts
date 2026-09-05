@@ -32,7 +32,7 @@ describe("GameRoom", () => {
     expect(bob.received(GAME_EVENTS.USER.JOINED)).toHaveLength(0);
   });
 
-  it("propagates position updates to others and keeps last-known state", () => {
+  it("ingests position updates and replicates them in the next snapshot", () => {
     const alice = client("alice").connect();
     const bob = client("bob").connect();
     alice.send(GAME_EVENTS.USER.JOINED, { name: "Alice", position: origin });
@@ -41,11 +41,39 @@ describe("GameRoom", () => {
 
     const position = { x: 3, y: 1, z: -2 };
     alice.send(GAME_EVENTS.PLAYER.POSITION, { position, rotation: 1.5 });
-
-    const [update] = bob.received(GAME_EVENTS.PLAYER.POSITION);
-    expect(update.payload).toMatchObject({ userId: "alice", position });
-    expect(alice.received(GAME_EVENTS.PLAYER.POSITION)).toHaveLength(0);
     expect(room.players.get("alice")).toMatchObject({ position, rotation: 1.5 });
+
+    room.tick(0.05, 1000);
+
+    const [snapshot] = bob.received(GAME_EVENTS.WORLD.SNAPSHOT);
+    expect(snapshot.payload.serverTime).toBe(1000);
+    expect(snapshot.payload.players).toContainEqual(
+      expect.objectContaining({ id: "alice", position, rotation: 1.5 })
+    );
+    // Everyone gets the snapshot, including the sender (clients ignore their own entry).
+    expect(alice.received(GAME_EVENTS.WORLD.SNAPSHOT)).toHaveLength(1);
+  });
+
+  it("numbers ticks monotonically", () => {
+    const alice = client("alice").connect();
+    alice.send(GAME_EVENTS.USER.JOINED, { name: "Alice", position: origin });
+
+    room.tick(0.05, 0);
+    room.tick(0.05, 50);
+    room.tick(0.05, 100);
+
+    const ticks = alice
+      .received(GAME_EVENTS.WORLD.SNAPSHOT)
+      .map((m) => m.payload.tick);
+    expect(ticks).toEqual([1, 2, 3]);
+  });
+
+  it("tells the joiner its own id", () => {
+    const alice = client("alice").connect();
+    alice.send(GAME_EVENTS.USER.JOINED, { name: "Alice", position: origin });
+    expect(alice.received(GAME_EVENTS.GAME.STATE)[0].payload.selfId).toBe(
+      "alice"
+    );
   });
 
   it("removes a player on disconnect and tells the others", () => {

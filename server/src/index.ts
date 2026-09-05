@@ -2,7 +2,9 @@ import express from "express";
 import * as http from "http";
 import { Server as SocketIO } from "socket.io";
 import cors from "cors";
+import { TICK_RATE } from "@threejs-shooter/shared";
 import { GameRoom } from "./room/GameRoom";
+import { startTickLoop } from "./room/tickLoop";
 import {
   attachSocketIO,
   SocketIOTransport,
@@ -39,6 +41,7 @@ const PORT = process.env.PORT || 3000;
 
 const room = new GameRoom(new SocketIOTransport(io));
 attachSocketIO(io, room);
+startTickLoop(room, TICK_RATE);
 
 server.listen(PORT, () => {
   console.log(`✅ Server listening on port ${PORT}`);

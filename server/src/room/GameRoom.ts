@@ -22,6 +22,7 @@ export class GameRoom {
   /** Last known state of every player who has joined, keyed by player id. */
   readonly players = new Map<string, PlayerSnapshot>();
   readonly leaderBoard: Leaderboard = {};
+  private tickCount = 0;
 
   constructor(private readonly transport: RoomTransport) {}
 
@@ -77,14 +78,25 @@ export class GameRoom {
     }
   }
 
-  /** Advance the simulation by `dt` seconds. Nothing to simulate yet. */
-  tick(_dt: number): void {}
+  /**
+   * Advance the simulation by `dt` seconds and broadcast the resulting
+   * world snapshot. `now` is the server clock in ms.
+   */
+  tick(_dt: number, now: number = Date.now()): void {
+    this.tickCount += 1;
+    this.transport.broadcast(GAME_EVENTS.WORLD.SNAPSHOT, {
+      tick: this.tickCount,
+      serverTime: now,
+      players: [...this.players.values()],
+    });
+  }
 
   private handleJoin(playerId: string, payload: UserJoinedEvent): void {
     const name = payload.name || `Player-${playerId.substring(0, 5)}`;
 
     // Sync the joiner with everyone already in the game, before registering them
     this.transport.send(playerId, GAME_EVENTS.GAME.STATE, {
+      selfId: playerId,
       players: [...this.players.values()],
     });
 
@@ -117,14 +129,9 @@ export class GameRoom {
     const player = this.players.get(playerId);
     if (!player) return;
 
+    // Ingest only; positions reach other clients through the snapshot stream.
     player.position = payload.position;
     player.rotation = payload.rotation;
-
-    this.transport.broadcast(
-      GAME_EVENTS.PLAYER.POSITION,
-      { id: playerId, userId: playerId, ...payload },
-      playerId
-    );
   }
 
   private handleStatus(playerId: string, payload: PlayerStatusEvent): void {

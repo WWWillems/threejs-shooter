@@ -8,6 +8,10 @@ const GAME_EVENTS = {
     /** Server -> joining client: snapshot of all players currently in the game. */
     STATE: "game:state"
   },
+  WORLD: {
+    /** Server -> all, every tick: continuous state of everything that moves. */
+    SNAPSHOT: "world:snapshot"
+  },
   USER: {
     /** Server -> others: a socket connected (before it joined the game). */
     CONNECTED: "user:connected",
@@ -17,7 +21,7 @@ const GAME_EVENTS = {
     DISCONNECTED: "user:disconnected"
   },
   PLAYER: {
-    /** Client -> server: my position. Server -> others: someone's position. */
+    /** Client -> server: my position. Replicated to others via WORLD.SNAPSHOT. */
     POSITION: "player:position",
     /** Client -> server: I died / respawned. Server -> others: same. */
     STATUS: "player:status"
@@ -30,6 +34,8 @@ const GAME_EVENTS = {
   }
 };
 
+const TICK_RATE = 20;
+
 var __defProp$1 = Object.defineProperty;
 var __defNormalProp$1 = (obj, key, value) => key in obj ? __defProp$1(obj, key, { enumerable: true, configurable: true, writable: true, value }) : obj[key] = value;
 var __publicField$1 = (obj, key, value) => __defNormalProp$1(obj, typeof key !== "symbol" ? key + "" : key, value);
@@ -39,6 +45,7 @@ class GameRoom {
     /** Last known state of every player who has joined, keyed by player id. */
     __publicField$1(this, "players", /* @__PURE__ */ new Map());
     __publicField$1(this, "leaderBoard", {});
+    __publicField$1(this, "tickCount", 0);
   }
   /** A transport-level connection was established; the player has not joined yet. */
   connect(playerId) {
@@ -83,12 +90,22 @@ class GameRoom {
       }
     }
   }
-  /** Advance the simulation by `dt` seconds. Nothing to simulate yet. */
-  tick(_dt) {
+  /**
+   * Advance the simulation by `dt` seconds and broadcast the resulting
+   * world snapshot. `now` is the server clock in ms.
+   */
+  tick(_dt, now = Date.now()) {
+    this.tickCount += 1;
+    this.transport.broadcast(GAME_EVENTS.WORLD.SNAPSHOT, {
+      tick: this.tickCount,
+      serverTime: now,
+      players: [...this.players.values()]
+    });
   }
   handleJoin(playerId, payload) {
     const name = payload.name || `Player-${playerId.substring(0, 5)}`;
     this.transport.send(playerId, GAME_EVENTS.GAME.STATE, {
+      selfId: playerId,
       players: [...this.players.values()]
     });
     this.players.set(playerId, {
@@ -118,11 +135,6 @@ class GameRoom {
     if (!player) return;
     player.position = payload.position;
     player.rotation = payload.rotation;
-    this.transport.broadcast(
-      GAME_EVENTS.PLAYER.POSITION,
-      { id: playerId, userId: playerId, ...payload },
-      playerId
-    );
   }
   handleStatus(playerId, payload) {
     const player = this.players.get(playerId);
@@ -153,6 +165,27 @@ class GameRoom {
       playerId
     );
   }
+}
+
+function startTickLoop(room, hz) {
+  const stepMs = 1e3 / hz;
+  const dt = 1 / hz;
+  const maxCatchUpSteps = 5;
+  let last = Date.now();
+  let accumulator = 0;
+  const handle = setInterval(() => {
+    const now = Date.now();
+    accumulator += now - last;
+    last = now;
+    let steps = 0;
+    while (accumulator >= stepMs && steps < maxCatchUpSteps) {
+      room.tick(dt, now);
+      accumulator -= stepMs;
+      steps += 1;
+    }
+    if (steps === maxCatchUpSteps) accumulator = 0;
+  }, stepMs);
+  return () => clearInterval(handle);
 }
 
 var __defProp = Object.defineProperty;
@@ -227,6 +260,7 @@ const io = new Server(server, {
 const PORT = process.env.PORT || 3e3;
 const room = new GameRoom(new SocketIOTransport(io));
 attachSocketIO(io, room);
+startTickLoop(room, TICK_RATE);
 server.listen(PORT, () => {
   console.log(`\u2705 Server listening on port ${PORT}`);
 });

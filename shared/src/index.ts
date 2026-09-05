@@ -1,4 +1,5 @@
 export { GAME_EVENTS } from "./events";
+export { TICK_RATE } from "./types";
 export type {
   ClientEventName,
   ClientPayload,
@@ -24,4 +25,5 @@ export type {
   Vec3,
   WeaponAction,
   WeaponEvent,
+  WorldSnapshot,
 } from "./types";

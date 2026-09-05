@@ -12,11 +12,18 @@ import { Player } from "./core/Player";
 import { EnvironmentBuilder } from "./environment/EnvironmentBuilder";
 import { GameLoop } from "./core/GameLoop";
 import { NetworkClient } from "./net/NetworkClient";
+import { Replication } from "./net/Replication";
 
 // Connect to the game server
 const net = NetworkClient.connect(
   import.meta.env.VITE_SERVER_URL || "http://localhost:3000"
 );
+
+// Buffer the server's snapshot stream for smooth interpolated rendering
+const replication = new Replication();
+net.on(GAME_EVENTS.WORLD.SNAPSHOT, (snapshot) => {
+  replication.push(snapshot, performance.now());
+});
 
 // Initialize the core game systems
 const gameScene = new GameScene();
@@ -54,7 +61,12 @@ const hud = new HUD(document.body, controls, net);
 scene.userData.hud = hud;
 
 // Initialize RemotePlayerManager
-const remotePlayerManager = new RemotePlayerManager(scene, hud, net);
+const remotePlayerManager = new RemotePlayerManager(
+  scene,
+  hud,
+  net,
+  replication
+);
 
 // Update controls with RemotePlayerManager
 controls.updateCollisionSystem(remotePlayerManager);

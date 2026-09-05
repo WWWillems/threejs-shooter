@@ -7,6 +7,10 @@ export const GAME_EVENTS = {
     /** Server -> joining client: snapshot of all players currently in the game. */
     STATE: "game:state",
   },
+  WORLD: {
+    /** Server -> all, every tick: continuous state of everything that moves. */
+    SNAPSHOT: "world:snapshot",
+  },
   USER: {
     /** Server -> others: a socket connected (before it joined the game). */
     CONNECTED: "user:connected",
@@ -16,7 +20,7 @@ export const GAME_EVENTS = {
     DISCONNECTED: "user:disconnected",
   },
   PLAYER: {
-    /** Client -> server: my position. Server -> others: someone's position. */
+    /** Client -> server: my position. Replicated to others via WORLD.SNAPSHOT. */
     POSITION: "player:position",
     /** Client -> server: I died / respawned. Server -> others: same. */
     STATUS: "player:status",

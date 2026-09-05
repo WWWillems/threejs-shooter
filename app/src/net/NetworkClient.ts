@@ -31,6 +31,7 @@ export type Unsubscribe = () => void;
  */
 export class NetworkClient {
   private joined: { name: string; position: () => Vec3 } | null = null;
+  private _selfId: string | null = null;
 
   constructor(
     private readonly socket: RawSocket,
@@ -43,6 +44,14 @@ export class NetworkClient {
         this.sendJoin();
       }
     });
+    this.on(GAME_EVENTS.GAME.STATE, ({ selfId }) => {
+      this._selfId = selfId;
+    });
+  }
+
+  /** Our player id as the server knows it. Null until the server has acknowledged our join. */
+  get selfId(): string | null {
+    return this._selfId;
   }
 
   /** Open a socket.io connection to the game server. */

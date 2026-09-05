@@ -37,7 +37,7 @@ describe("event contract", () => {
     expectTypeOf<ServerPayload<"user:joined">>().toEqualTypeOf<
       Stamped<UserJoinedEvent>
     >();
-    expectTypeOf<ServerPayload<"player:position">>().toHaveProperty("userId");
+    expectTypeOf<ServerPayload<"player:status">>().toHaveProperty("userId");
   });
 
   it("outgoing payloads omit the transport-added timestamp", () => {

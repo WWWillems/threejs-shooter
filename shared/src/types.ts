@@ -66,6 +66,20 @@ export interface PlayerSnapshot {
 
 /** Sent to a client right after it joins so it can render players already in the game. */
 export interface GameStateEvent {
+  /** The receiving client's own player id, so it can ignore itself in snapshots. */
+  selfId: string;
+  players: PlayerSnapshot[];
+}
+
+/** Server tick rate in Hz; one WorldSnapshot is broadcast per tick. */
+export const TICK_RATE = 20;
+
+/** Continuous world state at one server tick. Discrete outcomes travel as events. */
+export interface WorldSnapshot {
+  /** Monotonic tick counter. */
+  tick: number;
+  /** Server clock at this tick, ms. Clients interpolate in this time base. */
+  serverTime: number;
   players: PlayerSnapshot[];
 }
 
