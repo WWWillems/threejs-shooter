@@ -10,6 +10,8 @@ export interface WoodenCrateCollisionInfo {
 
 // Define interface for destructible crate
 export interface DestructibleCrate extends THREE.Group {
+  /** Id from the shared map layout; the server refers to crates by this. */
+  crateId?: string;
   crateSize?: number;
   health?: number;
   maxHealth?: number;
@@ -308,7 +310,8 @@ function addToScene(
   position: THREE.Vector3,
   size = 1,
   rotation = 0,
-  pickupManager?: PickupManager
+  pickupManager?: PickupManager,
+  crateId?: string
 ): DestructibleCrate {
   const crateGroup = createWoodenCrateModel(size);
   crateGroup.position.copy(position);
@@ -317,6 +320,7 @@ function addToScene(
 
   // Add destructible properties
   const crate = crateGroup as DestructibleCrate;
+  crate.crateId = crateId;
   crate.crateSize = size;
   crate.maxHealth = 100;
   crate.health = 100;

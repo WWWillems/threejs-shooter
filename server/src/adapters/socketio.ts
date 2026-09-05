@@ -49,8 +49,8 @@ export function attachSocketIO(io: GameServer, room: GameRoom): void {
     socket.on(GAME_EVENTS.PLAYER.POSITION, (p) =>
       room.applyIntent(socket.id, GAME_EVENTS.PLAYER.POSITION, p)
     );
-    socket.on(GAME_EVENTS.PLAYER.STATUS, (p) =>
-      room.applyIntent(socket.id, GAME_EVENTS.PLAYER.STATUS, p)
+    socket.on(GAME_EVENTS.PLAYER.RESPAWN, (p) =>
+      room.applyIntent(socket.id, GAME_EVENTS.PLAYER.RESPAWN, p)
     );
     socket.on(GAME_EVENTS.WEAPON.SHOOT, (p) =>
       room.applyIntent(socket.id, GAME_EVENTS.WEAPON.SHOOT, p)

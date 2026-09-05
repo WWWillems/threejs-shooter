@@ -3,7 +3,11 @@ import type { NetworkClient } from "../net/NetworkClient";
 import type { Replication, ReplicatedPlayer } from "../net/Replication";
 import type { HUD } from "./HUD";
 import { WeaponSystem } from "./Weapon";
-import { GAME_EVENTS, type Vec3 } from "@threejs-shooter/shared";
+import {
+  GAME_EVENTS,
+  type Vec3,
+  type WeaponId,
+} from "@threejs-shooter/shared";
 import type { CollisionDetector } from "./CollisionInterface";
 import { PlayerCollider, PLAYER_DIMENSIONS } from "./PlayerCollider";
 import { PlayerUtils } from "./PlayerController";
@@ -88,19 +92,19 @@ export class RemotePlayerManager {
       );
     });
 
-    net.on(GAME_EVENTS.PLAYER.STATUS, ({ userId, status, position }) => {
-      switch (status) {
-        case "dead":
-          this.handleRemoteDeath(userId);
-          break;
-        case "alive":
-          this.handleRemoteRespawn(userId, position);
-          break;
-        default: {
-          const unhandled: never = status;
-          throw new Error(`Unhandled player status: ${String(unhandled)}`);
-        }
-      }
+    // Server-resolved outcomes. The local player's own hits/respawns are
+    // handled by PlayerController; we only mirror other players here.
+    net.on(GAME_EVENTS.COMBAT.HIT, ({ targetId, hp }) => {
+      if (targetId === net.selfId) return;
+      const player = this.players.get(targetId);
+      if (!player) return;
+      player.currentHealth = hp;
+      if (hp <= 0) this.handleRemoteDeath(targetId);
+    });
+
+    net.on(GAME_EVENTS.PLAYER.RESPAWN, ({ playerId, position, hp }) => {
+      if (playerId === net.selfId) return;
+      this.handleRemoteRespawn(playerId, position, hp);
     });
 
     net.on(GAME_EVENTS.WEAPON.SWITCH, ({ userId, weaponType }) => {
@@ -196,26 +200,16 @@ export class RemotePlayerManager {
     );
   }
 
-  private handleRemoteRespawn(userId: string, position?: Vec3): void {
-    const player = this.players.get(userId);
-    if (!player) {
-      if (position) {
-        const created = this.ensurePlayer(userId);
-        created.mesh.position.set(position.x, position.y, position.z);
-      }
-      return;
-    }
-
+  private handleRemoteRespawn(userId: string, position: Vec3, hp: number): void {
+    const player = this.ensurePlayer(userId);
     const wasDead = player.isDead;
     player.isDead = false;
-    player.currentHealth = 100;
+    player.currentHealth = hp;
 
     // Stand back up
     player.mesh.quaternion.identity();
     player.mesh.rotation.set(0, 0, 0);
-    if (position) {
-      player.mesh.position.set(position.x, position.y, position.z);
-    }
+    player.mesh.position.set(position.x, position.y, position.z);
     player.mesh.updateMatrix();
 
     if (wasDead) {
@@ -273,16 +267,18 @@ export class RemotePlayerManager {
   /**
    * Convert weapon type to index
    */
-  private getWeaponIndex(weaponType: string): number {
-    switch (weaponType.toLowerCase()) {
+  private getWeaponIndex(weaponType: WeaponId): number {
+    switch (weaponType) {
       case "pistol":
         return 0;
-      case "assault rifle":
+      case "rifle":
         return 1;
       case "shotgun":
         return 2;
-      default:
-        return 0; // Default to pistol
+      default: {
+        const unhandled: never = weaponType;
+        throw new Error(`Unhandled weapon id: ${String(unhandled)}`);
+      }
     }
   }
 
@@ -301,41 +297,18 @@ export class RemotePlayerManager {
   }
 
   /**
-   * Handle damage taken by a remote player
+   * Whether a point is inside any living remote player. Used to stop cosmetic
+   * bullets; damage is the server's call.
    */
-  public takeDamage(playerId: string, amount: number): void {
-    const player = this.players.get(playerId);
-    if (!player || player.isDead) return;
-
-    player.currentHealth = Math.max(0, player.currentHealth - amount);
-
-    this.hud.showNotification(
-      `damage-${playerId}`,
-      "Player Hit",
-      `Dealt ${amount} damage`,
-      "💥"
-    );
-
-    if (player.currentHealth <= 0) {
-      this.markDead(player);
-    }
-  }
-
-  /**
-   * Check if a bullet collides with any remote player
-   */
-  public checkBulletCollision(bulletPosition: THREE.Vector3): boolean {
-    for (const [playerId, player] of this.players) {
+  public containsPoint(point: THREE.Vector3): boolean {
+    for (const player of this.players.values()) {
+      if (player.isDead) continue;
       const playerHeight = PlayerCollider.getPlayerHeight(player.mesh);
       const playerBox = PlayerCollider.createCollisionBox(
         player.mesh.position,
         playerHeight
       );
-
-      if (playerBox.containsPoint(bulletPosition)) {
-        this.takeDamage(playerId, 25); // Using same damage as CollisionSystem
-        return true;
-      }
+      if (playerBox.containsPoint(point)) return true;
     }
     return false;
   }

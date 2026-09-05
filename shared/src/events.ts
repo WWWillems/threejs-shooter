@@ -22,13 +22,19 @@ export const GAME_EVENTS = {
   PLAYER: {
     /** Client -> server: my position. Replicated to others via WORLD.SNAPSHOT. */
     POSITION: "player:position",
-    /** Client -> server: I died / respawned. Server -> others: same. */
-    STATUS: "player:status",
+    /** Client -> server: I want to respawn. Server -> all: a player respawned here. */
+    RESPAWN: "player:respawn",
   },
   WEAPON: {
-    /** Client -> server: I fired. Server -> others: someone fired (cosmetic bullet). */
+    /** Client -> server: fire intent. Server -> others: someone fired (cosmetic bullet). */
     SHOOT: "weapon:shoot",
     /** Client -> server: I switched weapon. Server -> others: same. */
     SWITCH: "weapon:switch",
+  },
+  COMBAT: {
+    /** Server -> all: a server bullet hit a player. */
+    HIT: "combat:hit",
+    /** Server -> all: a player's HP reached zero. */
+    KILL: "combat:kill",
   },
 } as const;

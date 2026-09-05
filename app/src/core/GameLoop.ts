@@ -67,45 +67,8 @@ export class GameLoop {
     const delta = (time - this.lastFrameTime) / 1000; // Convert to seconds
     this.lastFrameTime = time;
 
-    // Check for player collision with moving cars (player damage)
-    const playerPosition = this.player.position.clone();
-    const playerHeight = this.controls.getPlayerHeight();
-    const carColliders = this.controls.getCarColliders();
-
-    for (const car of carColliders) {
-      // Create car collision box
-      const carBox = new THREE.Box3();
-      carBox.setFromCenterAndSize(
-        new THREE.Vector3(
-          car.carObj.position.x,
-          car.carObj.position.y + car.heightOffset,
-          car.carObj.position.z
-        ),
-        car.dimensions
-      );
-
-      // Create player collision box
-      const playerBox = new THREE.Box3();
-      playerBox.setFromCenterAndSize(
-        new THREE.Vector3(
-          playerPosition.x,
-          playerPosition.y + playerHeight / 2,
-          playerPosition.z
-        ),
-        new THREE.Vector3(1, playerHeight, 1)
-      );
-
-      // Check if player is colliding with car
-      if (playerBox.intersectsBox(carBox)) {
-        // Apply damage to player (20 damage per second while in contact with car)
-        const playerController = this.controls.getPlayerController();
-        if (playerController) {
-          playerController.takeDamage(20 * delta);
-        }
-
-        break;
-      }
-    }
+    // Car contact damage is resolved by the server (GameRoom.stepCarContact)
+    // and arrives as COMBAT.HIT; nothing to do locally.
 
     // Update controls
     this.controls.update();

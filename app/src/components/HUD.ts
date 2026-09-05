@@ -1,7 +1,7 @@
 import type { IsometricControls } from "./IsometricControls";
 import { WeaponType } from "./Weapon";
 import type { NetworkClient } from "../net/NetworkClient";
-import type { LeaderboardEntry } from "@threejs-shooter/shared";
+import { GAME_EVENTS, type LeaderboardEntry } from "@threejs-shooter/shared";
 
 type LeaderboardPlayer = LeaderboardEntry;
 
@@ -114,18 +114,40 @@ export class HUD {
       }
     });
 
-    // Listen for player death event
+    // Death overlay follows the local player's server-driven state
     document.addEventListener("player-death", () => {
       this.showDeathOverlay();
     });
+    document.addEventListener("player-respawn", () => {
+      this.hideDeathOverlay();
+    });
 
-    // Add restart button click handler
+    // Restart button asks the server for a respawn; the overlay hides once it lands
     document.addEventListener("click", (event: MouseEvent) => {
       const target = event.target as HTMLElement;
       if (target.id === "restart-button") {
-        this.hideDeathOverlay();
-        this.restartGame();
+        this.requestRespawn();
       }
+    });
+
+    // Server-resolved combat outcomes
+    this.net.on(GAME_EVENTS.COMBAT.HIT, ({ shooterId, targetId, damage }) => {
+      if (shooterId === this.net.selfId && targetId !== this.net.selfId) {
+        this.showNotification(
+          `damage-${targetId}`,
+          "Player Hit",
+          `Dealt ${damage} damage`,
+          "💥"
+        );
+      }
+    });
+    this.net.on(GAME_EVENTS.COMBAT.KILL, ({ killerId, victimId }) => {
+      if (killerId === this.net.selfId) {
+        this.showNotification("kill", "Kill", "You eliminated a player", "🎯");
+      } else if (victimId === this.net.selfId) {
+        this.showNotification("death", "Killed", "You were eliminated", "💀");
+      }
+      this.fetchLeaderboardData();
     });
 
     // Set up leaderboard tab key listeners
@@ -897,15 +919,8 @@ export class HUD {
     }
   }
 
-  /**
-   * Restart the game
-   */
-  private restartGame(): void {
-    // Get player controller and resurrect the player
-    const playerController = this.controls.getPlayerController();
-    if (playerController) {
-      playerController.resurrect();
-    }
+  private requestRespawn(): void {
+    this.controls.getPlayerController()?.requestRespawn();
   }
 
   /**

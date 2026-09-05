@@ -5,7 +5,7 @@ import type { CameraController } from "./CameraController";
 import type { WeaponSystem } from "./Weapon";
 import { WeaponType } from "./Weapon";
 import type { Weapon } from "./Weapon";
-import { GAME_EVENTS } from "@threejs-shooter/shared";
+import { GAME_EVENTS, type Vec3 } from "@threejs-shooter/shared";
 import type { NetworkClient } from "../net/NetworkClient";
 
 /**
@@ -115,6 +115,22 @@ export class PlayerController {
 
     // Setup input callbacks
     this.setupInputCallbacks();
+    this.setupNetworkListeners();
+  }
+
+  /**
+   * HP, death and respawn are owned by the server; we apply what it tells us.
+   */
+  private setupNetworkListeners(): void {
+    this.net.on(GAME_EVENTS.COMBAT.HIT, ({ targetId, damage, hp }) => {
+      if (targetId !== this.net.selfId) return;
+      this.applyServerHit(damage, hp);
+    });
+
+    this.net.on(GAME_EVENTS.PLAYER.RESPAWN, ({ playerId, position, hp }) => {
+      if (playerId !== this.net.selfId) return;
+      this.applyServerRespawn(position, hp);
+    });
   }
 
   /**
@@ -442,12 +458,10 @@ export class PlayerController {
   }
 
   /**
-   * Take damage from an attack
+   * Apply a server-resolved hit on the local player.
    */
-  public takeDamage(amount: number): void {
-    if (this.isDead) return;
-
-    this.currentHealth = Math.max(0, this.currentHealth - amount);
+  private applyServerHit(damage: number, hp: number): void {
+    this.currentHealth = hp;
 
     // Show damage notification in HUD
     const hud = this.scene.userData.hud;
@@ -455,14 +469,13 @@ export class PlayerController {
       hud.showNotification(
         "damage-taken",
         "Damage Taken",
-        `Took ${amount} damage`,
+        `Took ${damage} damage`,
         "💥"
       );
     }
 
-    if (this.currentHealth <= 0) {
+    if (hp <= 0 && !this.isDead) {
       this.isDead = true;
-      // Handle player death - make player fall to the floor
 
       // Force player to stop moving
       this.velocity.set(0, 0, 0);
@@ -470,10 +483,7 @@ export class PlayerController {
       // Apply death animation
       PlayerUtils.handlePlayerDeath(this.player);
 
-      // Emit player status event for death
-      this.net.send(GAME_EVENTS.PLAYER.STATUS, { status: "dead" });
-
-      // Dispatch death event
+      // Dispatch death event (HUD shows the overlay)
       const deathEvent = new CustomEvent("player-death");
       document.dispatchEvent(deathEvent);
 
@@ -500,31 +510,31 @@ export class PlayerController {
     this.currentHealth = Math.min(this.maxHealth, this.currentHealth + amount);
   }
 
-  public resurrect(): void {
-    this.currentHealth = this.maxHealth;
+  /**
+   * Ask the server to bring us back. The actual respawn lands via
+   * PLAYER.RESPAWN with the server-chosen spawn point.
+   */
+  public requestRespawn(): void {
+    if (!this.isDead) return;
+    this.net.send(GAME_EVENTS.PLAYER.RESPAWN, {});
+  }
+
+  private applyServerRespawn(position: Vec3, hp: number): void {
+    this.currentHealth = hp;
     this.isDead = false;
 
     // Re-enable input
     this.inputManager.enableKeyboardInput();
     this.inputManager.enableMouseInput();
 
-    // Reset position and rotation (stand up)
-    this.player.position.y = 1;
+    // Stand up at the server-chosen spawn point
+    this.player.position.set(position.x, position.y, position.z);
+    this.player.quaternion.identity();
+    this.player.rotation.set(0, 0, 0);
+    this.player.updateMatrix();
+    this.velocity.set(0, 0, 0);
 
-    // Completely reset rotation
-    this.player.quaternion.identity(); // Reset quaternion to identity
-    this.player.rotation.set(0, 0, 0); // Reset all rotation components
-    this.player.updateMatrix(); // Force matrix update
-
-    // Emit player status event for respawn
-    this.net.send(GAME_EVENTS.PLAYER.STATUS, {
-      status: "alive",
-      position: {
-        x: this.player.position.x,
-        y: this.player.position.y,
-        z: this.player.position.z,
-      },
-    });
+    document.dispatchEvent(new CustomEvent("player-respawn"));
   }
 
   /**

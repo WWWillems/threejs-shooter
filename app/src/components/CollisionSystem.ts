@@ -299,35 +299,21 @@ export class CollisionSystem implements CollisionDetector {
       }
     }
 
-    // Check collision with local player first
+    // Bullets are cosmetic on the client: they stop at players so the visual
+    // reads right, but damage is resolved by the server (COMBAT.HIT).
     if (this.player) {
-      // Get player height using PlayerCollider utility
       const playerHeight = PlayerCollider.getPlayerHeight(this.player);
-      const playerController = this.player.userData.controller;
-
-      // Create player collision box at current position using PlayerCollider
       const playerBox = PlayerCollider.createCollisionBox(
         this.player.position,
         playerHeight
       );
-
       if (playerBox.containsPoint(bulletPosition)) {
-        if (playerController) {
-          playerController.takeDamage(this.bulletDamage);
-        } else {
-          console.warn("No player controller found in userData");
-        }
         return true;
       }
-    } else {
-      console.warn("No local player reference in CollisionSystem");
     }
 
-    // Check collision with remote players (if remotePlayerManager is available)
-    if (this.remotePlayerManager) {
-      if (this.remotePlayerManager.checkBulletCollision(bulletPosition)) {
-        return true;
-      }
+    if (this.remotePlayerManager?.containsPoint(bulletPosition)) {
+      return true;
     }
 
     // Check collision with cars

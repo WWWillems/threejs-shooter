@@ -1,3 +1,5 @@
+import type { WeaponId } from "./sim/weapons";
+
 /** Plain serializable 3D vector used by the socket protocol. */
 export interface Vec3 {
   x: number;
@@ -36,22 +38,51 @@ export interface PlayerPositionEvent extends BaseEvent {
   rotation: number;
 }
 
-export interface PlayerStatusEvent extends BaseEvent {
-  status: PlayerStatus;
-  position?: Vec3;
+/** Client -> server: "I'm dead and want back in." No payload beyond the timestamp. */
+export type RespawnRequestEvent = BaseEvent;
+
+/** Server -> all: a player is alive again at `position` with full HP. */
+export interface PlayerRespawnedEvent {
+  playerId: string;
+  position: Vec3;
+  hp: number;
 }
 
 export type WeaponAction = "shoot" | "switch";
 
 export interface WeaponEvent extends BaseEvent {
-  weaponType: string;
+  weaponType: WeaponId;
   action: WeaponAction;
   data?: {
     ammo?: number;
     totalAmmo?: number;
+    /** Barrel position the shot leaves from. */
     position?: Vec3;
+    /** Unit aim direction. */
     direction?: Vec3;
   };
+}
+
+/** What dealt the damage. Weapons credit the shooter; world hazards credit nobody. */
+export type DamageSource = WeaponId | "car";
+
+/** Server -> all: a player took damage. */
+export interface CombatHitEvent {
+  /** Player id of the attacker, or the world object id for hazards. */
+  shooterId: string;
+  targetId: string;
+  damage: number;
+  /** Target HP after the hit. */
+  hp: number;
+  source: DamageSource;
+  position: Vec3;
+}
+
+/** Server -> all: `victimId` died to `killerId`. */
+export interface CombatKillEvent {
+  killerId: string;
+  victimId: string;
+  source: DamageSource;
 }
 
 /** Last known state of one player, as tracked by the server. */
@@ -60,6 +91,7 @@ export interface PlayerSnapshot {
   userId: string;
   name: string;
   status: PlayerStatus;
+  hp: number;
   position?: Vec3;
   rotation: number;
 }

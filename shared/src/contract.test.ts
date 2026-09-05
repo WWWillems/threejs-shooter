@@ -10,6 +10,7 @@ import type {
   ServerToClientEvents,
 } from "./contract";
 import type {
+  CombatHitEvent,
   PlayerPositionEvent,
   Stamped,
   UserJoinedEvent,
@@ -37,16 +38,17 @@ describe("event contract", () => {
     expectTypeOf<ServerPayload<"user:joined">>().toEqualTypeOf<
       Stamped<UserJoinedEvent>
     >();
-    expectTypeOf<ServerPayload<"player:status">>().toHaveProperty("userId");
+    expectTypeOf<ServerPayload<"weapon:shoot">>().toHaveProperty("userId");
+    expectTypeOf<ServerPayload<"combat:hit">>().toEqualTypeOf<CombatHitEvent>();
   });
 
   it("outgoing payloads omit the transport-added timestamp", () => {
-    expectTypeOf<OutgoingPayload<"player:status">>().not.toHaveProperty(
+    expectTypeOf<OutgoingPayload<"player:respawn">>().not.toHaveProperty(
       "timestamp"
     );
   });
 
-  it("every client event the server accepts is a known constant", () => {
+  it("every event in the maps is a known constant", () => {
     type Client = keyof ClientToServerEvents;
     type Server = keyof ServerToClientEvents;
     expectTypeOf<Client>().toEqualTypeOf<ClientEventName>();
@@ -55,11 +57,23 @@ describe("event contract", () => {
     const client: ClientEventName[] = [
       GAME_EVENTS.USER.JOINED,
       GAME_EVENTS.PLAYER.POSITION,
-      GAME_EVENTS.PLAYER.STATUS,
+      GAME_EVENTS.PLAYER.RESPAWN,
       GAME_EVENTS.WEAPON.SHOOT,
       GAME_EVENTS.WEAPON.SWITCH,
     ];
-    for (const name of client) {
+    const server: ServerEventName[] = [
+      GAME_EVENTS.GAME.STATE,
+      GAME_EVENTS.WORLD.SNAPSHOT,
+      GAME_EVENTS.USER.CONNECTED,
+      GAME_EVENTS.USER.JOINED,
+      GAME_EVENTS.USER.DISCONNECTED,
+      GAME_EVENTS.PLAYER.RESPAWN,
+      GAME_EVENTS.WEAPON.SHOOT,
+      GAME_EVENTS.WEAPON.SWITCH,
+      GAME_EVENTS.COMBAT.HIT,
+      GAME_EVENTS.COMBAT.KILL,
+    ];
+    for (const name of [...client, ...server]) {
       expect(allEventNames).toContain(name);
     }
   });

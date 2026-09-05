@@ -1,8 +1,11 @@
 import { GAME_EVENTS } from "./events";
 import type {
+  CombatHitEvent,
+  CombatKillEvent,
   GameStateEvent,
   PlayerPositionEvent,
-  PlayerStatusEvent,
+  PlayerRespawnedEvent,
+  RespawnRequestEvent,
   Stamped,
   UserConnectionEvent,
   UserJoinedEvent,
@@ -19,7 +22,7 @@ import type {
 export interface ClientToServerEvents {
   [GAME_EVENTS.USER.JOINED]: (payload: UserJoinedEvent) => void;
   [GAME_EVENTS.PLAYER.POSITION]: (payload: PlayerPositionEvent) => void;
-  [GAME_EVENTS.PLAYER.STATUS]: (payload: PlayerStatusEvent) => void;
+  [GAME_EVENTS.PLAYER.RESPAWN]: (payload: RespawnRequestEvent) => void;
   [GAME_EVENTS.WEAPON.SHOOT]: (payload: WeaponEvent) => void;
   [GAME_EVENTS.WEAPON.SWITCH]: (payload: WeaponEvent) => void;
 }
@@ -33,9 +36,11 @@ export interface ServerToClientEvents {
   [GAME_EVENTS.USER.DISCONNECTED]: (
     payload: Stamped<UserConnectionEvent>
   ) => void;
-  [GAME_EVENTS.PLAYER.STATUS]: (payload: Stamped<PlayerStatusEvent>) => void;
+  [GAME_EVENTS.PLAYER.RESPAWN]: (payload: PlayerRespawnedEvent) => void;
   [GAME_EVENTS.WEAPON.SHOOT]: (payload: Stamped<WeaponEvent>) => void;
   [GAME_EVENTS.WEAPON.SWITCH]: (payload: Stamped<WeaponEvent>) => void;
+  [GAME_EVENTS.COMBAT.HIT]: (payload: CombatHitEvent) => void;
+  [GAME_EVENTS.COMBAT.KILL]: (payload: CombatKillEvent) => void;
 }
 
 export type ClientEventName = keyof ClientToServerEvents;

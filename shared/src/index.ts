@@ -11,13 +11,17 @@ export type {
 } from "./contract";
 export type {
   BaseEvent,
+  CombatHitEvent,
+  CombatKillEvent,
+  DamageSource,
   GameStateEvent,
   Leaderboard,
   LeaderboardEntry,
   PlayerPositionEvent,
+  PlayerRespawnedEvent,
   PlayerSnapshot,
   PlayerStatus,
-  PlayerStatusEvent,
+  RespawnRequestEvent,
   ServerStamped,
   Stamped,
   UserConnectionEvent,
@@ -27,3 +31,4 @@ export type {
   WeaponEvent,
   WorldSnapshot,
 } from "./types";
+export * from "./sim";

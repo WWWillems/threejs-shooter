@@ -12,6 +12,7 @@ const player = (
   userId: id,
   name: id,
   status: "alive",
+  hp: 100,
   position: { x, y: 1, z: 0 },
   rotation,
   ...extra,

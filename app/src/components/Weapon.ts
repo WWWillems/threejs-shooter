@@ -6,12 +6,18 @@ import type { PickupManager } from "./PickupManager";
 import type { NetworkClient } from "../net/NetworkClient";
 import {
   GAME_EVENTS,
+  WEAPONS,
+  pelletYawOffsets,
   type ClientEventName,
   type OutgoingPayload,
+  type WeaponId,
+  type WeaponStats,
 } from "@threejs-shooter/shared";
 
 // Define the Weapon interface
 export interface Weapon {
+  /** Shared weapon id; null for the "Empty" placeholder slot. */
+  id: WeaponId | null;
   name: string;
   model: THREE.Group;
   bulletsInMagazine: number;
@@ -91,52 +97,30 @@ export class WeaponSystem {
     this.net?.send(event, payload);
   }
 
+  /** Build a client weapon from the shared stats table (the server validates against the same numbers). */
+  private createWeapon(stats: WeaponStats, model: THREE.Group): Weapon {
+    return {
+      id: stats.id,
+      name: stats.name,
+      model,
+      bulletsInMagazine: stats.magazineSize,
+      totalBullets: stats.reserveAmmo,
+      maxMagazineSize: stats.magazineSize,
+      fireRate: stats.fireRate,
+      isReloading: false,
+      reloadTime: stats.reloadTime,
+      reloadStartTime: 0,
+      lastShotTime: 0,
+    };
+  }
+
   // Initialize available weapons
   private initializeWeapons() {
-    // Create first weapon (pistol)
-    const pistol = {
-      name: "Pistol",
-      model: this.createPistol(),
-      bulletsInMagazine: 12,
-      totalBullets: 120,
-      maxMagazineSize: 12,
-      fireRate: 0.4, // Slower fire rate than rifle
-      isReloading: false,
-      reloadTime: 1.2,
-      reloadStartTime: 0,
-      lastShotTime: 0,
-    };
-
-    // Create second weapon (rifle)
-    const rifle = {
-      name: "Assault Rifle",
-      model: this.createRifle(),
-      bulletsInMagazine: 30,
-      totalBullets: 150,
-      maxMagazineSize: 30,
-      fireRate: 0.1, // Faster fire rate
-      isReloading: false,
-      reloadTime: 2.0,
-      reloadStartTime: 0,
-      lastShotTime: 0,
-    };
-
-    // Create third weapon (shotgun)
-    const shotgun = {
-      name: "Shotgun",
-      model: this.createShotgun(),
-      bulletsInMagazine: 6,
-      totalBullets: 30,
-      maxMagazineSize: 6,
-      fireRate: 0.8, // Slowest fire rate
-      isReloading: false,
-      reloadTime: 0.5, // Per shell reload
-      reloadStartTime: 0,
-      lastShotTime: 0,
-    };
-
-    // Add weapons to the inventory
-    this.weapons.push(pistol, rifle, shotgun);
+    this.weapons.push(
+      this.createWeapon(WEAPONS.pistol, this.createPistol()),
+      this.createWeapon(WEAPONS.rifle, this.createRifle()),
+      this.createWeapon(WEAPONS.shotgun, this.createShotgun())
+    );
 
     // Initially set first weapon and add to scene
     this.scene.add(this.getCurrentWeapon().model);
@@ -331,7 +315,7 @@ export class WeaponSystem {
     const currentWeapon = this.getCurrentWeapon();
 
     // Don't shoot if the weapon is empty
-    if (currentWeapon.name === "Empty") {
+    if (currentWeapon.id === null) {
       return null;
     }
 
@@ -373,12 +357,12 @@ export class WeaponSystem {
       ? this.aimTarget.clone().sub(barrelPosition).normalize()
       : new THREE.Vector3(0, 0, -1).applyQuaternion(this.player.quaternion);
 
-    // Create the bullet
+    // Cosmetic bullet only; the server simulates the authoritative one from
+    // the intent below and reports hits via COMBAT.HIT.
     const bullet = this.createBullet(scene, barrelPosition, direction);
 
-    // Emit weapon event for network synchronization
     this.emit(GAME_EVENTS.WEAPON.SHOOT, {
-      weaponType: currentWeapon.name,
+      weaponType: currentWeapon.id,
       action: "shoot",
       data: {
         ammo: currentWeapon.bulletsInMagazine,
@@ -427,35 +411,19 @@ export class WeaponSystem {
     // Normalize the direction vector to ensure consistent speed
     const normalizedDirection = direction.clone().normalize();
 
-    // Check if current weapon is shotgun
-    if (currentWeapon.name === "Shotgun") {
-      // Shotgun spread - create 3 bullets with different angles
-      // Parameters for spread
-      const spreadAngle = 0.1; // Angle in radians for the spread (about 5.7 degrees)
-
-      // Create main bullet (straight ahead)
-      primaryBullet = new Bullet(
-        position.clone(),
-        normalizedDirection.clone(),
-        scene
-      );
-      this.bullets.push(primaryBullet);
-
-      // Create bullet with spread to the right
-      const rightDirection = normalizedDirection.clone();
-      rightDirection.applyAxisAngle(new THREE.Vector3(0, 1, 0), -spreadAngle);
-      const rightBullet = new Bullet(position.clone(), rightDirection, scene);
-      this.bullets.push(rightBullet);
-
-      // Create bullet with spread to the left
-      const leftDirection = normalizedDirection.clone();
-      leftDirection.applyAxisAngle(new THREE.Vector3(0, 1, 0), spreadAngle);
-      const leftBullet = new Bullet(position.clone(), leftDirection, scene);
-      this.bullets.push(leftBullet);
-    } else {
-      // For all other weapons, create a single bullet
-      primaryBullet = new Bullet(position.clone(), normalizedDirection, scene);
-      this.bullets.push(primaryBullet);
+    // Same pellet fan the server simulates, so cosmetic bullets line up with
+    // the authoritative ones.
+    const offsets = currentWeapon.id
+      ? pelletYawOffsets(WEAPONS[currentWeapon.id])
+      : [0];
+    const up = new THREE.Vector3(0, 1, 0);
+    for (const yaw of offsets) {
+      const pelletDirection = normalizedDirection
+        .clone()
+        .applyAxisAngle(up, yaw);
+      const bullet = new Bullet(position.clone(), pelletDirection, scene);
+      this.bullets.push(bullet);
+      if (yaw === 0 || primaryBullet === null) primaryBullet = bullet;
     }
 
     // Create muzzle flash
@@ -814,22 +782,22 @@ export class WeaponSystem {
       const newWeapon = this.getCurrentWeapon();
 
       // Only add to scene if it's not empty
-      if (newWeapon.name !== "Empty") {
+      if (newWeapon.id !== null) {
         this.scene.add(newWeapon.model);
 
         // Update weapon position
         this.updateWeaponPosition(false);
-      }
 
-      // Emit weapon switch event
-      this.emit(GAME_EVENTS.WEAPON.SWITCH, {
-        weaponType: newWeapon.name,
-        action: "switch",
-        data: {
-          ammo: newWeapon.bulletsInMagazine,
-          totalAmmo: newWeapon.totalBullets,
-        },
-      });
+        // Emit weapon switch event (the empty slot has nothing to show remotely)
+        this.emit(GAME_EVENTS.WEAPON.SWITCH, {
+          weaponType: newWeapon.id,
+          action: "switch",
+          data: {
+            ammo: newWeapon.bulletsInMagazine,
+            totalAmmo: newWeapon.totalBullets,
+          },
+        });
+      }
     }
   }
 
@@ -912,6 +880,7 @@ export class WeaponSystem {
 
     // Instead of removing the weapon from inventory, replace it with an empty slot
     const emptyWeapon: Weapon = {
+      id: null,
       name: "Empty",
       model: new THREE.Group(), // Empty group
       bulletsInMagazine: 0,
@@ -938,7 +907,7 @@ export class WeaponSystem {
   private switchToNonEmptyWeapon(): void {
     // Find the first non-empty weapon
     for (let i = 0; i < this.weapons.length; i++) {
-      if (i !== this.currentWeaponIndex && this.weapons[i].name !== "Empty") {
+      if (i !== this.currentWeaponIndex && this.weapons[i].id !== null) {
         this.switchToWeapon(i);
         return;
       }
@@ -954,8 +923,24 @@ export class WeaponSystem {
       current: currentWeapon.bulletsInMagazine,
       total: currentWeapon.totalBullets,
       isReloading: currentWeapon.isReloading,
-      isEmpty: currentWeapon.name === "Empty",
+      isEmpty: currentWeapon.id === null,
     };
+  }
+
+  /** Build the held model for a weapon id. */
+  private createModelFor(id: WeaponId): THREE.Group {
+    switch (id) {
+      case "pistol":
+        return this.createPistol();
+      case "rifle":
+        return this.createRifle();
+      case "shotgun":
+        return this.createShotgun();
+      default: {
+        const exhaustive: never = id;
+        throw new Error(`Unknown weapon id: ${String(exhaustive)}`);
+      }
+    }
   }
 
   /**
@@ -968,32 +953,17 @@ export class WeaponSystem {
     // Note: If you're seeing a TypeScript error about findIndex,
     // update your tsconfig.json to include "lib": ["es2015", "dom"] or later
     const emptySlotIndex = this.weapons.findIndex(
-      (w: Weapon) => w.name === "Empty"
+      (w: Weapon) => w.id === null
     );
+
+    if (weapon.id === null) {
+      console.warn("Refusing to add an empty weapon slot to the inventory");
+      return false;
+    }
 
     if (emptySlotIndex !== -1) {
       // We found an empty slot, replace it with the new weapon
-
-      // Create a new model for the weapon based on its name
-      let newModel: THREE.Group;
-      switch (weapon.name) {
-        case "Pistol":
-          newModel = this.createPistol();
-          break;
-        case "Assault Rifle":
-          newModel = this.createRifle();
-          break;
-        case "Shotgun":
-          newModel = this.createShotgun();
-          break;
-        default:
-          // If we don't recognize the weapon type, create a default model
-          newModel = new THREE.Group();
-          console.warn(`Unknown weapon type: ${weapon.name}`);
-      }
-
-      // Update the weapon with the new model
-      weapon.model = newModel;
+      weapon.model = this.createModelFor(weapon.id);
 
       // Replace the empty slot with the new weapon
       this.weapons[emptySlotIndex] = weapon;
@@ -1009,26 +979,7 @@ export class WeaponSystem {
 
     // If we don't have an empty slot but have fewer than 3 weapons, add it
     if (this.weapons.length < 3) {
-      // Create a new model for the weapon based on its name
-      let newModel: THREE.Group;
-      switch (weapon.name) {
-        case "Pistol":
-          newModel = this.createPistol();
-          break;
-        case "Assault Rifle":
-          newModel = this.createRifle();
-          break;
-        case "Shotgun":
-          newModel = this.createShotgun();
-          break;
-        default:
-          // If we don't recognize the weapon type, create a default model
-          newModel = new THREE.Group();
-          console.warn(`Unknown weapon type: ${weapon.name}`);
-      }
-
-      // Update the weapon with the new model
-      weapon.model = newModel;
+      weapon.model = this.createModelFor(weapon.id);
 
       // Add the weapon to the inventory
       this.weapons.push(weapon);

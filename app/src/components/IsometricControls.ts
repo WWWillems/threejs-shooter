@@ -161,14 +161,16 @@ export class IsometricControls implements CollisionDetector {
   public addWoodenCrateToScene(
     position: THREE.Vector3,
     size = 1.5,
-    rotation = 0
+    rotation = 0,
+    crateId?: string
   ): THREE.Group {
     const crate = WoodenCrate.addToScene(
       this.scene,
       position,
       size,
       rotation,
-      this.pickupManager
+      this.pickupManager,
+      crateId
     );
     this.collisionSystem.addWoodenCrate(crate, size);
     return crate;
