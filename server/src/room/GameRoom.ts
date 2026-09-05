@@ -2,6 +2,7 @@ import {
   CRATE_DROP_CHANCE,
   CRATE_MAX_HP,
   GAME_EVENTS,
+  GRENADE,
   PICKUP_LIFETIME,
   PICKUP_MAX_COUNT,
   PICKUP_SPAWN_INTERVAL,
@@ -9,12 +10,15 @@ import {
   PLAYER_SIZE,
   Rng,
   WEAPONS,
+  aabbCenter,
   aabbFromCenterSize,
   aabbIntersects,
+  blastDamage,
   carBox,
   crateBox,
   findPickupSpawnPosition,
   generateMap,
+  integrateGrenade,
   integrateProjectile,
   isWeaponId,
   isWithinPickupReach,
@@ -22,6 +26,7 @@ import {
   rollCrateDrop,
   rollPickupContents,
   shopBox,
+  spawnGrenade,
   spawnPellets,
   streetLightBox,
   type ClientEventName,
@@ -30,6 +35,9 @@ import {
   type CrateSpec,
   type CrateState,
   type DamageSource,
+  type Grenade,
+  type GrenadeSnapshot,
+  type GrenadeThrowEvent,
   type Leaderboard,
   type MapLayout,
   type PickupClaimEvent,
@@ -53,6 +61,8 @@ export type WorldTag =
 interface ServerPlayer extends PlayerSnapshot {
   /** Server clock (ms) of the last accepted shot. */
   lastShotAt: number;
+  /** Server clock (ms) of the last accepted grenade throw. */
+  lastThrowAt: number;
   /** Fractional hazard damage not yet applied (see stepCarContact). */
   pendingHazardDamage: number;
 }
@@ -101,6 +111,8 @@ export class GameRoom {
   readonly map: MapLayout;
   /** Bullets in flight. */
   readonly projectiles: Projectile[] = [];
+  /** Grenades in flight or resting, keyed by grenade id. */
+  readonly grenades = new Map<string, Grenade>();
   /** Surviving crates keyed by crate id. */
   readonly crates = new Map<string, ServerCrate>();
   /** Pickups lying in the world keyed by pickup id. */
@@ -112,6 +124,7 @@ export class GameRoom {
   private tickCount = 0;
   private nextProjectileId = 1;
   private nextPickupId = 1;
+  private nextGrenadeId = 1;
   /** Seconds until the next random pickup spawn. */
   private pickupSpawnIn: number;
 
@@ -177,6 +190,9 @@ export class GameRoom {
       case GAME_EVENTS.PICKUP.CLAIM:
         this.handlePickupClaim(playerId, payload as PickupClaimEvent);
         break;
+      case GAME_EVENTS.GRENADE.THROW:
+        this.handleGrenadeThrow(playerId, payload as GrenadeThrowEvent);
+        break;
       default: {
         const unhandled: never = event;
         throw new Error(`Unhandled intent: ${String(unhandled)}`);
@@ -191,12 +207,14 @@ export class GameRoom {
   tick(dt: number, now: number = this.clock()): void {
     this.tickCount += 1;
     this.stepProjectiles(dt);
+    this.stepGrenades(dt);
     this.stepCarContact(dt);
     this.stepPickups(dt, now);
     this.transport.broadcast(GAME_EVENTS.WORLD.SNAPSHOT, {
       tick: this.tickCount,
       serverTime: now,
       players: this.snapshotPlayers(),
+      grenades: this.snapshotGrenades(),
     });
   }
 
@@ -222,6 +240,7 @@ export class GameRoom {
       position: payload.position,
       rotation: 0,
       lastShotAt: -Infinity,
+      lastThrowAt: -Infinity,
       pendingHazardDamage: 0,
     });
 
@@ -345,7 +364,79 @@ export class GameRoom {
     });
   }
 
+  private handleGrenadeThrow(playerId: string, payload: GrenadeThrowEvent): void {
+    const player = this.players.get(playerId);
+    if (!player || player.status !== "alive") return;
+    if (!payload.position || !payload.direction) return;
+
+    const now = this.clock();
+    if (now - player.lastThrowAt < GRENADE.throwCooldown * 1000) return;
+    player.lastThrowAt = now;
+
+    const id = `grenade-${this.nextGrenadeId++}`;
+    this.grenades.set(
+      id,
+      spawnGrenade(id, playerId, payload.position, payload.direction)
+    );
+
+    // Others play the throw animation; the grenade itself arrives via snapshots.
+    this.transport.broadcast(
+      GAME_EVENTS.GRENADE.THROW,
+      { id: playerId, userId: playerId, ...payload },
+      playerId
+    );
+  }
+
   // ---- simulation --------------------------------------------------------
+
+  private stepGrenades(dt: number): void {
+    if (this.grenades.size === 0) return;
+
+    // Grenades bounce off the world and crates, not off players.
+    const colliders = [...this.staticColliders, ...this.crateColliders()];
+
+    for (const grenade of this.grenades.values()) {
+      integrateGrenade(grenade, dt, colliders);
+      if (grenade.fuse <= 0) this.explodeGrenade(grenade);
+    }
+  }
+
+  private explodeGrenade(grenade: Grenade): void {
+    this.grenades.delete(grenade.id);
+    const center = grenade.position;
+    const hits: { targetId: string; damage: number }[] = [];
+
+    // Players: `position` is the body centre, same as the player collider
+    for (const player of this.players.values()) {
+      if (player.status !== "alive" || !player.position) continue;
+      const damage = blastDamage(center, player.position);
+      if (damage <= 0) continue;
+      hits.push({ targetId: player.id, damage });
+    }
+
+    // Crates
+    for (const crate of this.crates.values()) {
+      const damage = blastDamage(center, aabbCenter(crateBox(crate.spec)));
+      if (damage <= 0) continue;
+      hits.push({ targetId: crate.spec.id, damage });
+    }
+
+    this.transport.broadcast(GAME_EVENTS.GRENADE.EXPLODED, {
+      grenadeId: grenade.id,
+      ownerId: grenade.ownerId,
+      position: center,
+      hits,
+    });
+
+    // Apply through the same paths bullets use so HP, kills and drops stay consistent.
+    for (const { targetId, damage } of hits) {
+      if (this.players.has(targetId)) {
+        this.applyDamage(grenade.ownerId, targetId, damage, "grenade", center);
+      } else {
+        this.damageCrate(targetId, damage);
+      }
+    }
+  }
 
   private stepProjectiles(dt: number): void {
     if (this.projectiles.length === 0) return;
@@ -536,6 +627,14 @@ export class GameRoom {
     return [...this.crates.values()].map(({ spec }) => ({
       box: crateBox(spec),
       tag: { kind: "crate", id: spec.id },
+    }));
+  }
+
+  private snapshotGrenades(): GrenadeSnapshot[] {
+    return [...this.grenades.values()].map(({ id, ownerId, position }) => ({
+      id,
+      ownerId,
+      position,
     }));
   }
 

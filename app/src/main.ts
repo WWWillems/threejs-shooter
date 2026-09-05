@@ -4,6 +4,7 @@ import { IsometricControls } from "./components/IsometricControls";
 import { HUD } from "./components/HUD";
 import { PickupManager } from "./components/PickupManager";
 import { CrateSync } from "./components/CrateSync";
+import { GrenadeRenderer } from "./components/GrenadeRenderer";
 import { StartOverlay } from "./components/StartOverlay";
 import { RemotePlayerManager } from "./components/RemotePlayerManager";
 import { GAME_EVENTS } from "@threejs-shooter/shared";
@@ -92,6 +93,9 @@ const environmentBuilder = new EnvironmentBuilder(scene, controls);
 environmentBuilder.buildEnvironment();
 new CrateSync(net, controls.getCollisionSystem(), environmentBuilder.getMap());
 
+// Grenades are server-simulated; this draws them from the snapshot stream
+const grenadeRenderer = new GrenadeRenderer(scene, net, replication);
+
 // Initialize the game loop
 const gameLoop = new GameLoop(
   scene,
@@ -101,6 +105,7 @@ const gameLoop = new GameLoop(
   hud,
   pickupManager,
   remotePlayerManager,
+  grenadeRenderer,
   player,
   []
 );

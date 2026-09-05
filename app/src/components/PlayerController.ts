@@ -5,7 +5,7 @@ import type { CameraController } from "./CameraController";
 import type { WeaponSystem } from "./Weapon";
 import { WeaponType } from "./Weapon";
 import type { Weapon } from "./Weapon";
-import { GAME_EVENTS, type Vec3 } from "@threejs-shooter/shared";
+import { GAME_EVENTS, GRENADE, type Vec3 } from "@threejs-shooter/shared";
 import type { NetworkClient } from "../net/NetworkClient";
 
 /**
@@ -84,6 +84,10 @@ export class PlayerController {
     new THREE.Vector3(0, 1, 0),
     0
   );
+  /** Point on the ground under the crosshair; null before the first mouse move. */
+  private aimTarget: THREE.Vector3 | null = null;
+  /** Local clock (ms) of the last grenade throw, for the client-side cooldown. */
+  private lastGrenadeThrowAt = -Infinity;
 
   constructor(
     private player: THREE.Mesh,
@@ -159,6 +163,10 @@ export class PlayerController {
 
     this.inputManager.onReload(() => {
       this.weaponSystem.reload();
+    });
+
+    this.inputManager.onThrowGrenade(() => {
+      this.throwGrenade();
     });
 
     this.inputManager.onWeaponSwitch((index) => {
@@ -371,6 +379,7 @@ export class PlayerController {
     if (!raycaster.ray.intersectPlane(this.groundPlane, targetPoint)) {
       return;
     }
+    this.aimTarget = targetPoint.clone();
     this.weaponSystem.setAimTarget(targetPoint);
 
     // Calculate the direction the player should face
@@ -508,6 +517,36 @@ export class PlayerController {
   public applyServerHp(hp: number): void {
     if (this.isDead) return;
     this.currentHealth = Math.min(this.maxHealth, Math.max(0, hp));
+  }
+
+  /**
+   * Send a grenade throw intent towards the crosshair. The grenade itself is
+   * simulated by the server and shows up in world snapshots.
+   */
+  private throwGrenade(): void {
+    if (this.isDead) return;
+    const now = performance.now();
+    if (now - this.lastGrenadeThrowAt < GRENADE.throwCooldown * 1000) return;
+    this.lastGrenadeThrowAt = now;
+
+    // Release from chest height, just in front of the player
+    const origin = this.player.position.clone();
+    origin.y += 0.5;
+    const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(
+      this.player.quaternion
+    );
+    origin.addScaledVector(forward, 0.8);
+
+    const direction = this.aimTarget
+      ? this.aimTarget.clone().sub(origin).setY(0)
+      : forward;
+    if (direction.lengthSq() < 1e-6) direction.copy(forward);
+    direction.normalize();
+
+    this.net.send(GAME_EVENTS.GRENADE.THROW, {
+      position: { x: origin.x, y: origin.y, z: origin.z },
+      direction: { x: direction.x, y: direction.y, z: direction.z },
+    });
   }
 
   /**

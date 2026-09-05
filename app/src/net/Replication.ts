@@ -1,4 +1,5 @@
 import type {
+  GrenadeSnapshot,
   PlayerSnapshot,
   PlayerStatus,
   Vec3,
@@ -12,6 +13,19 @@ export interface ReplicatedPlayer {
   status: PlayerStatus;
   position: Vec3;
   rotation: number;
+}
+
+/** Interpolated, render-ready state of one grenade. */
+export interface ReplicatedGrenade {
+  id: string;
+  ownerId: string;
+  position: Vec3;
+}
+
+/** Everything `Replication.sample` can tell you about one instant. */
+export interface ReplicatedWorld {
+  players: Map<string, ReplicatedPlayer>;
+  grenades: Map<string, ReplicatedGrenade>;
 }
 
 export interface ReplicationOptions {
@@ -65,17 +79,28 @@ export class Replication {
     return localNow + this.clockOffset - this.interpolationDelayMs;
   }
 
-  /** World state at local time `localNow`, interpolated. Empty before any snapshot. */
+  /** Players at local time `localNow`, interpolated. Empty before any snapshot. */
   sample(localNow: number): Map<string, ReplicatedPlayer> {
-    const t = this.renderTime(localNow);
-    if (t === null) return new Map();
-    return this.sampleAtServerTime(t);
+    return this.sampleWorld(localNow).players;
   }
 
-  /** World state at server time `t`, interpolated between the surrounding snapshots. */
+  /** Players and grenades at local time `localNow`, interpolated. */
+  sampleWorld(localNow: number): ReplicatedWorld {
+    const t = this.renderTime(localNow);
+    if (t === null) return { players: new Map(), grenades: new Map() };
+    return this.sampleWorldAtServerTime(t);
+  }
+
+  /** Players at server time `t`, interpolated between the surrounding snapshots. */
   sampleAtServerTime(t: number): Map<string, ReplicatedPlayer> {
-    const result = new Map<string, ReplicatedPlayer>();
-    if (this.snapshots.length === 0) return result;
+    return this.sampleWorldAtServerTime(t).players;
+  }
+
+  /** Players and grenades at server time `t`. */
+  sampleWorldAtServerTime(t: number): ReplicatedWorld {
+    if (this.snapshots.length === 0) {
+      return { players: new Map(), grenades: new Map() };
+    }
 
     const first = this.snapshots[0];
     const last = this.snapshots[this.snapshots.length - 1];
@@ -93,17 +118,47 @@ export class Replication {
     const span = b.serverTime - a.serverTime;
     const alpha = span > 0 ? (t - a.serverTime) / span : 1;
 
+    const players = new Map<string, ReplicatedPlayer>();
     const previous = new Map(a.players.map((p) => [p.id, p]));
     for (const to of b.players) {
       const from = previous.get(to.id);
-      result.set(to.id, from ? lerpPlayer(from, to, alpha) : toState(to));
+      players.set(to.id, from ? lerpPlayer(from, to, alpha) : toState(to));
     }
-    return result;
+
+    const grenades = new Map<string, ReplicatedGrenade>();
+    const previousGrenades = new Map(a.grenades.map((g) => [g.id, g]));
+    for (const to of b.grenades) {
+      const from = previousGrenades.get(to.id);
+      grenades.set(to.id, {
+        id: to.id,
+        ownerId: to.ownerId,
+        position: from ? lerpVec3(from.position, to.position, alpha) : to.position,
+      });
+    }
+
+    return { players, grenades };
   }
 }
 
-function toStates(snapshot: WorldSnapshot): Map<string, ReplicatedPlayer> {
-  return new Map(snapshot.players.map((p) => [p.id, toState(p)]));
+function toStates(snapshot: WorldSnapshot): ReplicatedWorld {
+  return {
+    players: new Map(snapshot.players.map((p) => [p.id, toState(p)])),
+    grenades: new Map(
+      snapshot.grenades.map((g) => [g.id, toGrenadeState(g)])
+    ),
+  };
+}
+
+function toGrenadeState(g: GrenadeSnapshot): ReplicatedGrenade {
+  return { id: g.id, ownerId: g.ownerId, position: g.position };
+}
+
+function lerpVec3(a: Vec3, b: Vec3, alpha: number): Vec3 {
+  return {
+    x: a.x + (b.x - a.x) * alpha,
+    y: a.y + (b.y - a.y) * alpha,
+    z: a.z + (b.z - a.z) * alpha,
+  };
 }
 
 function toState(p: PlayerSnapshot): ReplicatedPlayer {

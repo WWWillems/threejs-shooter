@@ -45,6 +45,7 @@ export class StartOverlay {
             <li><strong>Mouse</strong> - Aim</li>
             <li><strong>Left Click</strong> - Shoot</li>
             <li><strong>R</strong> - Reload</li>
+            <li><strong>F</strong> - Throw grenade</li>
             <li><strong>1-3</strong> - Switch weapons</li>
             <li><strong>Q/E</strong> - Cycle weapons</li>
             <li><strong>G</strong> - Drop weapon</li>

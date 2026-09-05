@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import {
   CRATE_MAX_HP,
   GAME_EVENTS,
+  GRENADE,
   PICKUP_LIFETIME,
   PLAYER_MAX_HP,
   WEAPONS,
@@ -395,6 +396,105 @@ describe("GameRoom", () => {
       expect(alice.received(GAME_EVENTS.PICKUP.EXPIRED)).toContainEqual(
         expect.objectContaining({ payload: { pickupId: pickup.id } })
       );
+    });
+  });
+
+  describe("grenades", () => {
+    const fuseTicks = Math.ceil(GRENADE.fuse / DT) + 1;
+
+    it("a thrown grenade is replicated in snapshots and explodes after its fuse", () => {
+      const { alice, bob } = twoPlayers();
+      // Lob towards Bob at (0, 1, -10)
+      alice.send(GAME_EVENTS.GRENADE.THROW, {
+        position: { x: 0, y: 1, z: -1 },
+        direction: { x: 0, y: 0, z: -1 },
+      });
+
+      expect(room.grenades.size).toBe(1);
+      expect(bob.received(GAME_EVENTS.GRENADE.THROW)).toHaveLength(1);
+      expect(alice.received(GAME_EVENTS.GRENADE.THROW)).toHaveLength(0);
+
+      runTicks(1);
+      const [snap] = bob.received(GAME_EVENTS.WORLD.SNAPSHOT);
+      expect(snap.payload.grenades).toHaveLength(1);
+      expect(snap.payload.grenades[0]).toMatchObject({ ownerId: "alice" });
+
+      runTicks(fuseTicks);
+      expect(room.grenades.size).toBe(0);
+
+      const [exploded] = bob.received(GAME_EVENTS.GRENADE.EXPLODED);
+      expect(exploded.payload.ownerId).toBe("alice");
+      expect(exploded.payload.hits.map((h) => h.targetId)).toContain("bob");
+
+      const hits = bob.received(GAME_EVENTS.COMBAT.HIT);
+      expect(hits).toHaveLength(1);
+      expect(hits[0].payload).toMatchObject({
+        shooterId: "alice",
+        targetId: "bob",
+        source: "grenade",
+      });
+      expect(room.players.get("bob")!.hp).toBeLessThan(PLAYER_MAX_HP);
+    });
+
+    it("kills through the normal combat path", () => {
+      const { alice, bob } = twoPlayers();
+      // Drop grenades at Bob's feet from outside the blast radius
+      alice.send(GAME_EVENTS.PLAYER.POSITION, {
+        position: { x: 0, y: 1, z: -2 },
+        rotation: 0,
+      });
+      for (let n = 0; n < 2; n++) {
+        now += GRENADE.throwCooldown * 1000 + 1;
+        alice.send(GAME_EVENTS.GRENADE.THROW, {
+          position: { x: 0, y: 0.5, z: -9.5 },
+          direction: { x: 0, y: 0, z: -0.01 },
+        });
+        runTicks(fuseTicks);
+      }
+
+      expect(room.players.get("bob")!.status).toBe("dead");
+      expect(room.leaderBoard.alice.kills).toBe(1);
+      expect(bob.received(GAME_EVENTS.COMBAT.KILL)).toHaveLength(1);
+      expect(bob.received(GAME_EVENTS.COMBAT.KILL)[0].payload).toMatchObject({
+        killerId: "alice",
+        victimId: "bob",
+        source: "grenade",
+      });
+    });
+
+    it("blast damage reaches crates", () => {
+      const { alice } = twoPlayers();
+      const crate = room.map.crates[0];
+      alice.send(GAME_EVENTS.GRENADE.THROW, {
+        position: { x: crate.position.x + 1.5, y: 0.5, z: crate.position.z + 1.5 },
+        direction: { x: 0, y: -1, z: 0 },
+      });
+      runTicks(fuseTicks);
+
+      const [exploded] = alice.received(GAME_EVENTS.GRENADE.EXPLODED);
+      expect(exploded.payload.hits.map((h) => h.targetId)).toContain(crate.id);
+      expect(alice.received(GAME_EVENTS.CRATE.DAMAGED).length).toBeGreaterThan(0);
+    });
+
+    it("enforces the throw cooldown and ignores dead throwers", () => {
+      const { alice, bob } = twoPlayers();
+      const throwIt = (who: MemoryClient) =>
+        who.send(GAME_EVENTS.GRENADE.THROW, {
+          position: origin,
+          direction: { x: 0, y: 0, z: -1 },
+        });
+
+      throwIt(alice);
+      throwIt(alice);
+      expect(room.grenades.size).toBe(1);
+
+      for (let shot = 0; shot < 4; shot++) {
+        now += 1000;
+        aliceShootsBob(alice);
+        runTicks(10);
+      }
+      throwIt(bob);
+      expect(room.grenades.size).toBe(1);
     });
   });
 

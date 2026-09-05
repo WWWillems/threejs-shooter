@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { aabbFromCenterSize, aabbFromRotatedBox, sweepSegmentAABB } from "./aabb";
+import { GRENADE, blastDamage, integrateGrenade, spawnGrenade } from "./grenade";
 import { generateMap, crateBox } from "./mapLayout";
 import { integrateProjectile, spawnPellets, type Collider } from "./projectile";
 import {
@@ -136,6 +137,75 @@ describe("pickSpawnPoint", () => {
     const spot = pickSpawnPoint([vec3(0, 1, 0), vec3(12, 1, -4)]);
     expect(spot).not.toEqual(vec3(0, 1, 0));
     expect(spot).not.toEqual(vec3(12, 1, -4));
+  });
+});
+
+describe("grenade", () => {
+  const DT = 1 / 20;
+
+  it("follows an arc and bounces off the ground, losing energy", () => {
+    const g = spawnGrenade("g", "alice", vec3(0, 1, 0), vec3(0, 0, -1));
+    expect(g.velocity.y).toBeGreaterThan(0);
+
+    let bounced = false;
+    let peak = g.position.y;
+    for (let i = 0; i < 60 && !bounced; i++) {
+      const bounce = integrateGrenade(g, DT, []);
+      peak = Math.max(peak, g.position.y);
+      if (bounce) {
+        bounced = true;
+        expect(bounce.collider).toBeNull();
+        expect(bounce.normal).toEqual(vec3(0, 1, 0));
+        expect(g.velocity.y).toBeGreaterThan(0); // moving up again
+        expect(g.velocity.y).toBeLessThan(GRENADE.throwLift);
+        expect(g.position.y).toBeCloseTo(GRENADE.radius, 2);
+      }
+    }
+    expect(bounced).toBe(true);
+    expect(peak).toBeGreaterThan(1);
+    expect(g.position.z).toBeLessThan(-3); // travelled forward
+  });
+
+  it("bounces back off a wall", () => {
+    const wall: Collider<string> = {
+      box: aabbFromCenterSize(vec3(0, 1, -3), vec3(10, 2, 0.5)),
+      tag: "wall",
+    };
+    const g = spawnGrenade("g", "alice", vec3(0, 1, 0), vec3(0, 0, -1));
+    g.velocity = vec3(0, 0, -10); // flat throw for a clean test
+
+    let bounce = null;
+    for (let i = 0; i < 20 && !bounce; i++) bounce = integrateGrenade(g, DT, [wall]);
+
+    expect(bounce?.collider?.tag).toBe("wall");
+    expect(bounce?.normal).toEqual(vec3(0, 0, 1));
+    expect(g.velocity.z).toBeGreaterThan(0);
+    expect(g.velocity.z).toBeCloseTo(10 * GRENADE.restitution, 5);
+  });
+
+  it("comes to rest and detonates when the fuse runs out", () => {
+    const g = spawnGrenade("g", "alice", vec3(0, 0.2, 0), vec3(0, 0, -1));
+    g.velocity = vec3(0, 0, 0);
+    let ticks = 0;
+    while (g.fuse > 0) {
+      integrateGrenade(g, DT, []);
+      ticks++;
+    }
+    const expected = Math.ceil(GRENADE.fuse / DT);
+    expect(ticks).toBeGreaterThanOrEqual(expected);
+    expect(ticks).toBeLessThanOrEqual(expected + 1); // float accumulation
+    expect(g.velocity).toEqual(vec3(0, 0, 0));
+    expect(g.position.y).toBeCloseTo(GRENADE.radius, 2);
+  });
+
+  it("blast damage falls off linearly to zero at the radius", () => {
+    const c = vec3(0, 0, 0);
+    expect(blastDamage(c, c)).toBe(GRENADE.maxDamage);
+    expect(blastDamage(c, vec3(GRENADE.blastRadius / 2, 0, 0))).toBe(
+      Math.round(GRENADE.maxDamage / 2)
+    );
+    expect(blastDamage(c, vec3(GRENADE.blastRadius, 0, 0))).toBe(0);
+    expect(blastDamage(c, vec3(0, 0, 50))).toBe(0);
   });
 });
 

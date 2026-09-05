@@ -43,6 +43,12 @@ export const GAME_EVENTS = {
     /** Server -> all: a crate's HP reached zero; remove it. */
     DESTROYED: "crate:destroyed",
   },
+  GRENADE: {
+    /** Client -> server: throw intent. Server -> others: someone threw (cosmetic). */
+    THROW: "grenade:throw",
+    /** Server -> all: a grenade detonated; damage travels as COMBAT.HIT. */
+    EXPLODED: "grenade:exploded",
+  },
   PICKUP: {
     /** Server -> all: a pickup appeared in the world. */
     SPAWNED: "pickup:spawned",

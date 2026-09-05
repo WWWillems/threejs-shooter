@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import type { PlayerSnapshot, WorldSnapshot } from "@threejs-shooter/shared";
+import type {
+  GrenadeSnapshot,
+  PlayerSnapshot,
+  WorldSnapshot,
+} from "@threejs-shooter/shared";
 import { Replication, lerpAngle } from "./Replication";
 
 const player = (
@@ -21,8 +25,9 @@ const player = (
 const snapshot = (
   tick: number,
   serverTime: number,
-  players: PlayerSnapshot[]
-): WorldSnapshot => ({ tick, serverTime, players });
+  players: PlayerSnapshot[],
+  grenades: GrenadeSnapshot[] = []
+): WorldSnapshot => ({ tick, serverTime, players, grenades });
 
 describe("Replication", () => {
   it("returns nothing before the first snapshot", () => {
@@ -73,6 +78,24 @@ describe("Replication", () => {
     r.push(snapshot(2, 1050, [player("a", 10)]), 1050);
     r.push(snapshot(1, 1000, [player("a", 0)]), 1060);
     expect(r.latest!.tick).toBe(2);
+  });
+
+  it("interpolates grenade positions and drops grenades that vanished", () => {
+    const r = new Replication({ interpolationDelayMs: 0 });
+    const g = (x: number, y: number): GrenadeSnapshot => ({
+      id: "g1",
+      ownerId: "a",
+      position: { x, y, z: 0 },
+    });
+    r.push(snapshot(1, 1000, [player("a", 0)], [g(0, 2)]), 1000);
+    r.push(snapshot(2, 1100, [player("a", 0)], [g(10, 0)]), 1100);
+    r.push(snapshot(3, 1200, [player("a", 0)], []), 1200);
+
+    const mid = r.sampleWorldAtServerTime(1050).grenades.get("g1")!;
+    expect(mid.position.x).toBeCloseTo(5);
+    expect(mid.position.y).toBeCloseTo(1);
+
+    expect(r.sampleWorldAtServerTime(1150).grenades.size).toBe(0);
   });
 });
 

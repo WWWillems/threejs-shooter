@@ -5,6 +5,8 @@ import type {
   CrateDamagedEvent,
   CrateDestroyedEvent,
   GameStateEvent,
+  GrenadeExplodedEvent,
+  GrenadeThrowEvent,
   PickupClaimEvent,
   PickupExpiredEvent,
   PickupSpec,
@@ -32,6 +34,7 @@ export interface ClientToServerEvents {
   [GAME_EVENTS.WEAPON.SHOOT]: (payload: WeaponEvent) => void;
   [GAME_EVENTS.WEAPON.SWITCH]: (payload: WeaponEvent) => void;
   [GAME_EVENTS.PICKUP.CLAIM]: (payload: PickupClaimEvent) => void;
+  [GAME_EVENTS.GRENADE.THROW]: (payload: GrenadeThrowEvent) => void;
 }
 
 /** Events the server may send to a client, bound to their payload types. */
@@ -53,6 +56,8 @@ export interface ServerToClientEvents {
   [GAME_EVENTS.PICKUP.SPAWNED]: (payload: PickupSpec) => void;
   [GAME_EVENTS.PICKUP.TAKEN]: (payload: PickupTakenEvent) => void;
   [GAME_EVENTS.PICKUP.EXPIRED]: (payload: PickupExpiredEvent) => void;
+  [GAME_EVENTS.GRENADE.THROW]: (payload: Stamped<GrenadeThrowEvent>) => void;
+  [GAME_EVENTS.GRENADE.EXPLODED]: (payload: GrenadeExplodedEvent) => void;
 }
 
 export type ClientEventName = keyof ClientToServerEvents;

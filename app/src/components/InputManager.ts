@@ -26,6 +26,7 @@ export class InputManager {
   // Event callbacks
   private onShootCallbacks: InputCallback[] = [];
   private onReloadCallbacks: InputCallback[] = [];
+  private onThrowGrenadeCallbacks: InputCallback[] = [];
   private onWeaponSwitchCallbacks: ((index: number) => void)[] = [];
   private onMouseMoveCallbacks: ((mousePos: THREE.Vector2) => void)[] = [];
   private onShowLeaderboardCallbacks: InputCallback[] = [];
@@ -105,6 +106,11 @@ export class InputManager {
       switch (event.code) {
         case "KeyR":
           for (const callback of this.onReloadCallbacks) {
+            callback();
+          }
+          break;
+        case "KeyF":
+          for (const callback of this.onThrowGrenadeCallbacks) {
             callback();
           }
           break;
@@ -224,6 +230,11 @@ export class InputManager {
    */
   public onReload(callback: InputCallback): void {
     this.onReloadCallbacks.push(callback);
+  }
+
+  /** Register callback for the grenade throw key (F). */
+  public onThrowGrenade(callback: InputCallback): void {
+    this.onThrowGrenadeCallbacks.push(callback);
   }
 
   /**

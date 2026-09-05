@@ -18,6 +18,8 @@ export type {
   CrateState,
   DamageSource,
   GameStateEvent,
+  GrenadeExplodedEvent,
+  GrenadeThrowEvent,
   Leaderboard,
   LeaderboardEntry,
   PickupClaimEvent,

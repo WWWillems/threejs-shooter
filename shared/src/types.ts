@@ -1,4 +1,5 @@
 import type { WeaponId } from "./sim/weapons";
+import type { GrenadeSnapshot } from "./sim/grenade";
 
 /** Plain serializable 3D vector used by the socket protocol. */
 export interface Vec3 {
@@ -63,8 +64,24 @@ export interface WeaponEvent extends BaseEvent {
   };
 }
 
-/** What dealt the damage. Weapons credit the shooter; world hazards credit nobody. */
-export type DamageSource = WeaponId | "car";
+/** What dealt the damage. Weapons and grenades credit the thrower; world hazards credit nobody. */
+export type DamageSource = WeaponId | "grenade" | "car";
+
+/** Client -> server: throw a grenade from `position` along `direction`. */
+export interface GrenadeThrowEvent extends BaseEvent {
+  position: Vec3;
+  /** Aim direction; the server adds the arc. */
+  direction: Vec3;
+}
+
+/** Server -> all: a grenade went off. Per-target damage arrives as COMBAT.HIT. */
+export interface GrenadeExplodedEvent {
+  grenadeId: string;
+  ownerId: string;
+  position: Vec3;
+  /** Players and crates caught in the blast, with the damage each took. */
+  hits: { targetId: string; damage: number }[];
+}
 
 /** Server -> all: a player took damage. */
 export interface CombatHitEvent {
@@ -167,6 +184,7 @@ export interface WorldSnapshot {
   /** Server clock at this tick, ms. Clients interpolate in this time base. */
   serverTime: number;
   players: PlayerSnapshot[];
+  grenades: GrenadeSnapshot[];
 }
 
 /** One row of the HTTP `/leaderboard` response. */

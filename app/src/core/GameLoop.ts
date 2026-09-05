@@ -3,6 +3,7 @@ import { IsometricControls } from "../components/IsometricControls";
 import { HUD } from "../components/HUD";
 import { PickupManager } from "../components/PickupManager";
 import { RemotePlayerManager } from "../components/RemotePlayerManager";
+import { GrenadeRenderer } from "../components/GrenadeRenderer";
 
 // Define window augmentation for impact animations
 type ImpactAnimationFn = (delta: number) => void;
@@ -22,6 +23,7 @@ export class GameLoop {
   private hud: HUD;
   private pickupManager: PickupManager;
   private remotePlayerManager: RemotePlayerManager;
+  private grenadeRenderer: GrenadeRenderer;
   private player: THREE.Mesh;
   private lastFrameTime: number;
   private decorationCubes: THREE.Mesh[] = [];
@@ -34,6 +36,7 @@ export class GameLoop {
     hud: HUD,
     pickupManager: PickupManager,
     remotePlayerManager: RemotePlayerManager,
+    grenadeRenderer: GrenadeRenderer,
     player: THREE.Mesh,
     decorationCubes: THREE.Mesh[] = []
   ) {
@@ -44,6 +47,7 @@ export class GameLoop {
     this.hud = hud;
     this.pickupManager = pickupManager;
     this.remotePlayerManager = remotePlayerManager;
+    this.grenadeRenderer = grenadeRenderer;
     this.player = player;
     this.decorationCubes = decorationCubes;
     this.lastFrameTime = performance.now();
@@ -87,6 +91,9 @@ export class GameLoop {
 
     // Update remote players
     this.remotePlayerManager.update(delta);
+
+    // Update server-simulated grenades and explosion effects
+    this.grenadeRenderer.update(delta);
 
     // Update HUD
     if (this.hud) {
