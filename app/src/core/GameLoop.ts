@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { updateCharacterVisual } from "../components/CharacterVisual";
 import { IsometricControls } from "../components/IsometricControls";
 import { HUD } from "../components/HUD";
 import { PickupManager } from "../components/PickupManager";
@@ -80,7 +81,12 @@ export class GameLoop {
     if (playerController) {
       const weaponSystem = playerController.getWeaponSystem();
       if (weaponSystem) {
+        const pose = playerController.getPresentationPose();
+        updateCharacterVisual(this.player, delta, pose);
+        weaponSystem.updatePresentation(delta, pose.crouched);
         weaponSystem.updateAutoFire(this.scene, delta);
+        // Projectiles and muzzle effects finish even when their shooter dies.
+        if (playerController.getHealth().isDead) weaponSystem.updateBullets(delta);
       }
     }
 

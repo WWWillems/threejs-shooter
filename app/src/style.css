@@ -392,3 +392,177 @@ canvas {
 .inventory-container .weapon-slot { height: 78px; }
 .inventory-container .inventory-tip { font-size: 11px; margin-top: 8px; }
 .health-bar-fill { background: linear-gradient(#36d346, #07851a); }
+
+/*
+ * Chat widget: shares the noir/amber design language used by the scene
+ * editor and character workshop (see app/src/editor/editor.css and
+ * app/src/characterWorkshop/characterWorkshop.css) — dark glass panels,
+ * a warm gold accent, 4px radii — while staying legible over gameplay.
+ */
+.chat-widget {
+  --chat-accent: #d6a15f;
+  --chat-accent-strong: #f0c890;
+  --chat-panel-bg: rgba(15, 16, 19, 0.78);
+  --chat-panel-bg-strong: rgba(11, 12, 15, 0.92);
+  --chat-border: rgba(214, 161, 95, 0.28);
+  --chat-border-strong: rgba(214, 161, 95, 0.65);
+  --chat-text: #ece7da;
+  --chat-text-dim: rgba(236, 231, 218, 0.52);
+  --chat-radius: 4px;
+
+  position: absolute;
+  left: 22px;
+  bottom: 24px;
+  width: min(420px, calc(100vw - 44px));
+  max-width: 100%;
+  pointer-events: auto;
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, sans-serif;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
+}
+
+.chat-messages {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 5px;
+  max-height: min(240px, 42vh);
+  overflow: hidden;
+}
+
+.chat-message {
+  max-width: 100%;
+  padding: 5px 10px;
+  border-radius: var(--chat-radius);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  background: var(--chat-panel-bg);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
+  color: var(--chat-text);
+  font-size: 13px;
+  line-height: 1.4;
+  word-break: break-word;
+  animation: chat-message-in 0.16s ease-out;
+  transition: opacity 0.5s ease, transform 0.5s ease;
+}
+
+.chat-message.is-fading {
+  opacity: 0;
+  transform: translateY(4px);
+}
+
+/* The local player's own messages get a subtle accent edge so a fast
+   scrollback stays easy to scan without changing the render format. */
+.chat-message.is-self {
+  border-color: var(--chat-border);
+  background: linear-gradient(
+    0deg,
+    rgba(214, 161, 95, 0.08),
+    rgba(214, 161, 95, 0.08)
+  ), var(--chat-panel-bg);
+}
+
+.chat-message-sender {
+  color: var(--chat-accent);
+  font-weight: 700;
+}
+
+.chat-message.is-self .chat-message-sender {
+  color: var(--chat-accent-strong);
+}
+
+.chat-input-panel {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  padding: 7px 10px;
+  border: 1px solid var(--chat-border-strong);
+  border-radius: var(--chat-radius);
+  background: var(--chat-panel-bg-strong);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.45);
+  animation: chat-input-in 0.16s ease-out;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.chat-input-panel[hidden] {
+  display: none;
+}
+
+.chat-widget.is-open .chat-input-panel {
+  border-color: var(--chat-accent);
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.5), 0 0 0 3px rgba(214, 161, 95, 0.14);
+}
+
+.chat-input-prompt {
+  flex-shrink: 0;
+  color: #241a0e;
+  background: var(--chat-accent);
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  padding: 3px 6px;
+  border-radius: 3px;
+}
+
+.chat-input {
+  min-width: 0;
+  flex: 1;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--chat-text);
+  font: inherit;
+  font-size: 13.5px;
+}
+
+.chat-input::placeholder {
+  color: var(--chat-text-dim);
+}
+
+@keyframes chat-message-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes chat-input-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (max-width: 560px) {
+  .chat-widget {
+    left: 12px;
+    right: 12px;
+    width: auto;
+    bottom: 16px;
+  }
+
+  .chat-message {
+    padding: 4px 8px;
+    font-size: 12px;
+  }
+
+  .chat-input-prompt {
+    font-size: 9px;
+  }
+
+  .chat-input {
+    font-size: 13px;
+  }
+}

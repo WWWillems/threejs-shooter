@@ -19,6 +19,7 @@ import { GameLoop } from "./core/GameLoop";
 import { NetworkClient } from "./net/NetworkClient";
 import { Replication } from "./net/Replication";
 import { loadClientLevel } from "./levelLoader";
+import { sfx } from "./audio/sfx";
 
 // Connect to the game server
 const net = NetworkClient.connect(
@@ -148,6 +149,7 @@ setInterval(() => {
     net.send(GAME_EVENTS.PLAYER.POSITION, {
       position: playerPosition(),
       rotation: player.rotation.y,
+      pose: playerController.getPresentationPose(),
     });
   }
 }, 1000 / TICK_RATE);
@@ -155,6 +157,8 @@ setInterval(() => {
 // Create the start overlay
 const startOverlay = new StartOverlay(document.body, (nickname) => {
   // This will be called when the Start Game button is clicked
+  sfx.unlock();
+  sfx.setListener(camera, player);
 
   // Add player mesh to the scene when the game starts
   playerSystem.addToScene(scene);

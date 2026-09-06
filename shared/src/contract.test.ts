@@ -10,6 +10,8 @@ import type {
   ServerToClientEvents,
 } from "./contract";
 import type {
+  ChatMessageEvent,
+  ChatMessageIntent,
   CombatHitEvent,
   PlayerPositionEvent,
   Stamped,
@@ -28,6 +30,7 @@ describe("event contract", () => {
 
   it("client -> server events bind to their payloads", () => {
     expectTypeOf<ClientPayload<"user:joined">>().toEqualTypeOf<UserJoinedEvent>();
+    expectTypeOf<ClientPayload<"chat:message">>().toEqualTypeOf<ChatMessageIntent>();
     expectTypeOf<
       ClientPayload<"player:position">
     >().toEqualTypeOf<PlayerPositionEvent>();
@@ -40,6 +43,7 @@ describe("event contract", () => {
     >();
     expectTypeOf<ServerPayload<"weapon:shoot">>().toHaveProperty("userId");
     expectTypeOf<ServerPayload<"combat:hit">>().toEqualTypeOf<CombatHitEvent>();
+    expectTypeOf<ServerPayload<"chat:message">>().toEqualTypeOf<ChatMessageEvent>();
   });
 
   it("outgoing payloads omit the transport-added timestamp", () => {
@@ -56,6 +60,7 @@ describe("event contract", () => {
 
     const client: ClientEventName[] = [
       GAME_EVENTS.USER.JOINED,
+      GAME_EVENTS.CHAT.MESSAGE,
       GAME_EVENTS.PLAYER.POSITION,
       GAME_EVENTS.PLAYER.RESPAWN,
       GAME_EVENTS.WEAPON.SHOOT,
@@ -66,6 +71,7 @@ describe("event contract", () => {
     const server: ServerEventName[] = [
       GAME_EVENTS.GAME.STATE,
       GAME_EVENTS.WORLD.SNAPSHOT,
+      GAME_EVENTS.CHAT.MESSAGE,
       GAME_EVENTS.USER.CONNECTED,
       GAME_EVENTS.USER.JOINED,
       GAME_EVENTS.USER.DISCONNECTED,

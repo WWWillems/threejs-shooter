@@ -2,6 +2,7 @@ import * as THREE from "three";
 import { GAME_EVENTS, GRENADE } from "@threejs-shooter/shared";
 import type { NetworkClient } from "../net/NetworkClient";
 import type { Replication } from "../net/Replication";
+import { sfx } from "../audio/sfx";
 
 interface ExplosionEffect {
   group: THREE.Group;
@@ -35,9 +36,26 @@ export class GrenadeRenderer {
     net: NetworkClient,
     private readonly replication: Replication
   ) {
+    net.on(GAME_EVENTS.GRENADE.THROW, (event) => {
+      sfx.play(
+        "grenade:throw",
+        new THREE.Vector3(
+          event.position.x,
+          event.position.y,
+          event.position.z
+        )
+      );
+    });
+
     net.on(GAME_EVENTS.GRENADE.EXPLODED, (event) => {
+      const position = new THREE.Vector3(
+        event.position.x,
+        event.position.y,
+        event.position.z
+      );
+      sfx.play("grenade:explode", position);
       this.spawnExplosion(
-        new THREE.Vector3(event.position.x, event.position.y, event.position.z)
+        position
       );
     });
   }

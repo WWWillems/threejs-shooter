@@ -177,3 +177,12 @@ growing crates, the anchor is leaking and is dropped for that call.
 
 Position and rotation, ammo counts and reloads, weapon switching, dropped
 weapon pickups. See "Out of scope" in ADR 0001.
+
+**Character presentation.** `CharacterAnimator` plays Blender-authored actions on
+an independently cloned skeleton. `CharacterVisual` places the skin under the
+existing controller mesh and translates movement into animation state. The
+`PlayerPose` carried with position snapshots describes crouch, grounded state
+and reload progress for remote presentation only; it does not change damage or
+collision authority. Death animates the skin, and respawn resets the mixer and
+controller dimensions. Held weapons follow `WeaponSocket`, with an off-hand IK
+constraint and an exact `Muzzle` marker for shot origin and flash placement.

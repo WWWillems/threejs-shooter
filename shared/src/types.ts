@@ -34,7 +34,29 @@ export interface UserConnectionEvent {
   message: string;
 }
 
+/** Client -> server: send a text chat message. */
+export interface ChatMessageIntent extends BaseEvent {
+  text: string;
+}
+
+/** Server -> all: a validated, canonical chat message. */
+export interface ChatMessageEvent {
+  messageId: string;
+  senderId: string;
+  senderName: string;
+  text: string;
+  serverTime: number;
+}
+
+/** Cosmetic state only; never used to resolve damage or movement. */
+export interface PlayerPose {
+  crouched: boolean;
+  grounded: boolean;
+  reload: number;
+}
+
 export interface PlayerPositionEvent extends BaseEvent {
+  pose?: PlayerPose;
   position: Vec3;
   rotation: number;
 }
@@ -156,6 +178,7 @@ export interface PickupExpiredEvent {
 
 /** Last known state of one player, as tracked by the server. */
 export interface PlayerSnapshot {
+  pose?: PlayerPose;
   id: string;
   userId: string;
   name: string;

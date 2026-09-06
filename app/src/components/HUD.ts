@@ -2,6 +2,8 @@ import type { IsometricControls } from "./IsometricControls";
 import { WeaponType } from "./Weapon";
 import type { NetworkClient } from "../net/NetworkClient";
 import { GAME_EVENTS, type LeaderboardEntry } from "@threejs-shooter/shared";
+import { sfx } from "../audio/sfx";
+import { Chat } from "./Chat";
 
 type LeaderboardPlayer = LeaderboardEntry;
 
@@ -28,6 +30,7 @@ export class HUD {
   private leaderboardVisible = false;
   private leaderboardData: LeaderboardPlayer[] = [];
   private leaderboardUpdateInterval: number | null = null;
+  private readonly chat: Chat;
 
   private weaponSlots: HTMLElement[] = [];
   private healthBarElement: HTMLElement | null = null;
@@ -52,6 +55,7 @@ export class HUD {
     this.container = container;
     this.uiOverlay = this.createUIOverlay();
     this.container.appendChild(this.uiOverlay);
+    this.chat = new Chat(this.uiOverlay, controls, net);
 
     // Get references to elements
     this.fpsElement = document.getElementById("fps");
@@ -133,6 +137,7 @@ export class HUD {
     // Server-resolved combat outcomes
     this.net.on(GAME_EVENTS.COMBAT.HIT, ({ shooterId, targetId, damage }) => {
       if (shooterId === this.net.selfId && targetId !== this.net.selfId) {
+        sfx.play("hit:marker");
         this.showNotification(
           `damage-${targetId}`,
           "Player Hit",
@@ -143,6 +148,7 @@ export class HUD {
     });
     this.net.on(GAME_EVENTS.COMBAT.KILL, ({ killerId, victimId }) => {
       if (killerId === this.net.selfId) {
+        sfx.play("kill");
         this.showNotification("kill", "Kill", "You eliminated a player", "🎯");
       } else if (victimId === this.net.selfId) {
         this.showNotification("death", "Killed", "You were eliminated", "💀");

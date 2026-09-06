@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { addCharacterVisual } from "./CharacterVisual";
+import { addCharacterVisual, updateCharacterVisual, removeCharacterVisual, setCharacterDead } from "./CharacterVisual";
 import type { NetworkClient } from "../net/NetworkClient";
 import type { Replication, ReplicatedPlayer } from "../net/Replication";
 import type { HUD } from "./HUD";
@@ -7,11 +7,13 @@ import { WeaponSystem } from "./Weapon";
 import {
   GAME_EVENTS,
   type Vec3,
+  type PlayerPose,
   type WeaponId,
 } from "@threejs-shooter/shared";
 import type { CollisionDetector } from "./CollisionInterface";
 import { PlayerCollider, PLAYER_DIMENSIONS } from "./PlayerCollider";
 import { PlayerUtils } from "./PlayerController";
+import { sfx } from "../audio/sfx";
 
 interface RemotePlayer {
   id: string;
@@ -19,6 +21,7 @@ interface RemotePlayer {
   currentHealth: number;
   isDead: boolean;
   weaponSystem: WeaponSystem;
+  pose?: PlayerPose;
 }
 
 /**
@@ -96,12 +99,26 @@ export class RemotePlayerManager {
 
     // Server-resolved outcomes. The local player's own hits/respawns are
     // handled by PlayerController; we only mirror other players here.
-    net.on(GAME_EVENTS.COMBAT.HIT, ({ targetId, hp }) => {
-      if (targetId === net.selfId) return;
+    net.on(GAME_EVENTS.COMBAT.HIT, (event) => {
+      if (event.targetId === net.selfId) return;
+
+      sfx.play(
+        "hit:other",
+        new THREE.Vector3(
+          event.position.x,
+          event.position.y,
+          event.position.z
+        )
+      );
+
+      const { targetId, hp } = event;
       const player = this.players.get(targetId);
       if (!player) return;
       player.currentHealth = hp;
-      if (hp <= 0) this.handleRemoteDeath(targetId);
+      if (hp <= 0 && !player.isDead) {
+        sfx.play("death:other", player.mesh.position);
+        this.handleRemoteDeath(targetId);
+      }
     });
 
     net.on(GAME_EVENTS.PLAYER.RESPAWN, ({ playerId, position, rotation, hp }) => {
@@ -182,12 +199,15 @@ export class RemotePlayerManager {
     if (!player) return;
 
     this.scene.remove(player.mesh);
+    removeCharacterVisual(player.mesh);
+    player.weaponSystem.dispose();
     this.players.delete(userId);
   }
 
   private markDead(player: RemotePlayer): void {
     PlayerUtils.handlePlayerDeath(player.mesh);
     player.isDead = true;
+    player.weaponSystem.setDead(true);
   }
 
   private handleRemoteDeath(userId: string): void {
@@ -212,6 +232,9 @@ export class RemotePlayerManager {
     const player = this.ensurePlayer(userId);
     const wasDead = player.isDead;
     player.isDead = false;
+    player.pose = undefined;
+    setCharacterDead(player.mesh, false);
+    player.weaponSystem.setDead(false);
     player.currentHealth = hp;
 
     // Stand back up
@@ -244,14 +267,20 @@ export class RemotePlayerManager {
     }
 
     for (const player of this.players.values()) {
-      player.weaponSystem.updateWeaponPosition(false);
+      const pose = player.pose ?? { crouched: player.mesh.position.y < .8,
+        grounded: player.mesh.position.y <= 1.03, reload: 0 };
+      updateCharacterVisual(player.mesh, delta, pose);
+      player.weaponSystem.setRemoteReload(pose.reload);
+      player.weaponSystem.updatePresentation(delta, pose.crouched);
       player.weaponSystem.updateBullets(delta, this.bulletStops);
     }
   }
 
   private applyState(state: ReplicatedPlayer): void {
     const player = this.ensurePlayer(state.id);
+    if (state.status === 'dead' && !player.isDead) this.markDead(player);
     if (player.isDead) return; // death pose is owned by the status event
+    player.pose = state.pose;
 
     player.mesh.position.set(
       state.position.x,

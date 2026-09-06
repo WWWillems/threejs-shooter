@@ -41,6 +41,15 @@ const snapshot = (
 });
 
 describe("Replication", () => {
+  it("preserves crouch, airborne and reload presentation through interpolation", () => {
+    const r = new Replication({ interpolationDelayMs: 0 });
+    r.push(snapshot(1, 1000, [player("a", 0, 0, { pose: { crouched: false, grounded: true, reload: 0 } })]), 1000);
+    const pose = { crouched: true, grounded: false, reload: .45 };
+    r.push(snapshot(2, 1050, [player("a", 1, 0, { pose })]), 1050);
+    expect(r.sampleAtServerTime(1025).get("a")!.pose).toEqual(pose);
+    expect(r.sampleAtServerTime(1050).get("a")!.pose).toEqual(pose);
+  });
+
   it("returns nothing before the first snapshot", () => {
     const r = new Replication();
     expect(r.sample(0).size).toBe(0);

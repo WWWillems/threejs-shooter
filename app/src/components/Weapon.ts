@@ -1,9 +1,15 @@
 import * as THREE from "three";
+import { alignSupportHand } from "./ArmIK";
+import { attachModel } from "../core/models";
+import { characterSocket, pulseCharacterShot } from "./CharacterVisual";
+import { MuzzleEffect } from "./MuzzleEffect";
 import { Bullet } from "./Bullet";
 import type { CollisionDetector } from "./CollisionInterface";
 import { WeaponPickup } from "./WeaponPickup";
 import type { PickupManager } from "./PickupManager";
 import type { NetworkClient } from "../net/NetworkClient";
+import { sfx } from "../audio/sfx";
+import type { SfxKind } from "../audio/recipes";
 import {
   GAME_EVENTS,
   WEAPONS,
@@ -40,6 +46,21 @@ export enum WeaponType {
 // Define a type for impact animation functions
 type ImpactAnimationFn = (delta: number) => void;
 
+function shotSfxKind(id: WeaponId): SfxKind {
+  switch (id) {
+    case "pistol":
+      return "shot:pistol";
+    case "rifle":
+      return "shot:rifle";
+    case "shotgun":
+      return "shot:shotgun";
+    default: {
+      const exhaustive: never = id;
+      throw new Error(`Unknown weapon id: ${String(exhaustive)}`);
+    }
+  }
+}
+
 // Add window interface augmentation
 declare global {
   interface Window {
@@ -53,16 +74,16 @@ export class WeaponSystem {
   private scene: THREE.Scene;
   private player: THREE.Mesh;
   private bullets: Bullet[] = [];
-  private gunOffset = new THREE.Vector3(0.32, 0.1, 0.52);
+  private gunOffset = new THREE.Vector3(.19, .37, .46);
+  private recoil = 0;
+  private equip = 0;
+  private dead = false;
+  private remoteReload = 0;
+  private readonly muzzleEffect: MuzzleEffect;
   private pickupManager: PickupManager | null = null;
   private aimTarget: THREE.Vector3 | null = null;
   /** Null for remote players' weapon systems: they mirror the network, never talk to it. */
   private readonly net: NetworkClient | null;
-
-  // Add muzzle flash properties
-  private muzzleFlash: THREE.Mesh | null = null;
-  private muzzleFlashDuration = 0.05; // in seconds
-  private muzzleFlashTimer = 0;
 
   // Add auto-fire tracking
   private isMouseDown = false;
@@ -75,6 +96,7 @@ export class WeaponSystem {
   ) {
     this.scene = scene;
     this.player = player;
+    this.muzzleEffect = new MuzzleEffect(scene);
     this.net = net;
     this.pickupManager = pickupManager || null;
 
@@ -124,187 +146,79 @@ export class WeaponSystem {
     this.scene.add(this.getCurrentWeapon().model);
   }
 
-  // Create pistol model
-  private createPistol(): THREE.Group {
-    const gunGroup = new THREE.Group();
-
-    // Create gun barrel (shorter than rifle)
-    const barrelGeometry = new THREE.CylinderGeometry(0.04, 0.04, 0.5, 8);
-    const barrelMaterial = new THREE.MeshStandardMaterial({ color: 0x333333 });
-    const barrel = new THREE.Mesh(barrelGeometry, barrelMaterial);
-    barrel.rotation.x = Math.PI / 2;
-    barrel.position.z = -0.3;
-
-    // Create gun body (smaller than rifle)
-    const bodyGeometry = new THREE.BoxGeometry(0.15, 0.15, 0.4);
-    const bodyMaterial = new THREE.MeshStandardMaterial({ color: 0x666666 });
-    const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
-    body.position.z = 0;
-
-    // Create gun handle
-    const handleGeometry = new THREE.BoxGeometry(0.12, 0.35, 0.15);
-    const handleMaterial = new THREE.MeshStandardMaterial({ color: 0x444444 });
-    const handle = new THREE.Mesh(handleGeometry, handleMaterial);
-    handle.position.y = -0.25;
-    handle.position.z = 0.1;
-
-    // Add all parts to the gun group
-    gunGroup.add(barrel);
-    gunGroup.add(body);
-    gunGroup.add(handle);
-
-    // Add cast shadow for all parts
-    barrel.castShadow = true;
-    body.castShadow = true;
-    handle.castShadow = true;
-
-    // Rotate the entire gun group
-    gunGroup.rotation.z = Math.PI / 12;
-
-    return gunGroup;
+  private createPistol(): THREE.Group { return this.createHeldModel('pistol'); }
+  private createRifle(): THREE.Group { return this.createHeldModel('rifle'); }
+  private createShotgun(): THREE.Group { return this.createHeldModel('shotgun'); }
+  private createHeldModel(id: WeaponId): THREE.Group {
+    const group = new THREE.Group();
+    group.name = `held-${id}`;
+    attachModel(group, `noir-${id}`);
+    return group;
   }
 
-  // Create rifle model (larger than pistol)
-  private createRifle(): THREE.Group {
-    const gunGroup = new THREE.Group();
-
-    // Create gun barrel (longer than pistol)
-    const barrelGeometry = new THREE.CylinderGeometry(0.05, 0.05, 1.0, 8);
-    const barrelMaterial = new THREE.MeshStandardMaterial({ color: 0x333333 });
-    const barrel = new THREE.Mesh(barrelGeometry, barrelMaterial);
-    barrel.rotation.x = Math.PI / 2;
-    barrel.position.z = -0.5;
-
-    // Create gun body
-    const bodyGeometry = new THREE.BoxGeometry(0.2, 0.2, 0.8);
-    const bodyMaterial = new THREE.MeshStandardMaterial({ color: 0x666666 });
-    const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
-    body.position.z = 0;
-
-    // Create stock (extends behind body)
-    const stockGeometry = new THREE.BoxGeometry(0.15, 0.25, 0.4);
-    const stockMaterial = new THREE.MeshStandardMaterial({ color: 0x8b4513 });
-    const stock = new THREE.Mesh(stockGeometry, stockMaterial);
-    stock.position.z = 0.6;
-    stock.position.y = -0.1;
-
-    // Create gun handle
-    const handleGeometry = new THREE.BoxGeometry(0.15, 0.4, 0.15);
-    const handleMaterial = new THREE.MeshStandardMaterial({ color: 0x444444 });
-    const handle = new THREE.Mesh(handleGeometry, handleMaterial);
-    handle.position.y = -0.3;
-    handle.position.z = 0.15;
-
-    // Add a sight/scope
-    const sightGeometry = new THREE.BoxGeometry(0.05, 0.05, 0.2);
-    const sightMaterial = new THREE.MeshStandardMaterial({ color: 0x222222 });
-    const sight = new THREE.Mesh(sightGeometry, sightMaterial);
-    sight.position.y = 0.15;
-    sight.position.z = -0.1;
-
-    // Add all parts to the gun group
-    gunGroup.add(barrel);
-    gunGroup.add(body);
-    gunGroup.add(stock);
-    gunGroup.add(handle);
-    gunGroup.add(sight);
-
-    // Add cast shadow for all parts
-    barrel.castShadow = true;
-    body.castShadow = true;
-    stock.castShadow = true;
-    handle.castShadow = true;
-    sight.castShadow = true;
-
-    // Rotate the entire gun group
-    gunGroup.rotation.z = Math.PI / 12;
-
-    return gunGroup;
+  public getReloadFraction(): number {
+    const weapon = this.getCurrentWeapon();
+    return weapon.isReloading ? THREE.MathUtils.clamp(
+      (performance.now() - weapon.reloadStartTime) / (weapon.reloadTime * 1000), .001, 1
+    ) : this.remoteReload;
+  }
+  public setRemoteReload(value: number): void {
+    if (this.remoteReload === 0 && value > 0) {
+      sfx.play("reload", this.player.position);
+    }
+    this.remoteReload = value;
+  }
+  public setDead(dead: boolean): void {
+    this.dead = dead;
+    this.isMouseDown = false;
+    if (dead) for (const weapon of this.weapons) weapon.isReloading = false;
+    else { this.recoil = 0; this.equip = 0; }
   }
 
-  // Create shotgun model
-  private createShotgun(): THREE.Group {
-    const gunGroup = new THREE.Group();
-
-    // Create gun barrel (wider than rifle)
-    const barrelGeometry = new THREE.CylinderGeometry(0.08, 0.08, 0.8, 8);
-    const barrelMaterial = new THREE.MeshStandardMaterial({ color: 0x444444 });
-    const barrel = new THREE.Mesh(barrelGeometry, barrelMaterial);
-    barrel.rotation.x = Math.PI / 2;
-    barrel.position.z = -0.4;
-
-    // Create second barrel below first (double-barrel shotgun)
-    const barrel2 = barrel.clone();
-    barrel2.position.y = -0.1;
-
-    // Create gun body
-    const bodyGeometry = new THREE.BoxGeometry(0.25, 0.25, 0.7);
-    const bodyMaterial = new THREE.MeshStandardMaterial({ color: 0x8b4513 });
-    const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
-    body.position.z = 0.2;
-
-    // Create gun handle
-    const handleGeometry = new THREE.BoxGeometry(0.15, 0.35, 0.2);
-    const handleMaterial = new THREE.MeshStandardMaterial({ color: 0x8b4513 });
-    const handle = new THREE.Mesh(handleGeometry, handleMaterial);
-    handle.position.y = -0.25;
-    handle.position.z = 0.45;
-    handle.rotation.x = Math.PI / 6;
-
-    // Add all parts to the gun group
-    gunGroup.add(barrel);
-    gunGroup.add(barrel2);
-    gunGroup.add(body);
-    gunGroup.add(handle);
-
-    // Add cast shadow for all parts
-    barrel.castShadow = true;
-    barrel2.castShadow = true;
-    body.castShadow = true;
-    handle.castShadow = true;
-
-    // Rotate the entire gun group
-    gunGroup.rotation.z = Math.PI / 12;
-
-    return gunGroup;
+  public updatePresentation(delta: number, crouched: boolean): void {
+    this.recoil *= Math.exp(-Math.min(delta, .05) * 22);
+    this.equip = Math.max(0, this.equip - delta * 4);
+    this.updateWeaponPosition(crouched);
+    this.muzzleEffect.update(delta);
   }
 
-  // Update weapon position based on player state
-  public updateWeaponPosition(isCrouching: boolean) {
-    const currentWeapon = this.getCurrentWeapon();
-    if (!currentWeapon || !currentWeapon.model) return;
-
-    // Set gun position with appropriate height based on crouch state
-    const gunPositionY = isCrouching
-      ? this.player.position.y - 0.3
-      : this.player.position.y + 0.1;
-
-    // Calculate gun position in world space based on player's position and rotation
-    // Forward vector based on player's rotation
-    const forward = new THREE.Vector3(0, 0, -1);
-    forward.applyAxisAngle(new THREE.Vector3(0, 1, 0), this.player.rotation.y);
-
-    // Right vector (perpendicular to forward)
-    const right = new THREE.Vector3(1, 0, 0);
-    right.applyAxisAngle(new THREE.Vector3(0, 1, 0), this.player.rotation.y);
-
-    // Calculate gun position relative to player
-    // Adjust the gun offset to be in front of the player now that they're rotated correctly
-    const gunPosition = new THREE.Vector3(
-      this.player.position.x +
-        right.x * this.gunOffset.x +
-        forward.x * this.gunOffset.z,
-      gunPositionY,
-      this.player.position.z +
-        right.z * this.gunOffset.x +
-        forward.z * this.gunOffset.z
-    );
-
-    // Update gun position
-    currentWeapon.model.position.copy(gunPosition);
-
-    // Update gun rotation to match player rotation
-    currentWeapon.model.rotation.y = this.player.rotation.y;
+  public updateWeaponPosition(isCrouching: boolean): void {
+    const weapon = this.getCurrentWeapon();
+    const model = weapon.model;
+    const socket = characterSocket(this.player);
+    this.player.updateMatrixWorld(true);
+    if (socket) {
+      socket.getWorldPosition(model.position);
+      socket.getWorldQuaternion(model.quaternion);
+    } else {
+      model.position.copy(this.gunOffset).setZ(-this.gunOffset.z).applyQuaternion(this.player.quaternion).add(this.player.position);
+      if (isCrouching) model.position.y -= .25;
+      model.quaternion.copy(this.player.quaternion);
+    }
+    const reload = this.getReloadFraction();
+    const reach = reload > 0 ? Math.sin(reload * Math.PI) : 0;
+    if (!this.dead) {
+      // Preserve hand motion while aiming the barrel toward the crosshair's elevation.
+      if (this.aimTarget) {
+        const aim = this.aimTarget.clone().sub(model.position);
+        model.rotation.set(Math.atan2(aim.y, Math.hypot(aim.x, aim.z)), this.player.rotation.y, 0, 'YXZ');
+      }
+      model.rotateX(this.recoil * 1.1 - reach * .48 - this.equip * .7);
+      model.rotateZ(reach * -.28);
+      model.translateZ(this.recoil * .23);
+      model.position.y -= this.equip * .12;
+    }
+    const slide = model.getObjectByName('Slide');
+    if (slide) slide.position.z = this.recoil * .35;
+    const magazine = model.getObjectByName('Magazine');
+    if (magazine) magazine.position.y = -reach * .18;
+    const pump = model.getObjectByName('Pump');
+    if (pump) {
+      const age = performance.now() / 1000 - weapon.lastShotTime;
+      pump.position.z = age > .08 && age < .4 ? Math.sin((age - .08) / .32 * Math.PI) * .10 : 0;
+    }
+    model.updateMatrixWorld(true);
+    if (!this.dead) alignSupportHand(this.player, model, weapon.id === 'pistol', reload);
   }
 
   // Method to create and shoot a bullet
@@ -312,8 +226,8 @@ export class WeaponSystem {
     const currentTime = performance.now() / 1000;
     const currentWeapon = this.getCurrentWeapon();
 
-    // Don't shoot if the weapon is empty
-    if (currentWeapon.id === null) {
+    // Dead players cannot keep firing an already-held automatic trigger.
+    if (this.dead || currentWeapon.id === null) {
       return null;
     }
 
@@ -339,15 +253,12 @@ export class WeaponSystem {
     // Decrease bullets in magazine
     currentWeapon.bulletsInMagazine--;
 
-    // Get gun barrel position (front of the gun)
+    this.updateWeaponPosition(false);
     const barrelPosition = new THREE.Vector3();
-    // Get world position of the gun
-    currentWeapon.model.getWorldPosition(barrelPosition);
-
-    // Offset to the barrel tip
-    const barrelTip = new THREE.Vector3(0, 0, -0.6); // Adjust based on your gun model
-    barrelTip.applyQuaternion(currentWeapon.model.quaternion);
-    barrelPosition.add(barrelTip);
+    const muzzle = currentWeapon.model.getObjectByName('Muzzle');
+    if (muzzle) muzzle.getWorldPosition(barrelPosition);
+    else currentWeapon.model.localToWorld(barrelPosition.set(0, .023,
+      currentWeapon.id === 'pistol' ? -.338 : currentWeapon.id === 'rifle' ? -.76 : -.81));
 
     // Aim from the barrel to the point under the crosshair. Falling back to
     // player rotation keeps shooting safe before the first aim update.
@@ -409,6 +320,10 @@ export class WeaponSystem {
     // Normalize the direction vector to ensure consistent speed
     const normalizedDirection = direction.clone().normalize();
 
+    if (currentWeapon.id !== null) {
+      sfx.play(shotSfxKind(currentWeapon.id), position);
+    }
+
     // Same pellet fan the server simulates, so cosmetic bullets line up with
     // the authoritative ones.
     const offsets = currentWeapon.id
@@ -425,49 +340,12 @@ export class WeaponSystem {
     }
 
     // Create muzzle flash
-    this.createMuzzleFlash(position, Math.atan2(direction.x, direction.z));
+    const strength = currentWeapon.id === 'shotgun' ? 1.5 : currentWeapon.id === 'rifle' ? .75 : 1;
+    this.recoil = Math.min(.22, this.recoil + .12 * strength);
+    pulseCharacterShot(this.player, strength);
+    this.muzzleEffect.fire(position, direction, strength);
 
     return primaryBullet;
-  }
-
-  // Create muzzle flash effect
-  private createMuzzleFlash(position: THREE.Vector3, rotation: number): void {
-    // Remove existing muzzle flash if it exists
-    if (this.muzzleFlash) {
-      this.scene.remove(this.muzzleFlash);
-      if (this.muzzleFlash.geometry) this.muzzleFlash.geometry.dispose();
-      if (this.muzzleFlash.material instanceof THREE.Material)
-        this.muzzleFlash.material.dispose();
-    }
-
-    // Create muzzle flash geometry - a small circle facing forward
-    const flashGeometry = new THREE.CircleGeometry(0.2, 16);
-
-    // Create bright glowing material
-    const flashMaterial = new THREE.MeshBasicMaterial({
-      color: 0xffff00,
-      transparent: true,
-      opacity: 0.9,
-      side: THREE.DoubleSide,
-    });
-
-    this.muzzleFlash = new THREE.Mesh(flashGeometry, flashMaterial);
-
-    // Position at gun barrel tip
-    this.muzzleFlash.position.copy(position);
-
-    // Rotate to face outward from the barrel
-    this.muzzleFlash.rotation.y = rotation;
-    this.muzzleFlash.rotation.x = Math.PI / 2;
-
-    // Add slight random rotation for variation
-    this.muzzleFlash.rotation.z = Math.random() * Math.PI * 2;
-
-    // Add to scene
-    this.scene.add(this.muzzleFlash);
-
-    // Start timer for removal
-    this.muzzleFlashTimer = this.muzzleFlashDuration;
   }
 
   // Update all bullets
@@ -475,26 +353,6 @@ export class WeaponSystem {
     delta: number,
     collisionDetector?: CollisionDetector
   ): void {
-    // Update muzzle flash timer and remove if expired
-    if (this.muzzleFlash && this.muzzleFlashTimer > 0) {
-      this.muzzleFlashTimer -= delta;
-      if (this.muzzleFlashTimer <= 0) {
-        this.scene.remove(this.muzzleFlash);
-        this.muzzleFlash = null;
-      } else {
-        // Animate the muzzle flash (pulsing/fading effect)
-        const scale = 1 + Math.sin(this.muzzleFlashTimer * 100) * 0.2;
-        this.muzzleFlash.scale.set(scale, scale, scale);
-
-        if (this.muzzleFlash.material instanceof THREE.Material) {
-          this.muzzleFlash.material.opacity =
-            this.muzzleFlashTimer / this.muzzleFlashDuration;
-        }
-      }
-    }
-
-    // Log number of active bullets
-
     for (let i = this.bullets.length - 1; i >= 0; i--) {
       const bullet = this.bullets[i];
       const position = bullet.getPosition();
@@ -679,8 +537,8 @@ export class WeaponSystem {
   public reload() {
     const currentWeapon = this.getCurrentWeapon();
 
-    // Don't reload if the weapon is empty
-    if (currentWeapon.name === "Empty") {
+    // Reload is a living-player action.
+    if (this.dead || currentWeapon.name === "Empty") {
       return;
     }
 
@@ -692,6 +550,7 @@ export class WeaponSystem {
     // Start reloading
     currentWeapon.isReloading = true;
     currentWeapon.reloadStartTime = performance.now();
+    sfx.play("reload", this.player.position);
   }
 
   // Check if reload is allowed
@@ -775,6 +634,8 @@ export class WeaponSystem {
 
       // Update current weapon index
       this.currentWeaponIndex = index;
+      this.equip = 1;
+      this.recoil = 0;
 
       // Get the new current weapon
       const newWeapon = this.getCurrentWeapon();
@@ -785,6 +646,7 @@ export class WeaponSystem {
 
         // Update weapon position
         this.updateWeaponPosition(false);
+        sfx.play("switch", this.player.position);
 
         // Emit weapon switch event (the empty slot has nothing to show remotely)
         this.emit(GAME_EVENTS.WEAPON.SWITCH, {
@@ -841,6 +703,7 @@ export class WeaponSystem {
 
     // Position the weapon to hover above the ground
     playerPosition.y = 0.5; // Floating 0.5 units above the ground
+    sfx.play("weapon:drop", playerPosition);
 
     // Rotate the weapon to stand upright (pointing up)
     // Reset initial rotation
@@ -996,6 +859,13 @@ export class WeaponSystem {
     this.pickupManager = pickupManager;
   }
 
+  public dispose(): void {
+    for (const weapon of this.weapons) this.scene.remove(weapon.model);
+    for (const bullet of this.bullets) bullet.remove(this.scene);
+    this.bullets = [];
+    this.muzzleEffect.dispose();
+  }
+
   public setAimTarget(target: THREE.Vector3): void {
     this.aimTarget = target.clone();
   }
@@ -1007,7 +877,7 @@ export class WeaponSystem {
 
   // Method to update auto-fire (call this in the game loop)
   public updateAutoFire(scene: THREE.Scene, _delta: number): void {
-    if (this.isMouseDown) {
+    if (this.isMouseDown && !this.dead) {
       const currentWeapon = this.getCurrentWeapon();
       // Only auto-fire for assault rifle
       if (currentWeapon.name === "Assault Rifle") {

@@ -23,6 +23,10 @@ const GAME_EVENTS = {
     /** Server -> others: a player left. */
     DISCONNECTED: "user:disconnected"
   },
+  CHAT: {
+    /** Client -> server: send a chat message. Server -> all: accepted message. */
+    MESSAGE: "chat:message"
+  },
   PLAYER: {
     /** Client -> server: my position. Replicated to others via WORLD.SNAPSHOT. */
     POSITION: "player:position",
@@ -1288,6 +1292,8 @@ var __publicField$1 = (obj, key, value) => __defNormalProp$1(obj, typeof key !==
 const KILL_SCORE = 100;
 const CAR_CONTACT_DPS = 20;
 const FIRE_RATE_TOLERANCE = 0.85;
+const CHAT_MESSAGE_MAX_LENGTH = 128;
+const CHAT_RATE_LIMIT_MS = 500;
 class GameRoom {
   constructor(transport, options = {}) {
     __publicField$1(this, "transport", transport);
@@ -1311,6 +1317,7 @@ class GameRoom {
     __publicField$1(this, "nextProjectileId", 1);
     __publicField$1(this, "nextPickupId", 1);
     __publicField$1(this, "nextGrenadeId", 1);
+    __publicField$1(this, "nextChatMessageId", 1);
     /** Seconds until the next random pickup spawn. */
     __publicField$1(this, "pickupSpawnIn");
     this.clock = options.clock ?? Date.now;
@@ -1346,6 +1353,9 @@ class GameRoom {
     switch (event) {
       case GAME_EVENTS.USER.JOINED:
         this.handleJoin(playerId, payload);
+        break;
+      case GAME_EVENTS.CHAT.MESSAGE:
+        this.handleChatMessage(playerId, payload);
         break;
       case GAME_EVENTS.PLAYER.POSITION:
         this.handlePosition(playerId, payload);
@@ -1408,6 +1418,7 @@ class GameRoom {
       positionAt: this.clock(),
       lastShotAt: -Infinity,
       lastThrowAt: -Infinity,
+      lastChatAt: -Infinity,
       pendingHazardDamage: 0
     });
     this.leaderBoard[playerId] = {
@@ -1424,12 +1435,34 @@ class GameRoom {
       playerId
     );
   }
+  handleChatMessage(playerId, payload) {
+    const player = this.players.get(playerId);
+    if (!player || player.status !== "alive") return;
+    const text = payload.text.trim();
+    if (!text || /[\u0000-\u001f\u007f]/u.test(text)) return;
+    const now = this.clock();
+    if (now - player.lastChatAt < CHAT_RATE_LIMIT_MS) return;
+    player.lastChatAt = now;
+    this.transport.broadcast(GAME_EVENTS.CHAT.MESSAGE, {
+      messageId: `${playerId}-${this.nextChatMessageId++}`,
+      senderId: playerId,
+      senderName: player.name,
+      text: Array.from(text).slice(0, CHAT_MESSAGE_MAX_LENGTH).join(""),
+      serverTime: now
+    });
+  }
   handlePosition(playerId, payload) {
     const player = this.players.get(playerId);
     if (!player || player.status === "dead") return;
     player.position = payload.position;
     player.rotation = payload.rotation;
     player.positionAt = this.clock();
+    const pose = payload.pose;
+    player.pose = pose ? {
+      crouched: pose.crouched === true,
+      grounded: pose.grounded === true,
+      reload: Number.isFinite(pose.reload) ? Math.min(1, Math.max(0, pose.reload)) : 0
+    } : void 0;
   }
   handleRespawn(playerId, _payload) {
     const player = this.players.get(playerId);
@@ -1440,6 +1473,7 @@ class GameRoom {
     }
     const position = pickSpawnPoint(others, this.map.spawnPoints);
     player.status = "alive";
+    player.pose = void 0;
     player.hp = PLAYER_MAX_HP;
     player.position = { ...position };
     player.rotation = facingCenterYaw(position);
@@ -1752,7 +1786,8 @@ class GameRoom {
   }
   snapshotPlayers() {
     return [...this.players.values()].map(
-      ({ id, userId, name, status, hp, position, rotation, positionAt }) => ({
+      ({ id, userId, name, status, hp, position, rotation, positionAt, pose }) => ({
+        pose,
         id,
         userId,
         name,
@@ -1823,6 +1858,10 @@ function attachSocketIO(io, room) {
       (p) => room.applyIntent(socket.id, GAME_EVENTS.USER.JOINED, p)
     );
     socket.on(
+      GAME_EVENTS.CHAT.MESSAGE,
+      (p) => room.applyIntent(socket.id, GAME_EVENTS.CHAT.MESSAGE, p)
+    );
+    socket.on(
       GAME_EVENTS.PLAYER.POSITION,
       (p) => room.applyIntent(socket.id, GAME_EVENTS.PLAYER.POSITION, p)
     );
@@ -1887,6 +1926,5 @@ app.get("/", (_req, res) => {
   res.send("<h1>Hello world</h1>");
 });
 app.get("/leaderboard", (_req, res) => {
-  res.set("Cache-Control", "no-store");
   res.send(room.leaderBoard);
 });

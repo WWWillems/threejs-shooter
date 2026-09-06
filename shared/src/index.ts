@@ -11,6 +11,8 @@ export type {
 } from "./contract";
 export type {
   BaseEvent,
+  ChatMessageEvent,
+  ChatMessageIntent,
   CombatHitEvent,
   CombatKillEvent,
   CrateDamagedEvent,
@@ -28,6 +30,7 @@ export type {
   PickupSpec,
   PickupTakenEvent,
   PlayerPositionEvent,
+  PlayerPose,
   PlayerRespawnedEvent,
   PlayerSnapshot,
   PlayerStatus,

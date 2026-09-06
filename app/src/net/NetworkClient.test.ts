@@ -22,6 +22,15 @@ describe("NetworkClient", () => {
     expect(typeof (payload as { timestamp: number }).timestamp).toBe("number");
   });
 
+  it("sends chat messages through the shared event contract", () => {
+    const { socket, net } = setup();
+    net.send(GAME_EVENTS.CHAT.MESSAGE, { text: "hello" });
+
+    const [[payload]] = socket.emittedOf(GAME_EVENTS.CHAT.MESSAGE);
+    expect(payload).toMatchObject({ text: "hello" });
+    expect(typeof (payload as { timestamp: number }).timestamp).toBe("number");
+  });
+
   it("delivers server events to typed handlers and supports unsubscribe", () => {
     const { socket, net } = setup();
     const handler = vi.fn();
@@ -40,6 +49,23 @@ describe("NetworkClient", () => {
     off();
     socket.receive(GAME_EVENTS.USER.JOINED, payload);
     expect(handler).toHaveBeenCalledTimes(1);
+  });
+
+  it("delivers canonical chat messages to subscribers", () => {
+    const { socket, net } = setup();
+    const handler = vi.fn();
+    net.on(GAME_EVENTS.CHAT.MESSAGE, handler);
+    const payload = {
+      messageId: "alice-1",
+      senderId: "alice",
+      senderName: "Alice",
+      text: "Hello",
+      serverTime: 1,
+    };
+
+    socket.receive(GAME_EVENTS.CHAT.MESSAGE, payload);
+
+    expect(handler).toHaveBeenCalledWith(payload);
   });
 
   it("re-joins with the current position after a reconnect", () => {

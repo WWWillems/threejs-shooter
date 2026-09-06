@@ -173,6 +173,17 @@ describe("GameRoom", () => {
       expect(alice.received(GAME_EVENTS.WORLD.SNAPSHOT)).toHaveLength(1);
     });
 
+    it("replicates bounded cosmetic pose without changing health or position", () => {
+      const { alice, bob } = twoPlayers();
+      alice.send(GAME_EVENTS.PLAYER.POSITION, { position: origin, rotation: .4,
+        pose: { crouched: true, grounded: false, reload: 7 } });
+      runTicks(1);
+      const [snapshot] = bob.received(GAME_EVENTS.WORLD.SNAPSHOT);
+      expect(snapshot.payload.players.find(p => p.id === "alice")).toMatchObject({
+        position: origin, hp: 100, pose: { crouched: true, grounded: false, reload: 1 },
+      });
+    });
+
     it("stamps each player's position with the time it was reported", () => {
       const { alice, bob } = twoPlayers();
 
@@ -217,6 +228,61 @@ describe("GameRoom", () => {
 
       expect(bob.received(GAME_EVENTS.WEAPON.SHOOT)).toHaveLength(0);
       expect(room.projectiles).toHaveLength(0);
+    });
+  });
+
+  describe("chat", () => {
+    it("broadcasts a canonical message to every joined player", () => {
+      const { alice, bob } = twoPlayers();
+
+      alice.send(GAME_EVENTS.CHAT.MESSAGE, { text: "  Hello, world!  " });
+
+      const aliceMessages = alice.received(GAME_EVENTS.CHAT.MESSAGE);
+      const bobMessages = bob.received(GAME_EVENTS.CHAT.MESSAGE);
+      expect(aliceMessages).toHaveLength(1);
+      expect(bobMessages).toHaveLength(1);
+      expect(bobMessages[0].payload).toMatchObject({
+        senderId: "alice",
+        senderName: "Alice",
+        text: "Hello, world!",
+        serverTime: now,
+      });
+      expect(bobMessages[0].payload.messageId).toBe("alice-1");
+    });
+
+    it("rejects unjoined, dead, invalid, and rate-limited messages", () => {
+      const attacker = client("attacker").connect();
+      attacker.send(GAME_EVENTS.CHAT.MESSAGE, { text: "not joined" });
+      expect(attacker.received(GAME_EVENTS.CHAT.MESSAGE)).toHaveLength(0);
+
+      const { alice } = twoPlayers();
+      alice.send(GAME_EVENTS.CHAT.MESSAGE, { text: "" });
+      alice.send(GAME_EVENTS.CHAT.MESSAGE, { text: " \t\n " });
+      alice.send(GAME_EVENTS.CHAT.MESSAGE, { text: "line\u0000break" });
+      expect(alice.received(GAME_EVENTS.CHAT.MESSAGE)).toHaveLength(0);
+
+      room.players.get("alice")!.status = "dead";
+      alice.send(GAME_EVENTS.CHAT.MESSAGE, { text: "dead chat" });
+      expect(alice.received(GAME_EVENTS.CHAT.MESSAGE)).toHaveLength(0);
+
+      room.players.get("alice")!.status = "alive";
+      alice.send(GAME_EVENTS.CHAT.MESSAGE, { text: "first" });
+      now += 499;
+      alice.send(GAME_EVENTS.CHAT.MESSAGE, { text: "too soon" });
+      expect(alice.received(GAME_EVENTS.CHAT.MESSAGE)).toHaveLength(1);
+
+      now += 1;
+      alice.send(GAME_EVENTS.CHAT.MESSAGE, { text: "second" });
+      expect(alice.received(GAME_EVENTS.CHAT.MESSAGE)).toHaveLength(2);
+    });
+
+    it("bounds accepted messages by Unicode code points", () => {
+      const { alice } = twoPlayers();
+
+      alice.send(GAME_EVENTS.CHAT.MESSAGE, { text: "😀".repeat(200) });
+
+      const [message] = alice.received(GAME_EVENTS.CHAT.MESSAGE);
+      expect(Array.from(message.payload.text)).toHaveLength(128);
     });
   });
 

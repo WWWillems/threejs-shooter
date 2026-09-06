@@ -14,6 +14,7 @@ import { WeaponPickup } from "./WeaponPickup";
 import type { HUD } from "./HUD";
 import type { NetworkClient } from "../net/NetworkClient";
 import type { Pickup } from "./Pickup";
+import { sfx } from "../audio/sfx";
 
 /** Don't re-send a claim for the same pickup more often than this (ms). */
 const CLAIM_RETRY_MS = 500;
@@ -65,16 +66,26 @@ export class PickupManager {
     // Full sync on (re)join: whatever the server has is what exists
     net.on(GAME_EVENTS.GAME.STATE, ({ pickups }) => {
       this.clearServerPickups();
-      for (const spec of pickups) this.spawnFromSpec(spec);
+      for (const spec of pickups) this.spawnFromSpec(spec, false);
     });
 
-    net.on(GAME_EVENTS.PICKUP.SPAWNED, (spec) => this.spawnFromSpec(spec));
+    net.on(GAME_EVENTS.PICKUP.SPAWNED, (spec) => this.spawnFromSpec(spec, true));
 
     net.on(GAME_EVENTS.PICKUP.EXPIRED, ({ pickupId }) => {
       this.removeServerPickup(pickupId);
     });
 
     net.on(GAME_EVENTS.PICKUP.TAKEN, ({ pickup, playerId, hp }) => {
+      const position = new THREE.Vector3(
+        pickup.position.x,
+        pickup.position.y,
+        pickup.position.z
+      );
+      sfx.play(
+        pickup.kind === "health" ? "pickup:health" : "pickup:ammo",
+        position
+      );
+
       const rendered = this.serverPickups.get(pickup.id);
       rendered?.playCollectionEffect();
       this.removeServerPickup(pickup.id);
@@ -104,7 +115,7 @@ export class PickupManager {
     }
   }
 
-  private spawnFromSpec(spec: PickupSpec): void {
+  private spawnFromSpec(spec: PickupSpec, playSound: boolean): void {
     if (this.serverPickups.has(spec.id)) return;
     const position = new THREE.Vector3(
       spec.position.x,
@@ -131,6 +142,7 @@ export class PickupManager {
       }
     }
     this.serverPickups.set(spec.id, pickup);
+    if (playSound) sfx.play("pickup:spawn", position);
   }
 
   private removeServerPickup(pickupId: string): void {
@@ -208,6 +220,8 @@ export class PickupManager {
         pickup.getMesh().position
       );
       if (distance < this.collectionDistance) {
+        const position = pickup.getMesh().position.clone();
+        sfx.play("weapon:pickup", position);
         pickup.collect(this.playerController);
         this.localPickups.splice(i, 1);
 

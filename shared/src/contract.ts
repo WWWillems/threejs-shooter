@@ -1,5 +1,7 @@
 import { GAME_EVENTS } from "./events";
 import type {
+  ChatMessageEvent,
+  ChatMessageIntent,
   CombatHitEvent,
   CombatKillEvent,
   CrateDamagedEvent,
@@ -29,6 +31,7 @@ import type {
  */
 export interface ClientToServerEvents {
   [GAME_EVENTS.USER.JOINED]: (payload: UserJoinedEvent) => void;
+  [GAME_EVENTS.CHAT.MESSAGE]: (payload: ChatMessageIntent) => void;
   [GAME_EVENTS.PLAYER.POSITION]: (payload: PlayerPositionEvent) => void;
   [GAME_EVENTS.PLAYER.RESPAWN]: (payload: RespawnRequestEvent) => void;
   [GAME_EVENTS.WEAPON.SHOOT]: (payload: WeaponEvent) => void;
@@ -41,6 +44,7 @@ export interface ClientToServerEvents {
 export interface ServerToClientEvents {
   [GAME_EVENTS.GAME.STATE]: (payload: GameStateEvent) => void;
   [GAME_EVENTS.WORLD.SNAPSHOT]: (payload: WorldSnapshot) => void;
+  [GAME_EVENTS.CHAT.MESSAGE]: (payload: ChatMessageEvent) => void;
   [GAME_EVENTS.USER.CONNECTED]: (payload: Stamped<UserConnectionEvent>) => void;
   [GAME_EVENTS.USER.JOINED]: (payload: Stamped<UserJoinedEvent>) => void;
   [GAME_EVENTS.USER.DISCONNECTED]: (

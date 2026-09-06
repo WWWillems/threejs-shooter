@@ -46,6 +46,9 @@ export function attachSocketIO(io: GameServer, room: GameRoom): void {
     socket.on(GAME_EVENTS.USER.JOINED, (p) =>
       room.applyIntent(socket.id, GAME_EVENTS.USER.JOINED, p)
     );
+    socket.on(GAME_EVENTS.CHAT.MESSAGE, (p) =>
+      room.applyIntent(socket.id, GAME_EVENTS.CHAT.MESSAGE, p)
+    );
     socket.on(GAME_EVENTS.PLAYER.POSITION, (p) =>
       room.applyIntent(socket.id, GAME_EVENTS.PLAYER.POSITION, p)
     );

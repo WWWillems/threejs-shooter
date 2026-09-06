@@ -33,6 +33,7 @@ import {
   spawnPellets,
   type ClientEventName,
   type ClientPayload,
+  type ChatMessageIntent,
   type Collider,
   type CrateSpec,
   type CrateState,
@@ -66,6 +67,8 @@ interface ServerPlayer extends PlayerSnapshot {
   lastShotAt: number;
   /** Server clock (ms) of the last accepted grenade throw. */
   lastThrowAt: number;
+  /** Server clock (ms) of the last accepted chat message. */
+  lastChatAt: number;
   /** Fractional hazard damage not yet applied (see stepCarContact). */
   pendingHazardDamage: number;
 }
@@ -87,6 +90,8 @@ const KILL_SCORE = 100;
 const CAR_CONTACT_DPS = 20;
 /** Accept shots slightly faster than the nominal fire rate to absorb network jitter. */
 const FIRE_RATE_TOLERANCE = 0.85;
+const CHAT_MESSAGE_MAX_LENGTH = 128;
+const CHAT_RATE_LIMIT_MS = 500;
 
 export interface GameRoomOptions {
   /** Server clock in ms. Injected for tests. */
@@ -129,6 +134,7 @@ export class GameRoom {
   private nextProjectileId = 1;
   private nextPickupId = 1;
   private nextGrenadeId = 1;
+  private nextChatMessageId = 1;
   /** Seconds until the next random pickup spawn. */
   private pickupSpawnIn: number;
 
@@ -178,6 +184,9 @@ export class GameRoom {
     switch (event) {
       case GAME_EVENTS.USER.JOINED:
         this.handleJoin(playerId, payload as UserJoinedEvent);
+        break;
+      case GAME_EVENTS.CHAT.MESSAGE:
+        this.handleChatMessage(playerId, payload as ChatMessageIntent);
         break;
       case GAME_EVENTS.PLAYER.POSITION:
         this.handlePosition(playerId, payload as PlayerPositionEvent);
@@ -246,6 +255,7 @@ export class GameRoom {
       positionAt: this.clock(),
       lastShotAt: -Infinity,
       lastThrowAt: -Infinity,
+      lastChatAt: -Infinity,
       pendingHazardDamage: 0,
     });
 
@@ -265,6 +275,26 @@ export class GameRoom {
     );
   }
 
+  private handleChatMessage(playerId: string, payload: ChatMessageIntent): void {
+    const player = this.players.get(playerId);
+    if (!player || player.status !== "alive") return;
+
+    const text = payload.text.trim();
+    if (!text || /[\u0000-\u001f\u007f]/u.test(text)) return;
+
+    const now = this.clock();
+    if (now - player.lastChatAt < CHAT_RATE_LIMIT_MS) return;
+
+    player.lastChatAt = now;
+    this.transport.broadcast(GAME_EVENTS.CHAT.MESSAGE, {
+      messageId: `${playerId}-${this.nextChatMessageId++}`,
+      senderId: playerId,
+      senderName: player.name,
+      text: Array.from(text).slice(0, CHAT_MESSAGE_MAX_LENGTH).join(""),
+      serverTime: now,
+    });
+  }
+
   private handlePosition(playerId: string, payload: PlayerPositionEvent): void {
     const player = this.players.get(playerId);
     if (!player || player.status === "dead") return;
@@ -273,6 +303,11 @@ export class GameRoom {
     player.position = payload.position;
     player.rotation = payload.rotation;
     player.positionAt = this.clock();
+    const pose = payload.pose;
+    player.pose = pose ? {
+      crouched: pose.crouched === true, grounded: pose.grounded === true,
+      reload: Number.isFinite(pose.reload) ? Math.min(1, Math.max(0, pose.reload)) : 0,
+    } : undefined;
   }
 
   private handleRespawn(playerId: string, _payload: RespawnRequestEvent): void {
@@ -286,6 +321,7 @@ export class GameRoom {
     const position = pickSpawnPoint(others, this.map.spawnPoints);
 
     player.status = "alive";
+    player.pose = undefined;
     player.hp = PLAYER_MAX_HP;
     player.position = { ...position };
     player.rotation = facingCenterYaw(position);
@@ -669,7 +705,8 @@ export class GameRoom {
 
   private snapshotPlayers(): PlayerSnapshot[] {
     return [...this.players.values()].map(
-      ({ id, userId, name, status, hp, position, rotation, positionAt }) => ({
+      ({ id, userId, name, status, hp, position, rotation, positionAt, pose }) => ({
+        pose,
         id,
         userId,
         name,

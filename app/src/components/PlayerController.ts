@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { setCharacterCrouch } from "./CharacterVisual";
+import { setCharacterCrouch, setCharacterDead } from "./CharacterVisual";
 import type { InputManager } from "./InputManager";
 import type { CollisionDetector } from "./CollisionInterface";
 import type { WorldColliders } from "../environment/WorldColliders";
@@ -10,6 +10,7 @@ import { WeaponType } from "./Weapon";
 import type { Weapon } from "./Weapon";
 import { GAME_EVENTS, GRENADE, type Vec3 } from "@threejs-shooter/shared";
 import type { NetworkClient } from "../net/NetworkClient";
+import { sfx } from "../audio/sfx";
 
 /**
  * Utility class for handling common player behaviors
@@ -20,11 +21,7 @@ export class PlayerUtils {
    * @param playerMesh The player mesh to animate
    */
   public static handlePlayerDeath(playerMesh: THREE.Object3D): void {
-    // Make player fall over on the floor
-    // Rotate 90 degrees around the X axis to lay flat on the ground
-    playerMesh.rotation.x = Math.PI / 2;
-    // Lower position to ground level
-    playerMesh.position.y = 0.5;
+    setCharacterDead(playerMesh, true);
   }
 }
 
@@ -154,6 +151,14 @@ export class PlayerController {
 
     // Weapon controls
     this.inputManager.onShoot(() => {
+      const weapon = this.weaponSystem.getCurrentWeapon();
+      if (
+        weapon.id !== null &&
+        !weapon.isReloading &&
+        weapon.bulletsInMagazine === 0
+      ) {
+        sfx.play("empty");
+      }
       this.weaponSystem.shoot(this.scene);
     });
 
@@ -189,11 +194,11 @@ export class PlayerController {
    * Update player state and position
    */
   public update(): void {
-    // Skip updates if player is dead
-    if (this.isDead) return;
+    // Keep the local clock fresh while the visual death animation continues in GameLoop.
+    if (this.isDead) { this.prevTime = performance.now(); return; }
 
     const time = performance.now();
-    const delta = (time - this.prevTime) / 1000;
+    const delta = Math.min((time - this.prevTime) / 1000, .05);
 
     // Check input state
     this.moveForward = this.inputManager.isKeyPressed("KeyW");
@@ -461,6 +466,11 @@ export class PlayerController {
   /**
    * Get current crouch state
    */
+  public getPresentationPose() {
+    return { crouched: this.isCrouching, grounded: this.canJump,
+      reload: this.weaponSystem.getReloadFraction() };
+  }
+
   public getCrouchState(): boolean {
     return this.isCrouching;
   }
@@ -477,6 +487,7 @@ export class PlayerController {
    */
   private applyServerHit(damage: number, hp: number): void {
     this.currentHealth = hp;
+    sfx.play("hit:taken");
 
     // Show damage notification in HUD
     const hud = this.scene.userData.hud;
@@ -490,7 +501,9 @@ export class PlayerController {
     }
 
     if (hp <= 0 && !this.isDead) {
+      sfx.play("death:self");
       this.isDead = true;
+      this.weaponSystem.setDead(true);
 
       // Force player to stop moving
       this.velocity.set(0, 0, 0);
@@ -542,6 +555,7 @@ export class PlayerController {
       this.player.quaternion
     );
     origin.addScaledVector(forward, 0.8);
+    sfx.play("grenade:throw", origin);
 
     const direction = this.aimTarget
       ? this.aimTarget.clone().sub(origin).setY(0)
@@ -567,6 +581,14 @@ export class PlayerController {
   private applyServerRespawn(position: Vec3, rotation: number, hp: number): void {
     this.currentHealth = hp;
     this.isDead = false;
+    this.isCrouching = false;
+    this.canJump = true;
+    this.prevTime = performance.now();
+    this.player.geometry.dispose();
+    this.player.geometry = new THREE.BoxGeometry(1, this.normalHeight, 1);
+    setCharacterDead(this.player, false);
+    setCharacterCrouch(this.player, false);
+    this.weaponSystem.setDead(false);
 
     // Re-enable input
     this.inputManager.enableKeyboardInput();

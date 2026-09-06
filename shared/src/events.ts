@@ -19,6 +19,10 @@ export const GAME_EVENTS = {
     /** Server -> others: a player left. */
     DISCONNECTED: "user:disconnected",
   },
+  CHAT: {
+    /** Client -> server: send a chat message. Server -> all: accepted message. */
+    MESSAGE: "chat:message",
+  },
   PLAYER: {
     /** Client -> server: my position. Replicated to others via WORLD.SNAPSHOT. */
     POSITION: "player:position",

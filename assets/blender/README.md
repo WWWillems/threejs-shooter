@@ -46,3 +46,29 @@ caps device pixel ratio at 1.25 to keep these effects affordable on Retina scree
 Validated with Node 22: `yarn typecheck`, `yarn test` (91 tests), `yarn build:app`
 and `yarn build:server`.
 The Blender preview is a model/material review; the browser is the lighting reference.
+
+## Animated character and held weapons
+
+`noir-character.blend` is a separate editable character workshop, keeping the
+building/yard workshops independent. The exported `noir-character.glb` contains
+an 18-bone skin and Idle, Walk, Run, CrouchIdle, CrouchWalk, Jump, Fall, Land and
+Death actions. Each player clones the skeleton and owns an AnimationMixer.
+The ground-based character is offset beneath the existing controller hitbox;
+visual animation never supplies gameplay position or damage collision.
+
+Run `rig-noir-character.py`, `model-noir-weapons.py`, `refine-noir-character.py`
+and `preview-noir-character.py` through Blender MCP in that order, starting
+from a Blender file without the character workshop. The last step attaches
+the approved `noir-coat-wool` PBR set and writes a review render. Texture paths
+remain external and relative. The model loader sets matching UV repetition.
+
+Held pistol, rifle and shotgun GLBs have exact `Muzzle` nodes and separate
+`Slide`, `Magazine` or `Pump` assemblies. `WeaponSocket` follows the character's
+right hand; two-bone support-arm IK keeps the left hand on the weapon. Runtime
+presentation adds recoil, equip/reload motion, a brief emissive muzzle flash,
+a short-lived light and smoke. Shared weapon rates/ammo/damage remain unchanged.
+
+Open `/character.html` to inspect poses, orbit the model and try each weapon.
+The production build includes this workshop alongside the game and level editor.
+Tests load the actual GLB to check clip coverage, independent skeletons, crouch,
+death/reset and finite animated bounds; network tests cover cosmetic pose state.

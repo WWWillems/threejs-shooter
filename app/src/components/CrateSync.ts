@@ -1,7 +1,9 @@
-import { GAME_EVENTS, type MapLayout } from "@threejs-shooter/shared";
+import * as THREE from "three";
+import { GAME_EVENTS, type MapLayout, type Vec3 } from "@threejs-shooter/shared";
 import type { NetworkClient } from "../net/NetworkClient";
 import type { WorldColliders } from "../environment/WorldColliders";
 import type { DestructibleCrate } from "./WoodenCrate";
+import { sfx } from "../audio/sfx";
 
 /** Where crate meshes live, keyed by shared crate id. */
 export interface CrateMeshes {
@@ -39,12 +41,37 @@ export class CrateSync {
     });
 
     this.net.on(GAME_EVENTS.CRATE.DAMAGED, ({ crateId, hp }) => {
+      const position = this.getCratePosition(crateId);
+      if (position) sfx.play("crate:hit", position);
       this.meshes.getCrate(crateId)?.applyServerHp?.(hp);
     });
 
-    this.net.on(GAME_EVENTS.CRATE.DESTROYED, ({ crateId }) => {
+    this.net.on(GAME_EVENTS.CRATE.DESTROYED, ({ crateId, position: eventPosition }) => {
+      const position = this.getCratePosition(crateId, eventPosition);
+      if (position) sfx.play("crate:break", position);
       this.destroy(crateId, true);
     });
+  }
+
+  private getCratePosition(
+    crateId: string,
+    eventPosition?: Vec3
+  ): THREE.Vector3 | undefined {
+    const mesh = this.meshes.getCrate(crateId);
+    if (mesh) return mesh.position.clone();
+
+    if (eventPosition) {
+      return new THREE.Vector3(
+        eventPosition.x,
+        eventPosition.y,
+        eventPosition.z
+      );
+    }
+
+    const spec = this.map.crates.find((crate) => crate.id === crateId);
+    return spec
+      ? new THREE.Vector3(spec.position.x, spec.position.y, spec.position.z)
+      : undefined;
   }
 
   /** The server says this crate is gone: stop colliding with it, drop the mesh. */

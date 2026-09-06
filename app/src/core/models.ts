@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { clone as cloneSkeleton } from 'three/examples/jsm/utils/SkeletonUtils.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { loadColorTexture, loadDataTexture, loadTextureSet } from './textures';
 
@@ -39,7 +40,8 @@ function surface(name: string): THREE.MeshStandardMaterial | undefined {
     slug === 'corrugated-rust' ||
     slug === 'weathered-concrete'
   ) {
-    const maps = loadTextureSet(slug);
+    // Building UVs are box-projected in world metres in Blender, so they run past 0-1.
+    const maps = loadTextureSet(slug, { repeat: 1 });
     for (const texture of Object.values(maps)) texture.flipY = false;
     material = new THREE.MeshStandardMaterial({
       map: maps.basecolor,
@@ -53,6 +55,12 @@ function surface(name: string): THREE.MeshStandardMaterial | undefined {
       ),
       metalness: slug === 'corrugated-rust' ? .45 : 0,
     });
+  } else if (slug === 'noir-coat-wool') {
+    const maps = loadTextureSet(slug, { repeat: 3 });
+    for (const texture of Object.values(maps)) texture.flipY = false;
+    material = new THREE.MeshStandardMaterial({ map: maps.basecolor, normalMap: maps.normal,
+      normalScale: new THREE.Vector2(.18, .18), roughnessMap: maps.roughness, aoMap: maps.ao,
+      aoMapIntensity: .35, roughness: 1 });
   } else if (slug === 'weathered-plaster') {
     const map = loadColorTexture('/textures/concrete/concrete_diffuse.jpg', { repeat: [3, 2] });
     const normalMap = loadDataTexture('/textures/concrete/concrete_normal.jpg', { repeat: [3, 2] });
@@ -68,7 +76,8 @@ function surface(name: string): THREE.MeshStandardMaterial | undefined {
 export function attachModel(parent: THREE.Object3D, name: string, onReady?: (model: THREE.Group) => void): void {
   let source = sources.get(name);
   if (!source) {
-    source = loader.loadAsync(`/models/${name}.glb`).then(({ scene }) => {
+    source = loader.loadAsync(`/models/${name}.glb`).then(({ scene, animations }) => {
+      scene.animations = animations;
       scene.traverse((object) => {
         if (!(object instanceof THREE.Mesh)) return;
         object.castShadow = object.receiveShadow = true;
@@ -80,7 +89,7 @@ export function attachModel(parent: THREE.Object3D, name: string, onReady?: (mod
     sources.set(name, source);
   }
   void source.then((source) => {
-    const model = source.clone(true);
+    const model = cloneSkeleton(source) as THREE.Group;
     model.name = name;
     parent.add(model);
     onReady?.(model);

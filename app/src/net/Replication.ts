@@ -1,6 +1,7 @@
 import type {
   GrenadeSnapshot,
   PlayerSnapshot,
+  PlayerPose,
   PlayerStatus,
   Vec3,
   WorldSnapshot,
@@ -8,6 +9,7 @@ import type {
 
 /** Interpolated, render-ready state of one remote player. */
 export interface ReplicatedPlayer {
+  pose?: PlayerPose;
   id: string;
   name: string;
   status: PlayerStatus;
@@ -229,6 +231,7 @@ function lerpVec3(a: Vec3, b: Vec3, alpha: number): Vec3 {
 
 function toState(p: PlayerSnapshot): ReplicatedPlayer {
   return {
+    pose: p.pose,
     id: p.id,
     name: p.name,
     status: p.status,
@@ -245,6 +248,7 @@ function lerpPlayer(
   const a = from.position ?? to.position ?? { x: 0, y: 1, z: 0 };
   const b = to.position ?? a;
   return {
+    pose: to.pose,
     id: to.id,
     name: to.name,
     // Discrete fields snap to the newer snapshot.
