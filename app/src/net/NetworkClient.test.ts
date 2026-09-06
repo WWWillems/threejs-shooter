@@ -118,4 +118,27 @@ describe("NetworkClient", () => {
     socket.connect();
     expect(socket.emittedOf(GAME_EVENTS.USER.JOINED)).toHaveLength(0);
   });
+
+  it("normalizes the server URL for leaderboard requests", async () => {
+    const socket = new FakeSocket();
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        players: {},
+        teams: { blue: 0, red: 0 },
+        match: { phase: "warmup", phaseEndsAt: null, teamScores: { blue: 0, red: 0 } },
+      }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    try {
+      const net = new NetworkClient(socket, "https://bang-bang-api.dapps.be///");
+      await net.getLeaderboard();
+      expect(fetchMock).toHaveBeenCalledWith(
+        "https://bang-bang-api.dapps.be/leaderboard",
+      );
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
 });

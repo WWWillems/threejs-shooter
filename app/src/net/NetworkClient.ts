@@ -25,6 +25,9 @@ export interface RawSocket {
 
 export type Unsubscribe = () => void;
 
+const normalizeServerUrl = (serverUrl: string): string =>
+  serverUrl.replace(/\/+$/, "");
+
 /**
  * The client's single door to the server: typed send/receive over the shared
  * event contract, join + automatic re-join after a reconnect, and the
@@ -34,11 +37,13 @@ export class NetworkClient {
   private joined: { name: string } | null = null;
   private _selfId: string | null = null;
   private _selfTeam: Team | null = null;
+  private readonly serverUrl: string;
 
   constructor(
     private readonly socket: RawSocket,
-    private readonly serverUrl: string,
+    serverUrl: string,
   ) {
+    this.serverUrl = normalizeServerUrl(serverUrl);
     // socket.io assigns a new id after reconnecting; the server forgot us, so
     // re-register and let everyone rebuild our presence.
     this.socket.on("connect", () => {
@@ -68,8 +73,9 @@ export class NetworkClient {
 
   /** Open a socket.io connection to the game server. */
   static connect(serverUrl: string): NetworkClient {
-    const socket = io(serverUrl) as unknown as RawSocket;
-    return new NetworkClient(socket, serverUrl);
+    const normalizedServerUrl = normalizeServerUrl(serverUrl);
+    const socket = io(normalizedServerUrl) as unknown as RawSocket;
+    return new NetworkClient(socket, normalizedServerUrl);
   }
 
   get isConnected(): boolean {
