@@ -10,21 +10,107 @@ _outcome_. Rationale and rejected alternatives in
 [ADR 0001](docs/adr/0001-hybrid-authority.md).
 
 **Intent.** A client-to-server message asking for something that affects other
-players or the world: `weapon:shoot`, `grenade:throw`, `pickup:claim`,
-`player:respawn`. The server may drop an intent (fire-rate violation, throw
-cooldown, out of reach, already dead). Nothing changes in the world until the
-server says so.
+players or the world: `user:joined`, `weapon:shoot`, `grenade:throw`,
+`pickup:claim`, `player:respawn`. The server may drop an intent (fire-rate
+violation, throw cooldown, out of reach, already dead, room full). Nothing
+changes in the world until the server says so.
 
 **Outcome event.** A discrete server-to-client message stating that something
-happened: `combat:hit`, `combat:kill`, `player:respawn`, `crate:damaged`,
-`crate:destroyed`, `pickup:spawned`, `pickup:taken`, `pickup:expired`,
-`grenade:exploded`. Clients apply outcomes without question, including to the
-local player (HP, death, respawn position).
+happened: `game:state`, `user:join-rejected`, `combat:hit`, `combat:kill`,
+`player:respawn`, `crate:damaged`, `crate:destroyed`, `pickup:spawned`,
+`pickup:taken`, `pickup:expired`, `grenade:exploded`, `match:phase`. Clients
+apply outcomes without question, including to the local player (HP, death,
+team, spawn position).
+
+**Full sync.** `game:state { selfId, players, crates, pickups, match }`: the
+authoritative state of the whole world, sent to one player. A joiner gets one
+as the answer to `user:joined`; every player gets one on each round reset.
+Client renderers treat it as "whatever the server lists is what exists": missing
+crates are removed, listed crates come back, pickups are rebuilt, the local
+player stands where its own entry says.
 
 **Cosmetic.** Anything a client draws that has no bearing on game state. Client
 bullets are cosmetic: they fly, stop at the first thing they touch and leave an
 impact mark, but never deal damage. The server's rebroadcast of `weapon:shoot`
 is also cosmetic; it exists so other clients can draw the same bullet.
+
+## Teams
+
+Two fixed sides, **blue** and **red**, `MAX_TEAM_SIZE` (5) players each.
+Rationale and rejected alternatives in [ADR 0002](docs/adr/0002-teams.md).
+
+**Team.** `shared/src/sim/teams.ts`. Assigned by the server on join to the side
+with fewer players (blue on a tie), never chosen or switched by the player.
+Travels on every `PlayerSnapshot` and `LeaderboardEntry`. A player who leaves
+and re-joins is a new player: fresh balanced assignment, kills reset.
+
+**Join rejection.** `user:joined` is an intent. When both teams are full the
+server answers `user:join-rejected { reason: "room-full" }` and registers
+nothing; the client's menu stays open and says so. `NetworkClient` stops
+re-joining on reconnect after a rejection.
+
+**Server-picked spawn.** The join payload carries only a name. The server
+picks the initial spawn, like every respawn, from the player's own **spawn
+zone** and the joiner learns where it stands from its own entry in
+`game:state`. The local player is not in the world until that arrives.
+
+**Spawn zone.** The spawn points that belong to one team: `SpawnPoint.team` in
+the level schema and `MapLayout`. Blue owns the south spawn street, red the
+north one. `spawnPointsFor(team, points)` filters; `pickSpawnPoint` never
+crosses zones. A level must give every team at least one point (validator
+error) and should give each exactly `MAX_TEAM_SIZE` (warning).
+
+**Team score.** `GameRoom.teamScores: { blue, red }`, kills per team this
+round. An independent counter, not a sum of the leaderboard rows, so a
+leaver's kills stay on the board until the reset. Carried on every
+`combat:kill`, in the `match` block of every snapshot, and in the
+`/leaderboard` response as `teams`, next to the per-player `players`.
+
+**Team kill.** Friendly fire is on. Killing a teammate costs the kill it would
+have earned: killer `kills -= 1`, `score -= 100`, team score `-= 1`; the
+victim's death still counts. Totals may go negative. `combat:kill.teamKill` is
+`true` so the HUD can say so. Suicides and world hazards (cars) credit nobody
+and are not team kills.
+
+## Match pacing
+
+One room, one **round** at a time, forever. The team with the most kills wins.
+`shared/src/sim/match.ts` owns the rules and the state machine; `GameRoom`
+steps it once per tick and carries out its transitions.
+
+**Phase.** Where the round loop stands, one of four:
+
+- **warmup**: free play with no clock, while a team has nobody on it. Kills
+  count on the board but decide nothing.
+- **countdown**: `COUNTDOWN_MS` (5 s) frozen at spawn. Position intents are
+  ignored, combat is off. Entered from warmup the moment both teams have a
+  player, and from round end.
+- **active**: the round proper, `ROUND_MS` (8 min) or until a team reaches the
+  **kill limit** (`KILL_LIMIT`, 30). A team emptying mid-round does not stop
+  it.
+- **round end**: `ROUND_END_MS` (8 s) of results. Combat is off (no shooting,
+  throwing, claiming, damage, or pickup spawns); movement and respawning are
+  allowed. Then countdown again, or warmup if a team is gone.
+
+**Reset.** What happens on the way into countdown (and from round end into
+warmup): team scores and every leaderboard row go to zero, projectiles,
+grenades and pickups are cleared, every crate is rebuilt from the map, every
+player stands alive with full HP on their spawn street, and each player gets a
+full sync. Teams are kept; a player's team changes only by leaving and
+re-joining.
+
+**Round result.** `{ winner: "blue" | "red" | "draw", teamScores }`, decided
+when the round ends: the team at the kill limit, otherwise the team with more
+kills at the buzzer, otherwise a draw. Travels on `match:phase` when entering
+round end, with the round's leaderboard rows, and in `game:state.match.result`
+so a late joiner sees the board.
+
+**Match block.** `match: { phase, phaseEndsAt, teamScores }` on every
+snapshot, in `game:state` and in `/leaderboard`. `phaseEndsAt` is server time
+(`null` in warmup); the client's **round clock** is `phaseEndsAt - serverTime`,
+never a local timer. `match:phase` marks each transition for the UI moments
+(countdown numerals, GO, the board); a client that missed it heals from the
+next snapshot.
 
 ## Time
 
@@ -32,7 +118,7 @@ is also cosmetic; it exists so other clients can draw the same bullet.
 (`shared/src/types.ts`). All server physics (projectiles, grenades, car
 contact) advance per tick with a fixed `dt`, independent of wall-clock jitter.
 
-**Snapshot.** `world:snapshot { tick, serverTime, players, grenades }`,
+**Snapshot.** `world:snapshot { tick, serverTime, players, grenades, clouds, match }`,
 broadcast once per tick. Carries continuous state only; discrete happenings go
 through outcome events. Snapshots are full, not delta-compressed.
 
@@ -56,16 +142,18 @@ adding it here and nowhere else.
 **Simulation (shared).** `shared/src/sim/`: pure, deterministic TypeScript with
 no Three.js and no sockets. `vec3`, `aabb` (box + swept segment), `projectile`,
 `grenade`, `weapons` (the stat table), `pickups`, `mapLayout` (the deterministic
-map both ends build from a seed), `spawnPoints`, `rng`. The server runs it for
-real; the client runs parts of it for cosmetics and for building the same map.
+map both ends build from a seed), `spawnPoints`, `teams`, `match` (the round
+loop), `rng`. The server
+runs it for real; the client runs parts of it for cosmetics and for building
+the same map.
 
 **GameRoom.** `server/src/room/GameRoom.ts`: the whole game state (players,
-projectiles, grenades, crates, pickups, leaderboard) plus `join`, `leave`,
-`applyIntent`, `tick`. Pure TypeScript; talks outward only through a
-`RoomTransport` port. One instance today.
+teams, projectiles, grenades, crates, pickups, leaderboard, team scores, match
+phase) plus `join`, `leave`, `applyIntent`, `tick`. Pure TypeScript; talks
+outward only through a `RoomTransport` port. One instance today.
 
 **Transport / adapter.** `RoomTransport` (`server/src/room/transport.ts`) is
-GameRoom's outbound port: `emit(to, …)` and `broadcast(…)`.
+GameRoom's outbound port: `send(playerId, …)` and `broadcast(…)`.
 `adapters/socketio.ts` is the production adapter; `adapters/memory.ts` is the
 test adapter with fake clients that record what they receive. GameRoom tests
 run entirely through the memory adapter.
@@ -96,12 +184,19 @@ and Replication and are composed in by the bullet-stop check.
 
 **Renderer (client).** A client class whose only job is to mirror server state
 in the scene: `RemotePlayerManager`, `GrenadeRenderer`, `CrateSync`,
-`PickupManager` (for server-owned pickups). Renderers read from `Replication`
-or react to outcome events; they never decide anything.
+`PickupManager` (for server-owned pickups), `MatchPhaseUi` (the round clock,
+countdown and round-end board). Renderers read from `Replication` or react to
+outcome events; they never decide anything.
 
 **Local player.** `PlayerController` + `WeaponSystem`. Owns movement and
 sends intents. Ignores its own entry in snapshots (its position is
-authoritative locally) but accepts its own HP/status from outcome events.
+authoritative locally) but accepts its own HP/status from outcome events and
+its team and spawn from `game:state`.
+
+**Nameplate.** The floating name and health bar over a remote player
+(`PlayerNameplates`). Coloured by team and tagged for teammates; the character
+model is the same on both sides, so the nameplate is how you tell friend from
+foe.
 
 ## Art assets
 
@@ -144,8 +239,8 @@ sides play the same map. Only the shop at the origin is its own twin. Tests
 enforce the symmetry and that hand-placed cover does not interpenetrate.
 
 **Spawn street.** Each team's safe strip along its wall (`z < -28` for south):
-its five `SPAWN_POINTS`, lamps and litter, nothing to hide behind and nothing
-to fight over.
+its five `SPAWN_POINTS` (the team's spawn zone: blue south, red north), lamps
+and litter, nothing to hide behind and nothing to fight over.
 
 **Cover line.** The row at `z ≈ -27` that shields the spawn street from mid: a
 car parked across the middle exit, crate bunkers and crate walls on the sides,
@@ -186,3 +281,100 @@ and reload progress for remote presentation only; it does not change damage or
 collision authority. Death animates the skin, and respawn resets the mixer and
 controller dimensions. Held weapons follow `WeaponSocket`, with an off-hand IK
 constraint and an exact `Muzzle` marker for shot origin and flash placement.
+
+### Interactive yard props
+
+Shared `InteractiveWorld` owns the state machine for tire stacks, timber cover,
+explosive barrels, smoke generators, alarm zones and lift gates. `GameRoom` accepts
+`world:interact` only from a living nearby player during combat, resolves projectile
+and grenade damage, and sends state in both full syncs and snapshots. Round resets
+restore cover, timers and closed gates. `world:blast` carries the cosmetic explosion;
+player damage and kill credit still use the normal combat path.
+
+V opens/closes a nearby gate or releases smoke. Gates lift 3 m in one second and
+reopen if someone occupies the passage during closing. Smoke lasts 7 seconds with
+a 22-second activation cooldown. Fuel drums have 45 HP and an 80-damage maximum
+blast falling off to zero at 4 m; chains detonate each drum once and leave 8 seconds
+of smoke. Tire stacks have 120 HP; timber panels have 80 HP. Alarm zones trigger
+within 3 m, sound for 4 seconds and can trigger again after 10 seconds. Burning drums
+and warning lamps are ambient dressing. Smoke also hides nameplates behind it.
+
+`WorldColliders` mirrors the shared dynamic boxes. Editor spawn validation includes
+closed gates and intact cover. The default arena places the new props in mirrored
+pairs, and every new prop type is available in the level editor.
+
+### Loot weapons and dedicated ammunition
+
+Players start with the existing pistol/rifle/shotgun. Crates can drop **any**
+weapon (the loot rocket launcher, flamethrower, precision rifle and arc gun, or one
+of the starting three), each with a loaded magazine and a modest matching ammo
+bundle, and **any throwable** (below). `CRATE_DROP_ODDS` (`shared/src/sim/pickups.ts`)
+splits a successful crate drop 30% weapon / 20% throwable / 25% health / 25% ammo.
+Ammo pickups use weapon-specific quantities: 2 rockets, 40 fuel, 8 .308 rounds or 12
+arc cells. Unowned-weapon ammo is banked locally until acquisition, and duplicate
+weapon loot becomes matching ammo. Inventory supports seven slots (1–7 or Q/E);
+remote players equip by weapon ID so acquisition order does not affect what others
+see. Pickup claiming remains server owned; inventory, ammunition and throwable
+counts retain the existing client-trusted authority model.
+
+**Throwable pickup.** `PickupSpec { kind: "throwable", grenadeKind, amount }`,
+rendered as a pair of that kind's casing on a ring (`ThrowablePickup`). On
+`pickup:taken` the claimant adds `amount` to its count for that kind; the server
+only removes the pickup and broadcasts, as for ammo.
+
+Rocket impacts/ground hits/range expiry detonate with 120 maximum damage falling to
+zero at 5.5 m, including self-damage; solid cover blocks player splash. Flames are
+three short-lived projectiles per fuel unit with a seven-metre range. Precision
+rifles fire fast 85-damage rounds with a long refire delay. Arc shots deal 32 damage
+and can jump to two additional players within four metres for 20/12 damage; solid
+cover blocks jumps. Server-selected arc endpoints and blast events drive effects.
+
+### Grenade kinds
+
+**Grenade kind.** `GrenadeKind = "frag" | "smoke" | "flash" | "gas" | "molotov"`
+(`shared/src/sim/grenade.ts`). Every kind flies and bounces identically
+(`GRENADE`) and shares the one throw cooldown; they differ in what sets them off
+(the fuse, or for the molotov the first impact: `shattersOnImpact`) and in what
+the detonation does (`GRENADE_EFFECTS`). `grenade:throw` carries the kind, the
+server validates it (`isGrenadeKind`) and echoes it on the grenade's snapshots
+and on `grenade:exploded`. The client selects the kind with C and throws with F.
+
+**Throwable loadout.** `GRENADE_LOADOUT[kind] = { start, pickup }`: how many of
+each kind a player spawns with (2 frag, 1 smoke, 1 flash; gas and molotovs are
+loot only) and how many a throwable pickup grants. Counts live on the client
+(`PlayerController.throwables`), are client-trusted like ammo, drop by one per
+throw, top back up to `start` on respawn (loot already carried is kept), and show
+in the HUD's throwable slot. C cycles only through kinds with something left;
+throwing the last one moves the selection on.
+
+- **Frag**: the blast (`blastDamage`, 90 falling to zero at 5 m); hits travel
+  as `combat:hit` with source `grenade` and damage crates and yard props.
+- **Smoke**: leaves a **cloud** (below) of radius 3.5 m for 9 s that hides
+  nameplates behind it (`cloudObscures`, joining the yard smoke test). No damage.
+- **Flash**: blinds everyone alive within 9 m who has a clear line to it, the
+  thrower included, harder up close (`flashIntensity`, linear to zero at the
+  radius; solid cover blocks it like rocket splash). `grenade:exploded.flashed`
+  lists `{ targetId, intensity }`; a blinded client whites out its own screen
+  for up to 3.5 s (`FlashOverlay`). Blindness is presentation only: no HP, no
+  server-side state.
+- **Gas**: leaves a cloud of radius 3 m for 8 s that poisons anyone whose body
+  centre stands inside it (`cloudContains`) at 12 damage per second, applied in
+  whole points like car contact, with source `gas` and kill credit to the
+  thrower.
+- **Molotov**: a bottle that shatters on the first surface it touches (ground,
+  wall, crate) instead of waiting for a fuse, and leaves a **fire** cloud of
+  radius 2.5 m for 6 s that burns anyone standing in it at 25 damage per
+  second, applied like gas, with source `fire` and kill credit to the thrower.
+  Fire hides nothing. Standing in overlapping gas and fire takes only the
+  harsher rate; hazards do not stack.
+
+**Cloud.** `Cloud { id, kind: CloudKind, ownerId, position, remaining }` with
+`CloudKind = "smoke" | "gas" | "fire"`, server-owned, spawned where a smoke, gas
+or molotov grenade went off (on the ground) and ticked down each tick; gone at
+zero. `cloudKindOf(grenadeKind)` names the cloud a kind leaves (null for frag
+and flash); `CLOUD_EFFECTS[cloudKind]` holds its radius, duration and damage per
+second (0 for smoke). Snapshots carry `clouds` as `{ id, kind, position,
+remaining }`; clouds do not move, so the client draws the newest snapshot's list
+without interpolation (`GrenadeClouds`). Round resets clear them. Clouds are not
+colliders and are unrelated to the yard's `smoke-zone` prop, which stays an
+interactive prop.

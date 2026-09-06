@@ -1,27 +1,4 @@
-:root {
-  color-scheme: dark;
-  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
-  background: #101216;
-  color: #e7e4db;
-
-  --bg-app: #14161a;
-  --bg-topbar: #121316;
-  --bg-panel: #191b1f;
-  --bg-panel-alt: #1e2126;
-  --bg-input: #0f1114;
-  --border: #2a2d34;
-  --border-strong: #3a3e47;
-  --text: #e7e4db;
-  --text-muted: #969ca5;
-  --text-dim: #676d78;
-  --accent: #d6a15f;
-  --accent-strong: #e8bd82;
-  --accent-soft: rgba(214, 161, 95, 0.14);
-  --accent-border: rgba(214, 161, 95, 0.4);
-  --danger: #e2725a;
-  --success: #7bc99a;
-  --radius: 4px;
-}
+@import "../styles/theme.css";
 
 * {
   box-sizing: border-box;
@@ -401,6 +378,42 @@ button.active kbd {
 .inspector-grid input {
   padding: 5px 6px;
   font-size: 12px;
+}
+
+/* Spawn point team toggle */
+.inspector-team {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+.inspector-team-option {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-input);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.inspector-team-option input {
+  margin: 0;
+}
+
+.inspector-team-option.team-blue {
+  color: var(--team-blue);
+}
+
+.inspector-team-option.team-red {
+  color: var(--team-red);
+}
+
+.inspector-team-option:has(input:checked) {
+  border-color: currentColor;
 }
 
 /* ---------- Selection list ---------- */

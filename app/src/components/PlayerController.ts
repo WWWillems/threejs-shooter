@@ -8,7 +8,14 @@ import type { CameraController } from "./CameraController";
 import type { WeaponSystem } from "./Weapon";
 import { WeaponType } from "./Weapon";
 import type { Weapon } from "./Weapon";
-import { GAME_EVENTS, GRENADE, type Vec3 } from "@threejs-shooter/shared";
+import {
+  GAME_EVENTS,
+  GRENADE,
+  GRENADE_KINDS,
+  GRENADE_LOADOUT,
+  type GrenadeKind,
+  type Vec3,
+} from "@threejs-shooter/shared";
 import type { NetworkClient } from "../net/NetworkClient";
 import { sfx } from "../audio/sfx";
 
@@ -44,6 +51,24 @@ interface PlayerDimensions {
   crouchHeight: number;
 }
 
+/** What the HUD's throwable slot shows: the selected kind, how many are left and the throw cooldown. */
+export interface GrenadeInfo {
+  kind: GrenadeKind;
+  /** Throwables of `kind` still carried. */
+  count: number;
+  cooldownRemaining: number;
+  cooldownDuration: number;
+  /** Off cooldown and at least one left to throw. */
+  isReady: boolean;
+}
+
+/** The spawn loadout, as a fresh mutable count per kind. */
+const startingThrowables = (): Record<GrenadeKind, number> =>
+  Object.fromEntries(GRENADE_KINDS.map((kind) => [kind, GRENADE_LOADOUT[kind].start])) as Record<
+    GrenadeKind,
+    number
+  >;
+
 /**
  * Controls player character state and movement
  */
@@ -66,6 +91,7 @@ export class PlayerController {
   private maxHealth = 100;
   private currentHealth = 100;
   private isDead = false;
+  private combatAllowed = true;
 
   // Movement settings
   private speed: number;
@@ -88,6 +114,10 @@ export class PlayerController {
   private aimTarget: THREE.Vector3 | null = null;
   /** Local clock (ms) of the last grenade throw, for the client-side cooldown. */
   private lastGrenadeThrowAt = -Infinity;
+  /** Which throwable F throws next; C cycles through the kinds we carry. */
+  private grenadeKind: GrenadeKind = "frag";
+  /** How many of each kind we carry. Client-trusted, like ammo; crates drop more. */
+  private throwables: Record<GrenadeKind, number> = startingThrowables();
 
   constructor(
     private player: THREE.Mesh,
@@ -103,9 +133,11 @@ export class PlayerController {
     dimensions?: Partial<PlayerDimensions>
   ) {
     // Set movement settings with defaults
-    this.speed = movementSettings?.speed || 10.0;
-    this.crouchSpeed = movementSettings?.crouchSpeed || 5.0;
-    this.runSpeed = movementSettings?.runSpeed || 20.0;
+    // The player is roughly two world units tall, so these values represent
+    // human-scale movement in metres per second rather than arcade sprinting.
+    this.speed = movementSettings?.speed || 6.0;
+    this.crouchSpeed = movementSettings?.crouchSpeed || 3.5;
+    this.runSpeed = movementSettings?.runSpeed || 10.0;
     this.jumpStrength = movementSettings?.jumpStrength || 5.0;
     this.gravity = movementSettings?.gravity || 30.0;
 
@@ -177,6 +209,10 @@ export class PlayerController {
 
     this.inputManager.onThrowGrenade(() => {
       this.throwGrenade();
+    });
+
+    this.inputManager.onCycleGrenade(() => {
+      this.cycleGrenadeKind();
     });
 
     this.inputManager.onWeaponSwitch((index) => {
@@ -450,6 +486,55 @@ export class PlayerController {
   }
 
   /**
+   * Get the selected grenade kind and throw cooldown state for the HUD's throwables slot.
+   */
+  public getGrenadeInfo(): GrenadeInfo {
+    const elapsed = (performance.now() - this.lastGrenadeThrowAt) / 1000;
+    const cooldownDuration = GRENADE.throwCooldown;
+    const cooldownRemaining = Math.max(0, cooldownDuration - elapsed);
+    const count = this.throwables[this.grenadeKind];
+    return {
+      kind: this.grenadeKind,
+      count,
+      cooldownRemaining,
+      cooldownDuration,
+      isReady: cooldownRemaining <= 0 && count > 0,
+    };
+  }
+
+  /**
+   * Select the next grenade kind we still carry, in `GRENADE_KINDS` order.
+   * With nothing left of any kind the selection stays put.
+   */
+  private cycleGrenadeKind(): void {
+    if (this.isDead) return;
+    const start = GRENADE_KINDS.indexOf(this.grenadeKind);
+    for (let step = 1; step <= GRENADE_KINDS.length; step++) {
+      const kind = GRENADE_KINDS[(start + step) % GRENADE_KINDS.length];
+      if (this.throwables[kind] <= 0) continue;
+      if (kind !== this.grenadeKind) {
+        this.grenadeKind = kind;
+        sfx.play("switch");
+      }
+      return;
+    }
+  }
+
+  /**
+   * Gain `amount` throwables of `kind` (a crate drop). If the selected kind
+   * had run out, switch to what we just picked up so F does something.
+   */
+  public addThrowables(kind: GrenadeKind, amount: number): void {
+    this.throwables[kind] += amount;
+    if (this.throwables[this.grenadeKind] <= 0) this.grenadeKind = kind;
+  }
+
+  /** Throwables carried, per kind. */
+  public getThrowables(): Readonly<Record<GrenadeKind, number>> {
+    return this.throwables;
+  }
+
+  /**
    * Get weapon inventory for HUD
    */
   public getInventory() {
@@ -532,6 +617,15 @@ export class PlayerController {
     };
   }
 
+  /**
+   * Whether shooting and throwing do anything right now. Off between rounds
+   * (round end, countdown); the server rejects those intents regardless.
+   */
+  public setCombatAllowed(allowed: boolean): void {
+    this.combatAllowed = allowed;
+    this.weaponSystem.setCombatAllowed(allowed);
+  }
+
   /** Adopt an HP value the server reported (e.g. after a health pickup). */
   public applyServerHp(hp: number): void {
     if (this.isDead) return;
@@ -543,10 +637,12 @@ export class PlayerController {
    * simulated by the server and shows up in world snapshots.
    */
   private throwGrenade(): void {
-    if (this.isDead) return;
+    if (this.isDead || !this.combatAllowed) return;
+    if (this.throwables[this.grenadeKind] <= 0) return;
     const now = performance.now();
     if (now - this.lastGrenadeThrowAt < GRENADE.throwCooldown * 1000) return;
     this.lastGrenadeThrowAt = now;
+    this.throwables[this.grenadeKind] -= 1;
 
     // Release from chest height, just in front of the player
     const origin = this.player.position.clone();
@@ -564,9 +660,13 @@ export class PlayerController {
     direction.normalize();
 
     this.net.send(GAME_EVENTS.GRENADE.THROW, {
+      kind: this.grenadeKind,
       position: { x: origin.x, y: origin.y, z: origin.z },
       direction: { x: direction.x, y: direction.y, z: direction.z },
     });
+
+    // That was the last one: move on to something we can still throw.
+    if (this.throwables[this.grenadeKind] <= 0) this.cycleGrenadeKind();
   }
 
   /**
@@ -576,6 +676,14 @@ export class PlayerController {
   public requestRespawn(): void {
     if (!this.isDead) return;
     this.net.send(GAME_EVENTS.PLAYER.RESPAWN, {});
+  }
+
+  /**
+   * Put the local player where the server spawned them (initial join or a
+   * re-join after a reconnect), alive with `hp`. Same path as a respawn.
+   */
+  public spawnAt(position: Vec3, rotation: number, hp: number): void {
+    this.applyServerRespawn(position, rotation, hp);
   }
 
   private applyServerRespawn(position: Vec3, rotation: number, hp: number): void {
@@ -589,6 +697,12 @@ export class PlayerController {
     setCharacterDead(this.player, false);
     setCharacterCrouch(this.player, false);
     this.weaponSystem.setDead(false);
+
+    // Top throwables back up to the spawn loadout; loot picked up earlier is kept.
+    for (const kind of GRENADE_KINDS) {
+      this.throwables[kind] = Math.max(this.throwables[kind], GRENADE_LOADOUT[kind].start);
+    }
+    if (this.throwables[this.grenadeKind] <= 0) this.cycleGrenadeKind();
 
     // Re-enable input
     this.inputManager.enableKeyboardInput();
@@ -610,39 +724,7 @@ export class PlayerController {
    * @param amount The amount of ammo to add
    */
   public addAmmo(weaponType: WeaponType, amount: number): void {
-    // Get the weapon inventory
-    const inventory = this.weaponSystem.getInventory();
-
-    // Find the weapon by name (case insensitive)
-    // Since WeaponType enum values are lowercase but Weapon names are capitalized,
-    // we need to convert the enum value to match the expected weapon name format
-    let weaponName: string;
-
-    switch (weaponType) {
-      case WeaponType.PISTOL:
-        weaponName = "Pistol";
-        break;
-      case WeaponType.RIFLE:
-        weaponName = "Assault Rifle";
-        break;
-      case WeaponType.SHOTGUN:
-        weaponName = "Shotgun";
-        break;
-      default: {
-        const unhandled: never = weaponType;
-        weaponName = unhandled;
-        break;
-      }
-    }
-
-    const weapon = inventory.find((w) => w.name === weaponName);
-
-    if (weapon) {
-      // Add ammo to the weapon's total bullets
-      weapon.totalBullets += amount;
-    } else {
-      console.warn(`No weapon found with name: ${weaponName}`);
-    }
+    this.weaponSystem.addAmmoById(weaponType,amount);
   }
 
   /**

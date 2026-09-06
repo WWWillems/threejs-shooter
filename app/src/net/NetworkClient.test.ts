@@ -40,7 +40,9 @@ describe("NetworkClient", () => {
       id: "a",
       userId: "a",
       name: "Alice",
+      team: "blue" as const,
       position: { x: 0, y: 0, z: 0 },
+      rotation: 0,
       timestamp: 1,
     };
     socket.receive(GAME_EVENTS.USER.JOINED, payload);
@@ -68,20 +70,47 @@ describe("NetworkClient", () => {
     expect(handler).toHaveBeenCalledWith(payload);
   });
 
-  it("re-joins with the current position after a reconnect", () => {
+  it("re-joins by name after a reconnect; the server picks the spawn", () => {
     const { socket, net } = setup();
     socket.connect();
-    const position = { x: 0, y: 1, z: 0 };
-    net.join("Alice", () => position);
+    net.join("Alice");
     expect(socket.emittedOf(GAME_EVENTS.USER.JOINED)).toHaveLength(1);
 
-    position.x = 7;
     socket.disconnect();
     socket.connect();
 
     const joins = socket.emittedOf(GAME_EVENTS.USER.JOINED);
     expect(joins).toHaveLength(2);
-    expect(joins[1][0]).toMatchObject({ name: "Alice", position: { x: 7 } });
+    expect(joins[1][0]).toMatchObject({ name: "Alice" });
+    expect(joins[1][0]).not.toHaveProperty("position");
+  });
+
+  it("learns its own id and team from game:state", () => {
+    const { socket, net } = setup();
+    expect(net.selfTeam).toBeNull();
+    socket.receive(GAME_EVENTS.GAME.STATE, {
+      selfId: "me",
+      players: [
+        { id: "other", userId: "other", name: "O", team: "blue", status: "alive", hp: 100, rotation: 0, positionAt: 0 },
+        { id: "me", userId: "me", name: "Me", team: "red", status: "alive", hp: 100, rotation: 0, positionAt: 0 },
+      ],
+      crates: [],
+      pickups: [],
+      match: { phase: "warmup", phaseEndsAt: null, teamScores: { blue: 0, red: 0 }, result: null },
+    });
+    expect(net.selfId).toBe("me");
+    expect(net.selfTeam).toBe("red");
+  });
+
+  it("stops re-joining once the server has refused the join", () => {
+    const { socket, net } = setup();
+    socket.connect();
+    net.join("Alice");
+    socket.receive(GAME_EVENTS.USER.JOIN_REJECTED, { reason: "room-full" });
+
+    socket.disconnect();
+    socket.connect();
+    expect(socket.emittedOf(GAME_EVENTS.USER.JOINED)).toHaveLength(1);
   });
 
   it("does not join on connect before the player has started the game", () => {

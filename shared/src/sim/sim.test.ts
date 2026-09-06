@@ -9,7 +9,24 @@ import {
   sweepSegmentRotatedAABB,
 } from "./aabb";
 import { playerCollider, playerHitbox, playerHitboxContains } from "./playerHitbox";
-import { GRENADE, blastDamage, integrateGrenade, spawnGrenade } from "./grenade";
+import {
+  CLOUD_EFFECTS,
+  CLOUD_KINDS,
+  GRENADE,
+  GRENADE_EFFECTS,
+  GRENADE_KINDS,
+  GRENADE_LOADOUT,
+  blastDamage,
+  cloudContains,
+  cloudKindOf,
+  cloudObscures,
+  flashIntensity,
+  integrateGrenade,
+  isGrenadeKind,
+  shattersOnImpact,
+  spawnCloud,
+  spawnGrenade,
+} from "./grenade";
 import {
   TREE_TRUNK_SIZE,
   crateBox,
@@ -25,7 +42,14 @@ import {
   rollPickupContents,
 } from "./pickups";
 import { Rng } from "./rng";
-import { PLAYER_SIZE, SPAWN_POINTS, facingCenterYaw, pickSpawnPoint } from "./spawnPoints";
+import {
+  PLAYER_SIZE,
+  SPAWN_POINTS,
+  facingCenterYaw,
+  pickSpawnPoint,
+  spawnPointsFor,
+} from "./spawnPoints";
+import { MAX_TEAM_SIZE, pickTeam } from "./teams";
 import { WEAPONS, pelletYawOffsets } from "./weapons";
 import { vec3 } from "./vec3";
 import {
@@ -250,7 +274,7 @@ describe("map", () => {
   it("keeps bushes and cones movement-only, off the solid list", () => {
     const map = generateMap();
     const soft = movementOnlyColliders(map);
-    expect(soft).toHaveLength(map.bushes.length + map.cones.length + map.props.filter((prop) => ["trash-bag", "fence", "fence-gate"].includes(prop.type)).length);
+    expect(soft).toHaveLength(map.bushes.length + map.cones.length + map.props.filter((prop) => ["trash-bag", "fence"].includes(prop.type)).length);
     const solidIds = new Set(solidColliders(map).map((c) => c.tag.id));
     for (const { id } of soft) expect(solidIds.has(id)).toBe(false);
   });
@@ -263,18 +287,50 @@ describe("map", () => {
       ...map.crates.map(crateBox),
     ];
     for (const spawn of SPAWN_POINTS) {
-      const player = aabbFromCenterSize(spawn, PLAYER_SIZE);
+      const player = aabbFromCenterSize(spawn.position, PLAYER_SIZE);
       expect(obstacles.some((box) => aabbIntersects(player, box))).toBe(false);
     }
   });
 
   it("gives each team five spawn points in its own spawn street", () => {
     const map = generateMap();
-    const south = map.spawnPoints.filter((p) => p.z < -28);
-    const north = map.spawnPoints.filter((p) => p.z > 28);
-    expect(south).toHaveLength(5);
-    expect(north).toHaveLength(5);
+    const south = map.spawnPoints.filter((p) => p.position.z < -28);
+    const north = map.spawnPoints.filter((p) => p.position.z > 28);
+    expect(south).toHaveLength(MAX_TEAM_SIZE);
+    expect(north).toHaveLength(MAX_TEAM_SIZE);
     expect(south.length + north.length).toBe(map.spawnPoints.length);
+    // Blue owns the south street, red the north one
+    expect(south.every((p) => p.team === "blue")).toBe(true);
+    expect(north.every((p) => p.team === "red")).toBe(true);
+    expect(spawnPointsFor("blue", map.spawnPoints)).toEqual(south);
+    expect(spawnPointsFor("red", map.spawnPoints)).toEqual(north);
+  });
+
+  it("requires every spawn point to name a team", () => {
+    const level = levelFromMap(generateMap());
+    (level.spawnPoints[0] as { team: unknown }).team = "green";
+    const diagnostics = validateLevel(level);
+    expect(diagnostics.some((d) => d.path.endsWith(".team") && d.severity === "error")).toBe(
+      true
+    );
+  });
+
+  it("flags a level with a team that has no spawn point, and warns on uneven counts", () => {
+    const noRed = levelFromMap(generateMap());
+    for (const spawn of noRed.spawnPoints) spawn.team = "blue";
+    expect(
+      validateLevel(noRed).some(
+        (d) => d.severity === "error" && d.message.includes("red spawn point")
+      )
+    ).toBe(true);
+
+    const uneven = levelFromMap(generateMap());
+    uneven.spawnPoints[0].team = "red";
+    const warnings = validateLevel(uneven).filter((d) => d.severity === "warning");
+    expect(warnings.some((d) => d.message.includes("blue"))).toBe(true);
+    expect(warnings.some((d) => d.message.includes("red"))).toBe(true);
+    // Warnings do not make the level unloadable
+    expect(() => parseLevelDocument(uneven)).not.toThrow();
   });
 
   it("faces each spawn point toward the map centre", () => {
@@ -347,13 +403,39 @@ describe("pickSpawnPoint", () => {
     expect(spot).not.toEqual(vec3(0, 1, 0));
     expect(spot).not.toEqual(vec3(12, 1, -4));
   });
+
+  it("stays inside the team's own zone when given the team's points", () => {
+    // Everyone is camped on the south street; a red player still spawns north.
+    const occupied = spawnPointsFor("blue").map((p) => p.position);
+    const spot = pickSpawnPoint(occupied, spawnPointsFor("red"));
+    expect(spot.z).toBeGreaterThan(28);
+  });
+
+  it("refuses an empty point list", () => {
+    expect(() => pickSpawnPoint([], [])).toThrow();
+  });
+});
+
+describe("pickTeam", () => {
+  it("fills the smaller team, blue on a tie", () => {
+    expect(pickTeam({ blue: 0, red: 0 })).toBe("blue");
+    expect(pickTeam({ blue: 1, red: 0 })).toBe("red");
+    expect(pickTeam({ blue: 1, red: 1 })).toBe("blue");
+    expect(pickTeam({ blue: 3, red: 1 })).toBe("red");
+  });
+
+  it("only offers a team with room, and none when the room is full", () => {
+    expect(pickTeam({ blue: MAX_TEAM_SIZE, red: 2 })).toBe("red");
+    expect(pickTeam({ blue: 0, red: MAX_TEAM_SIZE })).toBe("blue");
+    expect(pickTeam({ blue: MAX_TEAM_SIZE, red: MAX_TEAM_SIZE })).toBeNull();
+  });
 });
 
 describe("grenade", () => {
   const DT = 1 / 20;
 
   it("follows an arc and bounces off the ground, losing energy", () => {
-    const g = spawnGrenade("g", "alice", vec3(0, 1, 0), vec3(0, 0, -1));
+    const g = spawnGrenade("g", "alice", "frag", vec3(0, 1, 0), vec3(0, 0, -1));
     expect(g.velocity.y).toBeGreaterThan(0);
 
     let bounced = false;
@@ -380,7 +462,7 @@ describe("grenade", () => {
       box: aabbFromCenterSize(vec3(0, 1, -3), vec3(10, 2, 0.5)),
       tag: "wall",
     };
-    const g = spawnGrenade("g", "alice", vec3(0, 1, 0), vec3(0, 0, -1));
+    const g = spawnGrenade("g", "alice", "frag", vec3(0, 1, 0), vec3(0, 0, -1));
     g.velocity = vec3(0, 0, -10); // flat throw for a clean test
 
     let bounce = null;
@@ -393,7 +475,7 @@ describe("grenade", () => {
   });
 
   it("comes to rest and detonates when the fuse runs out", () => {
-    const g = spawnGrenade("g", "alice", vec3(0, 0.2, 0), vec3(0, 0, -1));
+    const g = spawnGrenade("g", "alice", "frag", vec3(0, 0.2, 0), vec3(0, 0, -1));
     g.velocity = vec3(0, 0, 0);
     let ticks = 0;
     while (g.fuse > 0) {
@@ -415,6 +497,104 @@ describe("grenade", () => {
     );
     expect(blastDamage(c, vec3(GRENADE.blastRadius, 0, 0))).toBe(0);
     expect(blastDamage(c, vec3(0, 0, 50))).toBe(0);
+  });
+
+  it("knows its kinds and rejects anything else off the wire", () => {
+    for (const kind of GRENADE_KINDS) expect(isGrenadeKind(kind)).toBe(true);
+    expect(isGrenadeKind("nuke")).toBe(false);
+    expect(isGrenadeKind(undefined)).toBe(false);
+    expect(isGrenadeKind(1)).toBe(false);
+  });
+
+  it("every kind flies the same way", () => {
+    const flights = GRENADE_KINDS.map((kind) => {
+      const g = spawnGrenade("g", "alice", kind, vec3(0, 1, 0), vec3(0, 0, -1));
+      for (let i = 0; i < 30; i++) integrateGrenade(g, DT, []);
+      return g.position;
+    });
+    for (const position of flights) expect(position).toEqual(flights[0]);
+  });
+
+  it("only the molotov goes off on impact; the rest wait for the fuse", () => {
+    expect(GRENADE_KINDS.filter(shattersOnImpact)).toEqual(["molotov"]);
+    const g = spawnGrenade("g", "alice", "molotov", vec3(0, 1, 0), vec3(0, 0, -1));
+    let bounce = null;
+    let steps = 0;
+    while (!bounce && steps++ < 100) bounce = integrateGrenade(g, DT, []);
+    expect(bounce).not.toBeNull();
+    expect(g.fuse).toBeGreaterThan(0); // the bottle hit the ground well before its fuse
+  });
+
+  it("maps each grenade kind to the cloud it leaves, and every cloud kind back to a grenade", () => {
+    expect(cloudKindOf("frag")).toBeNull();
+    expect(cloudKindOf("flash")).toBeNull();
+    expect(cloudKindOf("smoke")).toBe("smoke");
+    expect(cloudKindOf("gas")).toBe("gas");
+    expect(cloudKindOf("molotov")).toBe("fire");
+    for (const kind of CLOUD_KINDS) expect(cloudKindOf(CLOUD_EFFECTS[kind].source)).toBe(kind);
+    expect(CLOUD_EFFECTS.smoke.dps).toBe(0);
+    expect(CLOUD_EFFECTS.fire.dps).toBeGreaterThan(CLOUD_EFFECTS.gas.dps);
+  });
+
+  it("fire is a tighter, shorter, hotter pool than gas", () => {
+    const fire = spawnCloud("f", { ownerId: "alice", position: vec3(0, 0.15, 0) }, "fire");
+    expect(fire.remaining).toBe(GRENADE_EFFECTS.molotov.duration);
+    expect(cloudContains(fire, vec3(GRENADE_EFFECTS.molotov.radius - 0.1, 1, 0))).toBe(true);
+    expect(cloudContains(fire, vec3(GRENADE_EFFECTS.molotov.radius + 0.1, 1, 0))).toBe(false);
+    // Fire is not smoke: it hides nothing.
+    expect(cloudObscures(vec3(-10, 5, 0), vec3(10, 1, 0), fire)).toBe(false);
+  });
+
+  it("spawn loadout: frags to start, gas and molotovs only as loot, every pickup grants some", () => {
+    expect(GRENADE_LOADOUT.frag.start).toBeGreaterThan(0);
+    expect(GRENADE_LOADOUT.gas.start).toBe(0);
+    expect(GRENADE_LOADOUT.molotov.start).toBe(0);
+    for (const kind of GRENADE_KINDS) expect(GRENADE_LOADOUT[kind].pickup).toBeGreaterThan(0);
+  });
+
+  it("a cloud sits on the ground where the grenade went off and lasts its kind's duration", () => {
+    const grenade = { ownerId: "alice", position: vec3(3, 0.15, -4) };
+    const smoke = spawnCloud("c", grenade, "smoke");
+    expect(smoke).toMatchObject({
+      kind: "smoke",
+      ownerId: "alice",
+      position: vec3(3, 0, -4),
+      remaining: GRENADE_EFFECTS.smoke.duration,
+    });
+    expect(spawnCloud("c", grenade, "gas").remaining).toBe(GRENADE_EFFECTS.gas.duration);
+  });
+
+  it("a cloud contains body centres inside its cylinder only", () => {
+    const gas = spawnCloud("c", { ownerId: "alice", position: vec3(0, 0, 0) }, "gas");
+    const r = GRENADE_EFFECTS.gas.radius;
+    expect(cloudContains(gas, vec3(0, 1, 0))).toBe(true);
+    expect(cloudContains(gas, vec3(r - 0.1, 1, 0))).toBe(true);
+    expect(cloudContains(gas, vec3(r + 0.1, 1, 0))).toBe(false);
+    expect(cloudContains(gas, vec3(0, 6, 0))).toBe(false); // on a roof above it
+  });
+
+  it("smoke hides what stands behind it; gas does not", () => {
+    const at = vec3(0, 0, 0);
+    const smoke = spawnCloud("s", { ownerId: "alice", position: at }, "smoke");
+    const gas = spawnCloud("g", { ownerId: "alice", position: at }, "gas");
+    const camera = vec3(0, 12, 12);
+    const behind = vec3(0, 1, -2);
+    const beside = vec3(GRENADE_EFFECTS.smoke.radius * 3, 1, 0);
+
+    expect(cloudObscures(camera, behind, smoke)).toBe(true);
+    expect(cloudObscures(camera, beside, smoke)).toBe(false);
+    expect(cloudObscures(camera, behind, gas)).toBe(false);
+    // A cloud about to vanish no longer hides anything.
+    expect(cloudObscures(camera, behind, { ...smoke, remaining: 0.5 })).toBe(false);
+  });
+
+  it("flash intensity falls off linearly to zero at the radius", () => {
+    const c = vec3(0, 0, 0);
+    const { radius } = GRENADE_EFFECTS.flash;
+    expect(flashIntensity(c, c)).toBe(1);
+    expect(flashIntensity(c, vec3(radius / 2, 0, 0))).toBeCloseTo(0.5, 2);
+    expect(flashIntensity(c, vec3(radius, 0, 0))).toBe(0);
+    expect(flashIntensity(c, vec3(0, 0, 50))).toBe(0);
   });
 });
 

@@ -1,27 +1,4 @@
-:root {
-  color-scheme: dark;
-  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
-  background: #101216;
-  color: #e7e4db;
-
-  --bg-app: #14161a;
-  --bg-topbar: #121316;
-  --bg-panel: #191b1f;
-  --bg-panel-alt: #1e2126;
-  --bg-input: #0f1114;
-  --border: #2a2d34;
-  --border-strong: #3a3e47;
-  --text: #e7e4db;
-  --text-muted: #969ca5;
-  --text-dim: #676d78;
-  --accent: #d6a15f;
-  --accent-strong: #e8bd82;
-  --accent-soft: rgba(214, 161, 95, 0.14);
-  --accent-border: rgba(214, 161, 95, 0.4);
-  --danger: #e2725a;
-  --success: #7bc99a;
-  --radius: 4px;
-}
+@import "../styles/theme.css";
 
 * {
   box-sizing: border-box;
@@ -319,32 +296,151 @@ button.active kbd {
   color: var(--accent-strong);
 }
 
-/* ---------- Weapon segmented control ---------- */
+/* ---------- Weapon browser ---------- */
 
-.segmented {
+.panel-header-with-meta {
   display: flex;
-  gap: 4px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
 }
 
-.segmented button {
-  flex: 1;
-  justify-content: center;
+.panel-count {
+  color: var(--text-dim);
+  font-size: 9px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  text-transform: none;
+  white-space: nowrap;
+}
+
+.weapon-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: min(310px, 42vh);
+  overflow-y: auto;
+  padding-right: 2px;
+  scrollbar-gutter: stable;
+}
+
+.weapon-option {
+  display: grid;
+  grid-template-columns: 25px minmax(0, 1fr) 14px;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 42px;
+  height: 42px;
+  padding: 4px 8px 4px 5px;
   background: var(--bg-panel-alt);
   border: 1px solid var(--border);
   color: var(--text-muted);
-  padding: 0 6px;
+  text-align: left;
 }
 
-.segmented button:hover {
+.weapon-option:hover {
   border-color: var(--border-strong);
   background: #262a31;
   color: var(--text);
 }
 
-.segmented button.active {
+.weapon-option:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+.weapon-option.active,
+.weapon-option.active:hover {
   border-color: var(--accent);
   background: var(--accent-soft);
   color: var(--accent-strong);
+}
+
+.weapon-option-key {
+  display: grid;
+  place-items: center;
+  width: 25px;
+  height: 25px;
+  border: 1px solid var(--border-strong);
+  border-radius: 3px;
+  background: var(--bg-input);
+  color: var(--text-dim);
+  font: 10px/1 ui-monospace, "SF Mono", Menlo, monospace;
+  font-weight: 700;
+}
+
+.weapon-option.active .weapon-option-key {
+  border-color: var(--accent-border);
+  color: var(--accent-strong);
+}
+
+.weapon-option-copy {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.weapon-option-name,
+.weapon-option-ammo {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.weapon-option-name {
+  color: inherit;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.weapon-option-ammo {
+  color: var(--text-dim);
+  font-size: 9px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.weapon-option.active .weapon-option-ammo {
+  color: var(--text-muted);
+}
+
+.weapon-option-check {
+  color: var(--accent-strong);
+  font-size: 9px;
+  opacity: 0;
+  transform: scale(0.7);
+  transition: opacity 0.12s ease, transform 0.12s ease;
+}
+
+.weapon-option.active .weapon-option-check {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.weapon-list::-webkit-scrollbar {
+  width: 8px;
+}
+
+.weapon-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.weapon-list::-webkit-scrollbar-thumb {
+  background: #333841;
+  border-radius: 4px;
+}
+
+.weapon-list::-webkit-scrollbar-thumb:hover {
+  background: #3f454f;
+}
+
+/* Keep the list usable when the inspector moves below the viewport. */
+@media (max-width: 860px) {
+  .weapon-list {
+    max-height: 30vh;
+  }
 }
 
 .action-row {

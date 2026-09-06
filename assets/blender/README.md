@@ -72,3 +72,26 @@ Open `/character.html` to inspect poses, orbit the model and try each weapon.
 The production build includes this workshop alongside the game and level editor.
 Tests load the actual GLB to check clip coverage, independent skeletons, crouch,
 death/reset and finite animated bounds; network tests cover cosmetic pose state.
+
+### Interactive yard kit
+
+`noir-interactives.blend` is an isolated workshop authored through Blender MCP by
+`scripts/model-interactive-yard.py`. It contains tire stacks, an open fire drum,
+a red/ivory explosive fuel drum, a timber barricade, smoke generator, alarm and
+warning beacons, and a lift gate. The gate frame and moving panel export separately
+as `noir-lift-gate-frame.glb` and `noir-lift-gate-panel.glb`; the panel travels 3 m
+upward while the guide posts stay fixed. All exports use ground origins and Y-up.
+
+The kit reuses approved utility-pole timber, barrel steel and galvanized-steel
+textures. Tire rubber and hazard markings are mesh materials. Fire and smoke are
+runtime effects, not baked lights or images. Re-running the authoring script replaces
+only its own workshop, exports the nine GLBs, and saves an assembled preview.
+
+### Loot arsenal
+
+`noir-arsenal.blend`, authored with `scripts/model-noir-arsenal.py` through Blender
+MCP, holds the rocket launcher, flamethrower, precision rifle and arc gun. The four
+`noir-<weapon>.glb` exports share the existing grip origin and -Z firing axis, with
+explicit muzzle nodes and detachable magazines; the precision rifle also has a
+moving bolt. Blender renders the matching transparent inventory icons into
+`app/public/icons/`. The standalone character workshop includes all seven weapons.

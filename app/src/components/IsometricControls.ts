@@ -4,7 +4,7 @@ import type { Weapon } from "./Weapon";
 import type { CollisionDetector } from "./CollisionInterface";
 import { InputManager } from "./InputManager";
 import { CameraController } from "./CameraController";
-import { PlayerController } from "./PlayerController";
+import { PlayerController, type GrenadeInfo } from "./PlayerController";
 import { DebugVisualizer } from "./DebugVisualizer";
 import type { PickupManager } from "./PickupManager";
 import type { NetworkClient } from "../net/NetworkClient";
@@ -152,6 +152,21 @@ export class IsometricControls {
    */
   public getHealth(): { current: number; max: number; isDead: boolean } {
     return this.playerController.getHealth();
+  }
+
+  /**
+   * Get the selected grenade kind and throw cooldown for the HUD's throwables slot
+   */
+  public getGrenadeInfo(): GrenadeInfo {
+    return this.playerController.getGrenadeInfo();
+  }
+
+  /**
+   * Whether debug visualization (toggled with B) is currently on, for the
+   * HUD's dev-only elements (e.g. the FPS counter).
+   */
+  public isDebugMode(): boolean {
+    return this.debugVisualizer.isDebugMode();
   }
 
   /**

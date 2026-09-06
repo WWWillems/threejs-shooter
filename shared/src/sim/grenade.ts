@@ -29,9 +29,107 @@ export const GRENADE = {
   restSpeed: 0.5,
 } as const;
 
+/**
+ * The throwables. Every kind flies and bounces the same way; they differ in
+ * what sets them off and what the detonation does:
+ * - `frag` deals blast damage when the fuse runs out (see `blastDamage`).
+ * - `smoke` leaves a cloud that hides whoever stands in or behind it.
+ * - `flash` blinds everyone nearby who can see it (see `flashIntensity`).
+ * - `gas` leaves a cloud that poisons whoever stands in it.
+ * - `molotov` shatters on the first thing it hits (see `shattersOnImpact`)
+ *   and leaves a pool of fire that burns whoever stands in it.
+ */
+export const GRENADE_KINDS = ["frag", "smoke", "flash", "gas", "molotov"] as const;
+export type GrenadeKind = (typeof GRENADE_KINDS)[number];
+
+export const isGrenadeKind = (value: unknown): value is GrenadeKind =>
+  typeof value === "string" && (GRENADE_KINDS as readonly string[]).includes(value);
+
+/** A molotov goes off on contact; every other kind waits for its fuse. */
+export const shattersOnImpact = (kind: GrenadeKind): boolean => kind === "molotov";
+
+/**
+ * How many of each kind a player spawns with, and how many a throwable pickup
+ * grants. Gas and molotovs are loot only. Counts are client-trusted like ammo.
+ */
+export const GRENADE_LOADOUT: Record<GrenadeKind, { start: number; pickup: number }> = {
+  frag: { start: 2, pickup: 2 },
+  smoke: { start: 1, pickup: 2 },
+  flash: { start: 1, pickup: 2 },
+  gas: { start: 0, pickup: 2 },
+  molotov: { start: 0, pickup: 2 },
+};
+
+/** The lingering area a grenade can leave behind: smoke, gas or a pool of fire. */
+export const CLOUD_KINDS = ["smoke", "gas", "fire"] as const;
+export type CloudKind = (typeof CLOUD_KINDS)[number];
+
+/** Per-kind tuning for what the detonation does. Server-authoritative. */
+export const GRENADE_EFFECTS = {
+  smoke: {
+    /** Cloud radius, u. */
+    radius: 3.5,
+    /** Seconds the cloud lingers. */
+    duration: 9,
+  },
+  gas: {
+    radius: 3,
+    duration: 8,
+    /** Damage per second to anyone standing inside. */
+    dps: 12,
+  },
+  flash: {
+    /** Blinding falls off linearly to zero at this distance. */
+    radius: 9,
+    /** Seconds of full blindness at the centre; scaled by intensity. */
+    blindDuration: 4.25,
+  },
+  molotov: {
+    /** Radius of the burning pool, u. */
+    radius: 2.5,
+    /** Seconds the fire burns. */
+    duration: 6,
+    /** Damage per second to anyone standing in the fire: fast, so it clears cover. */
+    dps: 25,
+  },
+} as const;
+
+/** Tuning of each cloud kind, and which grenade leaves it. */
+export const CLOUD_EFFECTS: Record<
+  CloudKind,
+  { radius: number; duration: number; dps: number; source: GrenadeKind }
+> = {
+  smoke: { ...GRENADE_EFFECTS.smoke, dps: 0, source: "smoke" },
+  gas: { ...GRENADE_EFFECTS.gas, source: "gas" },
+  fire: { ...GRENADE_EFFECTS.molotov, source: "molotov" },
+};
+
+/** The cloud a grenade kind leaves behind, or null for the kinds that leave none. */
+export function cloudKindOf(kind: GrenadeKind): CloudKind | null {
+  switch (kind) {
+    case "smoke":
+      return "smoke";
+    case "gas":
+      return "gas";
+    case "molotov":
+      return "fire";
+    case "frag":
+    case "flash":
+      return null;
+    default: {
+      const unhandled: never = kind;
+      throw new Error(`Unhandled grenade kind: ${String(unhandled)}`);
+    }
+  }
+}
+
+/** How tall a cloud reaches above its centre; it sits on the ground. */
+const CLOUD_HEIGHT = 2.5;
+
 /** A grenade in flight or at rest. Owned by the server. */
 export interface Grenade {
   id: string;
+  kind: GrenadeKind;
   ownerId: string;
   position: Vec3;
   velocity: Vec3;
@@ -42,8 +140,81 @@ export interface Grenade {
 /** What a snapshot carries per grenade. */
 export interface GrenadeSnapshot {
   id: string;
+  kind: GrenadeKind;
   ownerId: string;
   position: Vec3;
+}
+
+/** A smoke, gas or fire cloud left by a grenade. Owned by the server. */
+export interface Cloud {
+  id: string;
+  kind: CloudKind;
+  /** Who threw the grenade; gas and fire kills credit them. */
+  ownerId: string;
+  /** Centre on the ground. */
+  position: Vec3;
+  /** Seconds until the cloud is gone. */
+  remaining: number;
+}
+
+/** What a snapshot carries per cloud. */
+export interface CloudSnapshot {
+  id: string;
+  kind: CloudKind;
+  position: Vec3;
+  remaining: number;
+}
+
+/** The cloud a `kind` grenade leaves when it goes off at `position`. */
+export function spawnCloud(id: string, grenade: Pick<Grenade, "ownerId" | "position">, kind: CloudKind): Cloud {
+  return {
+    id,
+    kind,
+    ownerId: grenade.ownerId,
+    position: { x: grenade.position.x, y: 0, z: grenade.position.z },
+    remaining: CLOUD_EFFECTS[kind].duration,
+  };
+}
+
+/** True while `point` (a body centre) stands inside the cloud's cylinder. */
+export function cloudContains(cloud: Pick<Cloud, "kind" | "position">, point: Vec3): boolean {
+  const { radius } = CLOUD_EFFECTS[cloud.kind];
+  const dy = point.y - cloud.position.y;
+  if (dy < -0.5 || dy > CLOUD_HEIGHT) return false;
+  return Math.hypot(point.x - cloud.position.x, point.z - cloud.position.z) < radius;
+}
+
+/**
+ * True when the segment `from` -> `to` passes through the cloud, so whatever
+ * stands at `to` cannot be seen from `from`. Only smoke is thick enough to
+ * hide anything; gas is a haze.
+ */
+export function cloudObscures(from: Vec3, to: Vec3, cloud: Pick<Cloud, "kind" | "position" | "remaining">): boolean {
+  if (cloud.kind !== "smoke" || cloud.remaining <= 0.75) return false;
+  const { radius } = GRENADE_EFFECTS.smoke;
+  const centre = vec3(cloud.position.x, cloud.position.y + CLOUD_HEIGHT / 2, cloud.position.z);
+  return segmentDistance(from, to, centre) < radius;
+}
+
+/**
+ * Fraction (0..1) of full blinding a flash at `center` inflicts on someone at
+ * `target`, falling off linearly to zero at the flash radius. Callers decide
+ * line of sight; a wall between the two blocks the flash entirely.
+ */
+export function flashIntensity(center: Vec3, target: Vec3): number {
+  const d = distance(center, target);
+  const { radius } = GRENADE_EFFECTS.flash;
+  if (d >= radius) return 0;
+  return Math.round((1 - d / radius) * 100) / 100;
+}
+
+/** Shortest distance from `point` to the segment `a` -> `b`. */
+function segmentDistance(a: Vec3, b: Vec3, point: Vec3): number {
+  const dx = b.x - a.x, dy = b.y - a.y, dz = b.z - a.z;
+  const px = point.x - a.x, py = point.y - a.y, pz = point.z - a.z;
+  const lengthSquared = dx * dx + dy * dy + dz * dz;
+  const t = lengthSquared > 0 ? Math.max(0, Math.min(1, (px * dx + py * dy + pz * dz) / lengthSquared)) : 0;
+  return Math.hypot(px - t * dx, py - t * dy, pz - t * dz);
 }
 
 export interface Bounce<Tag> {
@@ -56,12 +227,14 @@ export interface Bounce<Tag> {
 export function spawnGrenade(
   id: string,
   ownerId: string,
+  kind: GrenadeKind,
   origin: Vec3,
   direction: Vec3
 ): Grenade {
   const dir = normalize(direction);
   return {
     id,
+    kind,
     ownerId,
     position: { ...origin },
     velocity: add(scale(dir, GRENADE.throwSpeed), vec3(0, GRENADE.throwLift, 0)),

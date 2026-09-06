@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import {
-  GAME_EVENTS,
+  GAME_EVENTS, WEAPONS,
   isWithinPickupReach,
   type PickupSpec,
   type WeaponId,
@@ -10,20 +10,26 @@ import { WeaponType } from "./Weapon";
 import type { Weapon } from "./Weapon";
 import { HealthPickup } from "./HealthPickup";
 import { AmmoPickup } from "./AmmoPickup";
+import { ArsenalPickup } from "./ArsenalPickup";
+import { ThrowablePickup } from "./ThrowablePickup";
 import { WeaponPickup } from "./WeaponPickup";
 import type { HUD } from "./HUD";
 import type { NetworkClient } from "../net/NetworkClient";
-import type { Pickup } from "./Pickup";
+import {
+  prewarmPickupEffects,
+  updatePickupEffects,
+  type Pickup,
+} from "./Pickup";
 import { sfx } from "../audio/sfx";
 
 /** Don't re-send a claim for the same pickup more often than this (ms). */
 const CLAIM_RETRY_MS = 500;
 
 /**
- * Renders pickups. Health and ammo pickups are owned by the server: they
- * appear on PICKUP.SPAWNED, we send PICKUP.CLAIM when the local player is in
- * reach, and they disappear on PICKUP.TAKEN / PICKUP.EXPIRED. Dropped weapons
- * are still purely local (inventory is client-trusted for now).
+ * Renders pickups. Health, ammo, weapon and throwable pickups are owned by the
+ * server: they appear on PICKUP.SPAWNED, we send PICKUP.CLAIM when the local
+ * player is in reach, and they disappear on PICKUP.TAKEN / PICKUP.EXPIRED.
+ * Dropped weapons are still purely local (inventory is client-trusted for now).
  */
 export class PickupManager {
   private scene: THREE.Scene;
@@ -51,6 +57,10 @@ export class PickupManager {
     this.playerController = playerController;
     this.net = net;
     this.hud = hud || null;
+
+    // Keep pickup flash lights in the scene before the first gameplay frame.
+    // Adding lights during collection can trigger a shader compilation hitch.
+    prewarmPickupEffects(scene);
 
     // Initialize animations array
     if (!window.__pickupAnimations) {
@@ -98,6 +108,10 @@ export class PickupManager {
   /** The server says we got it: apply the effect and tell the player. */
   private applyToLocalPlayer(pickup: PickupSpec, hp: number): void {
     switch (pickup.kind) {
+      case "weapon":
+        this.playerController.getWeaponSystem().grantWeapon(pickup.weaponId,pickup.amount);
+        this.hud?.showWeaponPickupNotification(WEAPONS[pickup.weaponId].name);
+        break;
       case "health":
         this.playerController.applyServerHp(hp);
         this.hud?.showHealthPickupNotification(pickup.amount);
@@ -108,6 +122,10 @@ export class PickupManager {
         this.hud?.showAmmoPickupNotification(weaponType, pickup.amount);
         break;
       }
+      case "throwable":
+        this.playerController.addThrowables(pickup.grenadeKind, pickup.amount);
+        this.hud?.showThrowablePickupNotification(pickup.grenadeKind, pickup.amount);
+        break;
       default: {
         const unhandled: never = pickup;
         throw new Error(`Unhandled pickup kind: ${String(unhandled)}`);
@@ -125,6 +143,9 @@ export class PickupManager {
 
     let pickup: Pickup;
     switch (spec.kind) {
+      case "weapon":
+        pickup = new ArsenalPickup(this.scene,position,spec.weaponId);
+        break;
       case "health":
         pickup = new HealthPickup(this.scene, position, spec.amount);
         break;
@@ -135,6 +156,9 @@ export class PickupManager {
           toWeaponType(spec.weaponId),
           spec.amount
         );
+        break;
+      case "throwable":
+        pickup = new ThrowablePickup(this.scene, position, spec.grenadeKind, spec.amount);
         break;
       default: {
         const unhandled: never = spec;
@@ -179,6 +203,7 @@ export class PickupManager {
   public update(delta: number): void {
     this.claimNearbyServerPickups();
     this.collectLocalPickups();
+    updatePickupEffects(this.scene, delta);
 
     // Update pickup animations
     if (window.__pickupAnimations && window.__pickupAnimations.length > 0) {
@@ -236,18 +261,7 @@ export class PickupManager {
 
 /** Map a shared weapon id onto the client's WeaponType enum. */
 function toWeaponType(weaponId: WeaponId): WeaponType {
-  switch (weaponId) {
-    case "pistol":
-      return WeaponType.PISTOL;
-    case "rifle":
-      return WeaponType.RIFLE;
-    case "shotgun":
-      return WeaponType.SHOTGUN;
-    default: {
-      const unhandled: never = weaponId;
-      throw new Error(`Unhandled weapon id: ${String(unhandled)}`);
-    }
-  }
+  return weaponId as WeaponType;
 }
 
 // Add type declaration to window object

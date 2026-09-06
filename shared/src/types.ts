@@ -1,5 +1,8 @@
 import type { WeaponId } from "./sim/weapons";
-import type { GrenadeSnapshot } from "./sim/grenade";
+import type { CloudSnapshot, GrenadeKind, GrenadeSnapshot } from "./sim/grenade";
+import type { InteractionState } from "./sim/interactions";
+import type { Team, TeamScores } from "./sim/teams";
+import type { MatchPhase, RoundResult } from "./sim/match";
 
 /** Plain serializable 3D vector used by the socket protocol. */
 export interface Vec3 {
@@ -25,9 +28,23 @@ export interface ServerStamped {
 
 export type Stamped<T> = T & ServerStamped;
 
+/** Client -> server: join the game under `name`. The server picks team and spawn. */
 export interface UserJoinedEvent extends BaseEvent {
   name: string;
+}
+
+/** Server -> others: a player joined; where the server put them. */
+export interface UserJoinedBroadcast extends UserJoinedEvent {
+  team: Team;
   position: Vec3;
+  rotation: number;
+}
+
+export type JoinRejectedReason = "room-full";
+
+/** Server -> joining client: the join intent was refused; the client is not in the game. */
+export interface UserJoinRejectedEvent {
+  reason: JoinRejectedReason;
 }
 
 export interface UserConnectionEvent {
@@ -87,23 +104,44 @@ export interface WeaponEvent extends BaseEvent {
   };
 }
 
-/** What dealt the damage. Weapons and grenades credit the thrower; world hazards credit nobody. */
-export type DamageSource = WeaponId | "grenade" | "car";
+/**
+ * What dealt the damage. Weapons, frag grenades (`grenade`) and gas clouds
+ * (`gas`) credit the thrower; world hazards credit nobody.
+ */
+export type DamageSource = WeaponId | "grenade" | "gas" | "fire" | "car" | "barrel";
 
-/** Client -> server: throw a grenade from `position` along `direction`. */
+/** Client -> server: throw a `kind` grenade from `position` along `direction`. */
 export interface GrenadeThrowEvent extends BaseEvent {
+  kind: GrenadeKind;
   position: Vec3;
   /** Aim direction; the server adds the arc. */
   direction: Vec3;
 }
 
-/** Server -> all: a grenade went off. Per-target damage arrives as COMBAT.HIT. */
+/**
+ * Server -> all: a grenade went off. Per-target damage arrives as COMBAT.HIT;
+ * the clouds smoke and gas leave behind arrive in snapshots.
+ */
 export interface GrenadeExplodedEvent {
   grenadeId: string;
+  kind: GrenadeKind;
   ownerId: string;
   position: Vec3;
-  /** Players and crates caught in the blast, with the damage each took. */
+  /** Frag only: players and crates caught in the blast, with the damage each took. */
   hits: { targetId: string; damage: number }[];
+  /** Flash only: players who saw it, with how hard (0..1) they were blinded. */
+  flashed: { targetId: string; intensity: number }[];
+}
+
+/** Client -> server: ask to use a nearby interactive world prop. */
+export interface WorldInteractIntent extends BaseEvent {
+  id: string;
+}
+
+/** Server -> all: an explosive interactive prop detonated. */
+export interface WorldBlastEvent {
+  id: string;
+  position: Vec3;
 }
 
 /** Server -> all: a player took damage. */
@@ -123,6 +161,10 @@ export interface CombatKillEvent {
   killerId: string;
   victimId: string;
   source: DamageSource;
+  /** The killer shot a teammate: they and their team lose a kill instead of gaining one. */
+  teamKill: boolean;
+  /** Team kill totals after this kill was scored. */
+  teamScores: TeamScores;
 }
 
 /** Server -> all: a crate lost HP (to a bullet or a blast). */
@@ -151,9 +193,17 @@ export type PickupSpec =
   | { id: string; kind: "health"; position: Vec3; amount: number }
   | {
       id: string;
-      kind: "ammo";
+      kind: "ammo" | "weapon";
       position: Vec3;
       weaponId: WeaponId;
+      amount: number;
+    }
+  | {
+      id: string;
+      kind: "throwable";
+      position: Vec3;
+      grenadeKind: GrenadeKind;
+      /** How many the claimant gains. */
       amount: number;
     };
 
@@ -182,6 +232,7 @@ export interface PlayerSnapshot {
   id: string;
   userId: string;
   name: string;
+  team: Team;
   status: PlayerStatus;
   hp: number;
   position?: Vec3;
@@ -194,14 +245,39 @@ export interface PlayerSnapshot {
   positionAt: number;
 }
 
-/** Sent to a client right after it joins so it can render players already in the game. */
+/** Where the match stands; rides along in every snapshot and full sync. */
+export interface MatchSnapshot {
+  phase: MatchPhase;
+  /** Server clock at which the phase ends; `null` in warmup. */
+  phaseEndsAt: number | null;
+  /** Team kills this round. */
+  teamScores: TeamScores;
+}
+
+/**
+ * Server -> all: the match moved to a new phase. `result` is set only when
+ * entering `round-end`; the world reset that goes with `countdown` arrives
+ * as a fresh `game:state` per player.
+ */
+export interface MatchPhaseEvent extends MatchSnapshot {
+  result?: RoundResult & { leaderboard: LeaderboardEntry[] };
+}
+
+/**
+ * Authoritative full sync of the world. Sent to a client right after it joins
+ * and to every player on each round reset. `players` includes the receiver's
+ * own entry, which carries the team and spawn position the server assigned.
+ */
 export interface GameStateEvent {
-  /** The receiving client's own player id, so it can ignore itself in snapshots. */
+  interactions?: InteractionState[];
+  /** The receiving client's own player id, so it can find itself in `players`. */
   selfId: string;
   players: PlayerSnapshot[];
   /** Surviving crates and their HP; anything from the map layout not listed is destroyed. */
   crates: CrateState[];
   pickups: PickupSpec[];
+  /** `result` is set while the match is in `round-end`, so a late joiner sees the board. */
+  match: MatchSnapshot & { result: RoundResult | null };
 }
 
 /** Server tick rate in Hz; one WorldSnapshot is broadcast per tick. */
@@ -209,12 +285,16 @@ export const TICK_RATE = 20;
 
 /** Continuous world state at one server tick. Discrete outcomes travel as events. */
 export interface WorldSnapshot {
+  interactions?: InteractionState[];
   /** Monotonic tick counter. */
   tick: number;
   /** Server clock at this tick, ms. Clients interpolate in this time base. */
   serverTime: number;
   players: PlayerSnapshot[];
   grenades: GrenadeSnapshot[];
+  /** Smoke and gas clouds still lingering. */
+  clouds: CloudSnapshot[];
+  match: MatchSnapshot;
 }
 
 /** One row of the HTTP `/leaderboard` response. */
@@ -222,9 +302,17 @@ export interface LeaderboardEntry {
   id: string;
   userId: string;
   name: string;
+  team: Team;
   kills: number;
   deaths: number;
   score: number;
 }
 
 export type Leaderboard = Record<string, LeaderboardEntry>;
+
+/** The HTTP `/leaderboard` response: this round's players, team totals and match phase. */
+export interface LeaderboardResponse {
+  players: Leaderboard;
+  teams: TeamScores;
+  match: MatchSnapshot;
+}

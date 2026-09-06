@@ -1,13 +1,14 @@
 import { io } from "socket.io-client";
 import {
   GAME_EVENTS,
+  emptyTeamScores,
   type ClientEventName,
   type ClientPayload,
-  type Leaderboard,
+  type LeaderboardResponse,
   type OutgoingPayload,
   type ServerEventName,
   type ServerPayload,
-  type Vec3,
+  type Team,
 } from "@threejs-shooter/shared";
 
 /**
@@ -30,8 +31,9 @@ export type Unsubscribe = () => void;
  * leaderboard fetch.
  */
 export class NetworkClient {
-  private joined: { name: string; position: () => Vec3 } | null = null;
+  private joined: { name: string } | null = null;
   private _selfId: string | null = null;
+  private _selfTeam: Team | null = null;
 
   constructor(
     private readonly socket: RawSocket,
@@ -44,14 +46,24 @@ export class NetworkClient {
         this.sendJoin();
       }
     });
-    this.on(GAME_EVENTS.GAME.STATE, ({ selfId }) => {
+    this.on(GAME_EVENTS.GAME.STATE, ({ selfId, players }) => {
       this._selfId = selfId;
+      this._selfTeam = players.find((p) => p.id === selfId)?.team ?? null;
+    });
+    // A refused join is final for this attempt: don't re-send it on reconnect.
+    this.on(GAME_EVENTS.USER.JOIN_REJECTED, () => {
+      this.joined = null;
     });
   }
 
   /** Our player id as the server knows it. Null until the server has acknowledged our join. */
   get selfId(): string | null {
     return this._selfId;
+  }
+
+  /** The team the server put us on. Null until the server has acknowledged our join. */
+  get selfTeam(): Team | null {
+    return this._selfTeam;
   }
 
   /** Open a socket.io connection to the game server. */
@@ -82,32 +94,33 @@ export class NetworkClient {
   }
 
   /**
-   * Join the game. `position` is read lazily so a re-join after reconnect
-   * reports where the player actually is.
+   * Join the game. The server answers with `game:state` (team and spawn in
+   * our own entry) or `user:join-rejected`.
    */
-  join(name: string, position: () => Vec3): void {
-    this.joined = { name, position };
+  join(name: string): void {
+    this.joined = { name };
     this.sendJoin();
   }
 
-  async getLeaderboard(): Promise<Leaderboard> {
+  async getLeaderboard(): Promise<LeaderboardResponse> {
     try {
       const response = await fetch(`${this.serverUrl}/leaderboard`);
       if (!response.ok) {
         throw new Error(`Failed to fetch leaderboard: ${response.status}`);
       }
-      return (await response.json()) as Leaderboard;
+      return (await response.json()) as LeaderboardResponse;
     } catch (error) {
       console.error("Error fetching leaderboard:", error);
-      return {};
+      return {
+        players: {},
+        teams: emptyTeamScores(),
+        match: { phase: "warmup", phaseEndsAt: null, teamScores: emptyTeamScores() },
+      };
     }
   }
 
   private sendJoin(): void {
     if (!this.joined) return;
-    this.send(GAME_EVENTS.USER.JOINED, {
-      name: this.joined.name,
-      position: this.joined.position(),
-    });
+    this.send(GAME_EVENTS.USER.JOINED, { name: this.joined.name });
   }
 }

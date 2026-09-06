@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  PLAYER_SIZE,
+  PLAYER_SIZE, initialInteractions, interactionBoxes, movementOnlyColliders,
   aabbCenter,
   aabbContains,
   aabbFromCenterSize,
@@ -14,7 +14,7 @@ import { WorldColliders } from "./WorldColliders";
 
 const map = generateMap();
 /** A spot guaranteed to be open ground: spawn points are validated clear of everything. */
-const open = map.spawnPoints[0];
+const open = map.spawnPoints[0].position;
 const playerBoxAt = (x: number, z: number) =>
   aabbFromCenterSize({ x, y: 1, z }, PLAYER_SIZE);
 
@@ -72,6 +72,12 @@ describe("WorldColliders", () => {
     expect(world.removeCrate(crate.id)).toBe(false);
     expect(world.stopsBullet(inside)).toBe(false);
     expect(world.colliders().some((c) => c.id === crate.id)).toBe(false);
+
+    // A round reset brings it back
+    world.restoreCrate(crate);
+    expect(world.hasCrate(crate.id)).toBe(true);
+    expect(world.stopsBullet(inside)).toBe(true);
+    expect(world.colliders().filter((c) => c.id === crate.id)).toHaveLength(1);
   });
 
   it("lists every collider once, tagged by kind", () => {
@@ -79,9 +85,10 @@ describe("WorldColliders", () => {
     const all = world.colliders();
     expect(new Set(all.map((c) => c.id)).size).toBe(all.length);
     const byKind = (kind: string) => all.filter((c) => c.kind === kind).length;
-    expect(byKind("solid")).toBe(solidColliders(map).length);
+    const dynamic=initialInteractions(map.props).map(s=>({p:map.props.find(p=>p.id===s.id)!,s}));
+    expect(byKind("solid")).toBe(solidColliders(map).length+dynamic.filter(({p})=>p.type!=="fence-gate").flatMap(({p,s})=>interactionBoxes(p,s)).length);
     expect(byKind("crate")).toBe(map.crates.length);
-    expect(byKind("movement-only")).toBe(map.bushes.length + map.cones.length + map.props.filter((prop) => ["trash-bag", "fence", "fence-gate"].includes(prop.type)).length);
+    expect(byKind("movement-only")).toBe(movementOnlyColliders(map).length+dynamic.filter(({p})=>p.type==="fence-gate").flatMap(({p,s})=>interactionBoxes(p,s)).length);
   });
 
   it("builds identical colliders from an authored level document", () => {

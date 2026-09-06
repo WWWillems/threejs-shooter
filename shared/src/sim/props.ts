@@ -1,7 +1,7 @@
 import type { Vec3 } from '../types';
 import { aabbFromRotatedBox, type AABB } from './aabb';
 
-export const PROP_TYPES = ['trash-bag', 'oil-barrel', 'forklift', 'fence', 'fence-gate'] as const;
+export const PROP_TYPES = ['trash-bag', 'oil-barrel', 'forklift', 'fence', 'fence-gate', 'tire-stack', 'fire-barrel', 'explosive-barrel', 'smoke-zone', 'alarm-zone', 'warning-light', 'cover-panel'] as const;
 export type PropType = typeof PROP_TYPES[number];
 /** A placed yard prop; `generateMap` owns placement, this module owns collision. */
 export interface PropSpec {
@@ -20,6 +20,11 @@ const PARTS: Record<PropType, readonly PropPart[]> = {
   'oil-barrel': [{ center: { x: 0, y: .46, z: 0 }, size: { x: .66, y: .92, z: .66 } }],
   fence: [{ center: { x: 0, y: 1.34, z: 0 }, size: { x: 4.18, y: 2.68, z: .18 } }],
   'fence-gate': [{ center: { x: 0, y: 1.34, z: 0 }, size: { x: 4.18, y: 2.68, z: .24 } }],
+  'tire-stack': [{ center: {x:0,y:.6,z:0}, size: {x:1.15,y:1.2,z:1.15} }],
+  'cover-panel': [{ center: {x:0,y:.75,z:0}, size: {x:2.4,y:1.5,z:.55} }],
+  'fire-barrel': [{ center: {x:0,y:.46,z:0}, size: {x:.66,y:.92,z:.66} }],
+  'explosive-barrel': [{ center: {x:0,y:.46,z:0}, size: {x:.66,y:.92,z:.66} }],
+  'smoke-zone': [], 'alarm-zone': [], 'warning-light': [],
   forklift: [
     { center: { x: 0, y: 1.25, z: .04 }, size: { x: 1.76, y: 2.5, z: 2.55 } },
     { center: { x: 0, y: .15, z: -1.98 }, size: { x: 1.06, y: .3, z: 1.46 } },
@@ -29,6 +34,9 @@ const PARTS: Record<PropType, readonly PropPart[]> = {
 /** Chain-link is traversable by projectiles; a closed gate blocks walking. */
 export const isMovementOnlyProp = (type: PropType): boolean =>
   type === 'trash-bag' || type === 'fence' || type === 'fence-gate';
+
+export const isDynamicProp = (type: PropType): boolean =>
+  ['fence-gate','tire-stack','explosive-barrel','cover-panel','smoke-zone','alarm-zone'].includes(type);
 
 export function propBoxes(prop: PropSpec): AABB[] {
   const c = Math.cos(prop.rotation), s = Math.sin(prop.rotation), k = prop.scale;

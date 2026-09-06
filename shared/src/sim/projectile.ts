@@ -103,16 +103,22 @@ export function integrateProjectile<Tag>(
   colliders: Iterable<Collider<Tag>>,
   skip?: (c: Collider<Tag>) => boolean
 ): { hit: SweepHit<Tag> | null; expired: boolean } {
-  const to = projectileStepEnd(p, dt);
+  const step = Math.min(p.speed * Math.max(0,dt), Math.max(0,p.maxRange-p.traveled));
+  let to = add(p.position,scale(p.direction,step));
+  let ground = false;
+  if (to.y <= 0 && p.direction.y < 0) {
+    const t=Math.max(0,p.position.y/(p.position.y-to.y));
+    to=lerp(p.position,to,t);ground=true;
+  }
   const hit = sweepProjectile(p.position, to, colliders, skip);
 
   if (hit) {
-    p.traveled += p.speed * dt * hit.t;
+    p.traveled += Math.hypot(to.x-p.position.x,to.y-p.position.y,to.z-p.position.z) * hit.t;
     p.position = hit.point;
     return { hit, expired: true };
   }
 
-  p.traveled += p.speed * dt;
+  p.traveled += Math.hypot(to.x-p.position.x,to.y-p.position.y,to.z-p.position.z);
   p.position = to;
-  return { hit: null, expired: p.traveled >= p.maxRange };
+  return { hit: null, expired: ground || p.traveled >= p.maxRange - 1e-6 };
 }

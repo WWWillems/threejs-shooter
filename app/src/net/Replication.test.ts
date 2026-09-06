@@ -18,6 +18,7 @@ const player = (
   id,
   userId: id,
   name: id,
+  team: "blue",
   status: "alive",
   hp: 100,
   position: { x, y: 1, z: 0 },
@@ -38,6 +39,8 @@ const snapshot = (
     p.positionAt === AT_SNAPSHOT ? { ...p, positionAt: serverTime } : p
   ),
   grenades,
+  clouds: [],
+  match: { phase: "active", phaseEndsAt: null, teamScores: { blue: 0, red: 0 } },
 });
 
 describe("Replication", () => {
@@ -151,6 +154,7 @@ describe("Replication", () => {
     const r = new Replication({ interpolationDelayMs: 0 });
     const g = (x: number, y: number): GrenadeSnapshot => ({
       id: "g1",
+      kind: "frag",
       ownerId: "a",
       position: { x, y, z: 0 },
     });
@@ -159,6 +163,7 @@ describe("Replication", () => {
     r.push(snapshot(3, 1200, [player("a", 0)], []), 1200);
 
     const mid = r.sampleWorldAtServerTime(1050).grenades.get("g1")!;
+    expect(mid.kind).toBe("frag");
     expect(mid.position.x).toBeCloseTo(5);
     expect(mid.position.y).toBeCloseTo(1);
 

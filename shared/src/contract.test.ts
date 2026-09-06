@@ -15,8 +15,12 @@ import type {
   CombatHitEvent,
   PlayerPositionEvent,
   Stamped,
+  UserJoinRejectedEvent,
+  UserJoinedBroadcast,
   UserJoinedEvent,
   WeaponEvent,
+  WorldBlastEvent,
+  WorldInteractIntent,
 } from "./types";
 
 const allEventNames = Object.values(GAME_EVENTS).flatMap((group) =>
@@ -29,6 +33,7 @@ describe("event contract", () => {
   });
 
   it("client -> server events bind to their payloads", () => {
+    expectTypeOf<ClientPayload<"world:interact">>().toEqualTypeOf<WorldInteractIntent>();
     expectTypeOf<ClientPayload<"user:joined">>().toEqualTypeOf<UserJoinedEvent>();
     expectTypeOf<ClientPayload<"chat:message">>().toEqualTypeOf<ChatMessageIntent>();
     expectTypeOf<
@@ -38,9 +43,11 @@ describe("event contract", () => {
   });
 
   it("server -> client relays are stamped with the sender", () => {
+    expectTypeOf<ServerPayload<"world:blast">>().toEqualTypeOf<WorldBlastEvent>();
     expectTypeOf<ServerPayload<"user:joined">>().toEqualTypeOf<
-      Stamped<UserJoinedEvent>
+      Stamped<UserJoinedBroadcast>
     >();
+    expectTypeOf<ServerPayload<"user:join-rejected">>().toEqualTypeOf<UserJoinRejectedEvent>();
     expectTypeOf<ServerPayload<"weapon:shoot">>().toHaveProperty("userId");
     expectTypeOf<ServerPayload<"combat:hit">>().toEqualTypeOf<CombatHitEvent>();
     expectTypeOf<ServerPayload<"chat:message">>().toEqualTypeOf<ChatMessageEvent>();
@@ -59,6 +66,7 @@ describe("event contract", () => {
     expectTypeOf<Server>().toEqualTypeOf<ServerEventName>();
 
     const client: ClientEventName[] = [
+      GAME_EVENTS.WORLD.INTERACT,
       GAME_EVENTS.USER.JOINED,
       GAME_EVENTS.CHAT.MESSAGE,
       GAME_EVENTS.PLAYER.POSITION,
@@ -69,11 +77,14 @@ describe("event contract", () => {
       GAME_EVENTS.GRENADE.THROW,
     ];
     const server: ServerEventName[] = [
-      GAME_EVENTS.GAME.STATE,
       GAME_EVENTS.WORLD.SNAPSHOT,
+      GAME_EVENTS.WORLD.BLAST,
+      GAME_EVENTS.MATCH.PHASE,
+      GAME_EVENTS.GAME.STATE,
       GAME_EVENTS.CHAT.MESSAGE,
       GAME_EVENTS.USER.CONNECTED,
       GAME_EVENTS.USER.JOINED,
+      GAME_EVENTS.USER.JOIN_REJECTED,
       GAME_EVENTS.USER.DISCONNECTED,
       GAME_EVENTS.PLAYER.RESPAWN,
       GAME_EVENTS.WEAPON.SHOOT,

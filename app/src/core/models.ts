@@ -7,7 +7,12 @@ const loader = new GLTFLoader();
 const sources = new Map<string, Promise<THREE.Group>>();
 const materials = new Map<string, THREE.MeshStandardMaterial>();
 
-function surface(name: string): THREE.MeshStandardMaterial | undefined {
+/**
+ * Looks up (and caches) the PBR material for a generated texture slug, e.g.
+ * `brick-soot` or `weathered-concrete`. Shared with code that builds raw
+ * geometry (like the boundary walls) so it matches the buildings exactly.
+ */
+export function surface(name: string): THREE.MeshStandardMaterial | undefined {
   const slug = name.replace(/\.\d+$/, '');
   const cached = materials.get(slug);
   if (cached) return cached;

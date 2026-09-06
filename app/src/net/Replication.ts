@@ -1,8 +1,10 @@
 import type {
+  GrenadeKind,
   GrenadeSnapshot,
   PlayerSnapshot,
   PlayerPose,
   PlayerStatus,
+  Team,
   Vec3,
   WorldSnapshot,
 } from "@threejs-shooter/shared";
@@ -12,14 +14,18 @@ export interface ReplicatedPlayer {
   pose?: PlayerPose;
   id: string;
   name: string;
+  team: Team;
   status: PlayerStatus;
   position: Vec3;
   rotation: number;
+  /** Current HP, snapped to the newest snapshot (not interpolated). */
+  hp: number;
 }
 
 /** Interpolated, render-ready state of one grenade. */
 export interface ReplicatedGrenade {
   id: string;
+  kind: GrenadeKind;
   ownerId: string;
   position: Vec3;
 }
@@ -148,6 +154,7 @@ export class Replication {
       const from = previousGrenades.get(to.id);
       grenades.set(to.id, {
         id: to.id,
+        kind: to.kind,
         ownerId: to.ownerId,
         position: from ? lerpVec3(from.position, to.position, alpha) : to.position,
       });
@@ -218,7 +225,7 @@ function grenadeStates(snapshot: WorldSnapshot): Map<string, ReplicatedGrenade> 
 }
 
 function toGrenadeState(g: GrenadeSnapshot): ReplicatedGrenade {
-  return { id: g.id, ownerId: g.ownerId, position: g.position };
+  return { id: g.id, kind: g.kind, ownerId: g.ownerId, position: g.position };
 }
 
 function lerpVec3(a: Vec3, b: Vec3, alpha: number): Vec3 {
@@ -234,9 +241,11 @@ function toState(p: PlayerSnapshot): ReplicatedPlayer {
     pose: p.pose,
     id: p.id,
     name: p.name,
+    team: p.team,
     status: p.status,
     position: p.position ?? { x: 0, y: 1, z: 0 },
     rotation: p.rotation,
+    hp: p.hp,
   };
 }
 
@@ -251,8 +260,10 @@ function lerpPlayer(
     pose: to.pose,
     id: to.id,
     name: to.name,
+    team: to.team,
     // Discrete fields snap to the newer snapshot.
     status: to.status,
+    hp: to.hp,
     position: {
       x: a.x + (b.x - a.x) * alpha,
       y: a.y + (b.y - a.y) * alpha,

@@ -3,7 +3,8 @@ import { aabbFromCenterSize, aabbIntersects, type AABB } from "./aabb";
 import { GROUND_SIZE } from "./mapLayout";
 import type { Rng } from "./rng";
 import { vec3 } from "./vec3";
-import { WEAPON_IDS } from "./weapons";
+import { GRENADE_KINDS, GRENADE_LOADOUT } from "./grenade";
+import { WEAPON_IDS, WEAPONS } from "./weapons";
 
 /** Rules for server-owned pickups. Clients only render what they are told. */
 
@@ -45,26 +46,44 @@ export function rollPickupContents(
       amount: Math.floor(rng.range(10, 50)),
     };
   }
+  const weaponId = WEAPON_IDS[rng.int(WEAPON_IDS.length)];
   return {
     id,
     kind: "ammo",
     position,
-    weaponId: WEAPON_IDS[rng.int(WEAPON_IDS.length)],
-    amount: Math.floor(rng.range(20, 80)),
+    weaponId,
+    amount: WEAPONS[weaponId].ammoPickup,
   };
 }
 
-/** Contents of the drop a destroyed crate leaves behind: a fixed, modest reward. */
+/** How the drop of a destroyed crate splits, cumulative: weapon, throwable, health, else ammo. */
+export const CRATE_DROP_ODDS = { weapon: 0.3, throwable: 0.5, health: 0.75 } as const;
+
+/**
+ * Contents of the drop a destroyed crate leaves behind: any weapon (loaded,
+ * with a modest ammo bundle; owned ones become ammo on the client), a handful
+ * of any throwable, health, or ammo for any weapon.
+ */
 export function rollCrateDrop(rng: Rng, id: string, position: Vec3): PickupSpec {
-  if (rng.next() < 0.5) {
+  const roll = rng.next();
+  if (roll < CRATE_DROP_ODDS.weapon) {
+    const weaponId = WEAPON_IDS[rng.int(WEAPON_IDS.length)];
+    return { id, kind: "weapon", position, weaponId, amount: WEAPONS[weaponId].ammoPickup };
+  }
+  if (roll < CRATE_DROP_ODDS.throwable) {
+    const grenadeKind = GRENADE_KINDS[rng.int(GRENADE_KINDS.length)];
+    return { id, kind: "throwable", position, grenadeKind, amount: GRENADE_LOADOUT[grenadeKind].pickup };
+  }
+  if (roll < CRATE_DROP_ODDS.health) {
     return { id, kind: "health", position, amount: 25 };
   }
+  const weaponId = WEAPON_IDS[rng.int(WEAPON_IDS.length)];
   return {
     id,
     kind: "ammo",
     position,
-    weaponId: WEAPON_IDS[rng.int(WEAPON_IDS.length)],
-    amount: 30,
+    weaponId,
+    amount: WEAPONS[weaponId].ammoPickup,
   };
 }
 

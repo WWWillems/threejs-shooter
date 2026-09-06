@@ -4,18 +4,27 @@
  */
 export const GAME_EVENTS = {
   GAME: {
-    /** Server -> joining client: snapshot of all players currently in the game. */
+    /** Server -> client: authoritative full sync of the world (on join and on every round reset). */
     STATE: "game:state",
+  },
+  MATCH: {
+    /** Server -> all: the match entered a new phase (warmup, countdown, active, round-end). */
+    PHASE: "match:phase",
   },
   WORLD: {
     /** Server -> all, every tick: continuous state of everything that moves. */
     SNAPSHOT: "world:snapshot",
+    INTERACT: "world:interact",
+    BLAST: "world:blast",
+    ARC: "world:arc",
   },
   USER: {
     /** Server -> others: a socket connected (before it joined the game). */
     CONNECTED: "user:connected",
     /** Client -> server: join the game. Server -> others: someone joined. */
     JOINED: "user:joined",
+    /** Server -> joining client: the join was refused (room full). */
+    JOIN_REJECTED: "user:join-rejected",
     /** Server -> others: a player left. */
     DISCONNECTED: "user:disconnected",
   },
@@ -48,9 +57,9 @@ export const GAME_EVENTS = {
     DESTROYED: "crate:destroyed",
   },
   GRENADE: {
-    /** Client -> server: throw intent. Server -> others: someone threw (cosmetic). */
+    /** Client -> server: throw intent (with the grenade kind). Server -> others: someone threw (cosmetic). */
     THROW: "grenade:throw",
-    /** Server -> all: a grenade detonated; damage travels as COMBAT.HIT. */
+    /** Server -> all: a grenade detonated; frag damage travels as COMBAT.HIT, clouds via WORLD.SNAPSHOT. */
     EXPLODED: "grenade:exploded",
   },
   PICKUP: {

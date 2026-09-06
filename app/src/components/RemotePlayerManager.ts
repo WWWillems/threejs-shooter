@@ -6,6 +6,7 @@ import type { HUD } from "./HUD";
 import { WeaponSystem } from "./Weapon";
 import {
   GAME_EVENTS,
+  type Team,
   type Vec3,
   type PlayerPose,
   type WeaponId,
@@ -13,7 +14,9 @@ import {
 import type { CollisionDetector } from "./CollisionInterface";
 import { PlayerCollider, PLAYER_DIMENSIONS } from "./PlayerCollider";
 import { PlayerUtils } from "./PlayerController";
+import { PlayerNameplates } from "./PlayerNameplates";
 import { sfx } from "../audio/sfx";
+import { PLAYER_MAX_HP } from "@threejs-shooter/shared";
 
 interface RemotePlayer {
   id: string;
@@ -22,6 +25,8 @@ interface RemotePlayer {
   isDead: boolean;
   weaponSystem: WeaponSystem;
   pose?: PlayerPose;
+  /** Null until the first snapshot or join event names it. */
+  team: Team | null;
 }
 
 /**
@@ -37,6 +42,10 @@ export class RemotePlayerManager {
   private replication: Replication;
   /** What remote players' cosmetic bullets stop on. */
   private readonly bulletStops: CollisionDetector;
+  /** Floating name + health bar above every other player. */
+  private concealed: (position: THREE.Vector3) => boolean = () => false;
+  public setConcealmentTest(test: (position: THREE.Vector3) => boolean): void { this.concealed = test; }
+  private readonly nameplates: PlayerNameplates;
 
   constructor(
     scene: THREE.Scene,
@@ -50,15 +59,23 @@ export class RemotePlayerManager {
     this.net = net;
     this.replication = replication;
     this.bulletStops = bulletStops;
+    this.nameplates = new PlayerNameplates(scene);
     this.setupNetworkListeners();
   }
 
   private setupNetworkListeners(): void {
     const { net } = this;
 
-    // Players already in the game when we joined
-    net.on(GAME_EVENTS.GAME.STATE, ({ players }) => {
+    // Players already in the game when we joined. Our own entry is in here
+    // too; the local player is rendered by PlayerController, not by us.
+    net.on(GAME_EVENTS.GAME.STATE, ({ selfId, players }) => {
+      // A re-join after a reconnect may have moved us to the other team, so
+      // every teammate tag is re-evaluated against the fresh selfTeam.
+      for (const player of this.players.values()) {
+        if (player.team) this.nameplates.setTeam(player.id, player.team, this.isTeammate(player.team));
+      }
       for (const snapshot of players) {
+        if (snapshot.id === selfId) continue;
         const player = this.ensurePlayer(snapshot.id);
         if (snapshot.position) {
           player.mesh.position.set(
@@ -68,20 +85,26 @@ export class RemotePlayerManager {
           );
           player.mesh.rotation.y = snapshot.rotation;
         }
+        this.nameplates.setName(snapshot.id, snapshot.name);
+        this.nameplates.setHealth(snapshot.id, snapshot.hp, PLAYER_MAX_HP);
+        this.setTeam(player, snapshot.team);
         if (snapshot.status === "dead") {
           this.markDead(player);
         }
       }
     });
 
-    net.on(GAME_EVENTS.USER.JOINED, ({ userId, name, position }) => {
+    net.on(GAME_EVENTS.USER.JOINED, ({ userId, name, team, position, rotation }) => {
       const player = this.ensurePlayer(userId);
       player.mesh.position.set(position.x, position.y, position.z);
+      player.mesh.rotation.y = rotation;
+      this.nameplates.setName(userId, name);
+      this.setTeam(player, team);
 
       this.hud.showNotification(
         "user joined",
         "User connected",
-        `${name} joined`,
+        `${name} joined ${team === this.net.selfTeam ? "your team" : team}`,
         "👋"
       );
     });
@@ -115,6 +138,7 @@ export class RemotePlayerManager {
       const player = this.players.get(targetId);
       if (!player) return;
       player.currentHealth = hp;
+      this.nameplates.setHealth(targetId, hp, PLAYER_MAX_HP);
       if (hp <= 0 && !player.isDead) {
         sfx.play("death:other", player.mesh.position);
         this.handleRemoteDeath(targetId);
@@ -128,10 +152,10 @@ export class RemotePlayerManager {
 
     net.on(GAME_EVENTS.WEAPON.SWITCH, ({ userId, weaponType }) => {
       const player = this.players.get(userId);
-      player?.weaponSystem.switchToWeapon(this.getWeaponIndex(weaponType));
+      player?.weaponSystem.equipById(weaponType);
     });
 
-    net.on(GAME_EVENTS.WEAPON.SHOOT, ({ userId, data }) => {
+    net.on(GAME_EVENTS.WEAPON.SHOOT, ({ userId, weaponType, data }) => {
       const player = this.players.get(userId);
       if (!player || !data?.position || !data?.direction) {
         console.warn("Invalid remote shoot data:", { player, data });
@@ -149,6 +173,7 @@ export class RemotePlayerManager {
         data.direction.z
       );
       // Cosmetic bullet at the remote player's barrel
+      player.weaponSystem.equipById(weaponType);
       player.weaponSystem.shootRemote(this.scene, position, direction);
     });
   }
@@ -163,11 +188,9 @@ export class RemotePlayerManager {
       PLAYER_DIMENSIONS.height,
       PLAYER_DIMENSIONS.depth
     );
-    // Generate a unique but consistent color based on userId
-    const hue = this.getHueFromString(userId);
-    const playerMaterial = new THREE.MeshStandardMaterial({
-      color: new THREE.Color().setHSL(hue, 0.8, 0.5),
-    });
+    // The box is a collision proxy hidden behind the character visual; the
+    // nameplate carries the team colour.
+    const playerMaterial = new THREE.MeshStandardMaterial({ color: 0x808080 });
 
     const playerMesh = new THREE.Mesh(playerGeometry, playerMaterial);
     playerMesh.userData.height = 1;
@@ -176,6 +199,7 @@ export class RemotePlayerManager {
     playerMesh.receiveShadow = true;
     this.scene.add(playerMesh);
     addCharacterVisual(playerMesh);
+    this.nameplates.add(userId, playerMesh, "");
 
     // Remote weapon systems have no network client: they mirror server events
     // and never echo them back.
@@ -189,9 +213,19 @@ export class RemotePlayerManager {
       currentHealth: 100,
       isDead: false,
       weaponSystem,
+      team: null,
     };
     this.players.set(userId, player);
     return player;
+  }
+
+  private isTeammate(team: Team): boolean {
+    return this.net.selfTeam === team;
+  }
+
+  private setTeam(player: RemotePlayer, team: Team): void {
+    player.team = team;
+    this.nameplates.setTeam(player.id, team, this.isTeammate(team));
   }
 
   private removePlayer(userId: string): void {
@@ -201,6 +235,7 @@ export class RemotePlayerManager {
     this.scene.remove(player.mesh);
     removeCharacterVisual(player.mesh);
     player.weaponSystem.dispose();
+    this.nameplates.remove(userId);
     this.players.delete(userId);
   }
 
@@ -208,6 +243,7 @@ export class RemotePlayerManager {
     PlayerUtils.handlePlayerDeath(player.mesh);
     player.isDead = true;
     player.weaponSystem.setDead(true);
+    this.nameplates.setVisible(player.id, false);
   }
 
   private handleRemoteDeath(userId: string): void {
@@ -236,6 +272,8 @@ export class RemotePlayerManager {
     setCharacterDead(player.mesh, false);
     player.weaponSystem.setDead(false);
     player.currentHealth = hp;
+    this.nameplates.setVisible(userId, true);
+    this.nameplates.setHealth(userId, hp, PLAYER_MAX_HP);
 
     // Stand back up
     player.mesh.quaternion.identity();
@@ -255,9 +293,9 @@ export class RemotePlayerManager {
 
   /**
    * Per-frame: place every remote player where the replicated world says it
-   * is, then advance cosmetic bullets.
+   * is, then advance cosmetic bullets and render nameplates.
    */
-  public update(delta: number): void {
+  public update(delta: number, camera: THREE.Camera): void {
     const states = this.replication.sample(performance.now());
     const selfId = this.net.selfId;
 
@@ -274,6 +312,11 @@ export class RemotePlayerManager {
       player.weaponSystem.updatePresentation(delta, pose.crouched);
       player.weaponSystem.updateBullets(delta, this.bulletStops);
     }
+
+    for (const player of this.players.values()) {
+      this.nameplates.setVisible(player.id, !player.isDead && !this.concealed(player.mesh.position));
+    }
+    this.nameplates.render(camera);
   }
 
   private applyState(state: ReplicatedPlayer): void {
@@ -288,37 +331,15 @@ export class RemotePlayerManager {
       state.position.z
     );
     player.mesh.rotation.y = state.rotation;
-  }
 
-  /**
-   * Generate a hue value (0-1) from a string consistently
-   */
-  private getHueFromString(str: string): number {
-    let hash = 0;
-    for (let i = 0; i < str.length; i++) {
-      hash = str.charCodeAt(i) + ((hash << 5) - hash);
-    }
-    return (Math.abs(hash) % 360) / 360;
+    this.nameplates.setName(state.id, state.name);
+    this.nameplates.setHealth(state.id, state.hp, PLAYER_MAX_HP);
+    if (player.team !== state.team) this.setTeam(player, state.team);
   }
 
   /**
    * Convert weapon type to index
    */
-  private getWeaponIndex(weaponType: WeaponId): number {
-    switch (weaponType) {
-      case "pistol":
-        return 0;
-      case "rifle":
-        return 1;
-      case "shotgun":
-        return 2;
-      default: {
-        const unhandled: never = weaponType;
-        throw new Error(`Unhandled weapon id: ${String(unhandled)}`);
-      }
-    }
-  }
-
   public getPlayers(): Map<string, RemotePlayer> {
     return this.players;
   }

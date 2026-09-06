@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { GAME_EVENTS, type MapLayout, type Vec3 } from "@threejs-shooter/shared";
+import { GAME_EVENTS, type CrateSpec, type MapLayout, type Vec3 } from "@threejs-shooter/shared";
 import type { NetworkClient } from "../net/NetworkClient";
 import type { WorldColliders } from "../environment/WorldColliders";
 import type { DestructibleCrate } from "./WoodenCrate";
@@ -13,9 +13,9 @@ export interface CrateMeshes {
 /**
  * Keeps the client's crates in step with the server. Crates are built from the
  * shared map layout at startup, both as meshes and as world colliders; the
- * server then tells us which ones took damage or are gone. On (re)join,
- * GAME.STATE lists the survivors so crates destroyed before we arrived are
- * removed without an effect.
+ * server then tells us which ones took damage or are gone. GAME.STATE (on
+ * join and on every round reset) lists the survivors: crates it omits are
+ * removed without an effect, crates it lists that we had destroyed come back.
  */
 export class CrateSync {
   constructor(
@@ -35,6 +35,7 @@ export class CrateSync {
         if (hp === undefined) {
           this.destroy(spec.id, false);
         } else {
+          if (!this.world.hasCrate(spec.id)) this.restore(spec);
           this.meshes.getCrate(spec.id)?.applyServerHp?.(hp);
         }
       }
@@ -78,5 +79,11 @@ export class CrateSync {
   private destroy(crateId: string, withEffect: boolean): void {
     this.world.removeCrate(crateId);
     this.meshes.getCrate(crateId)?.destroy?.(withEffect);
+  }
+
+  /** The server rebuilt this crate for a new round: collide with it and show it again. */
+  private restore(spec: CrateSpec): void {
+    this.world.restoreCrate(spec);
+    this.meshes.getCrate(spec.id)?.restore?.();
   }
 }

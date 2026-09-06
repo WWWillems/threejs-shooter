@@ -1,10 +1,12 @@
 import {
-  aabbContains,
+  aabbContains, initialInteractions, interactionBoxes,
+  type PropSpec, type InteractionState,
   aabbIntersects,
   crateBox,
   movementOnlyColliders,
   solidColliders,
   type AABB,
+  type CrateSpec,
   type MapLayout,
   type Vec3,
 } from "@threejs-shooter/shared";
@@ -30,11 +32,15 @@ export interface WorldCollider {
  * and are composed in by whoever asks "does a bullet stop here?".
  */
 export class WorldColliders {
+  private readonly props: Map<string, PropSpec>;
+  private dynamic: WorldCollider[] = [];
   private readonly solid: WorldCollider[];
   private readonly movementOnly: WorldCollider[];
   private readonly crates = new Map<string, WorldCollider>();
 
   constructor(map: MapLayout) {
+    this.props = new Map(map.props.map(p=>[p.id,p]));
+    this.syncInteractions(initialInteractions(map.props));
     this.solid = solidColliders(map).map((c) => ({
       id: c.tag.id,
       kind: "solid",
@@ -56,6 +62,7 @@ export class WorldColliders {
 
   /** Would a player occupying `box` overlap anything that blocks movement? */
   blocksMovement(box: AABB): boolean {
+    for (const c of this.dynamic) if (aabbIntersects(box,c.box)) return true;
     for (const c of this.solid) if (aabbIntersects(box, c.box)) return true;
     for (const c of this.crates.values())
       if (aabbIntersects(box, c.box)) return true;
@@ -66,10 +73,15 @@ export class WorldColliders {
 
   /** Does a cosmetic bullet at `point` sit inside solid geometry or a crate? */
   stopsBullet(point: Vec3): boolean {
+    for (const c of this.dynamic) if (c.kind !== "movement-only" && aabbContains(c.box,point)) return true;
     for (const c of this.solid) if (aabbContains(c.box, point)) return true;
     for (const c of this.crates.values())
       if (aabbContains(c.box, point)) return true;
     return false;
+  }
+
+  syncInteractions(states: InteractionState[]): void {
+    this.dynamic = states.flatMap(s=>{const p=this.props.get(s.id);return p ? interactionBoxes(p,s).map((box,index)=>({id:`${s.id}:${index}`,kind:p.type==='fence-gate'?'movement-only' as const:'solid' as const,box})):[];});
   }
 
   hasCrate(crateId: string): boolean {
@@ -81,8 +93,13 @@ export class WorldColliders {
     return this.crates.delete(crateId);
   }
 
+  /** The server rebuilt this crate (round reset); collide with it again. */
+  restoreCrate(spec: CrateSpec): void {
+    this.crates.set(spec.id, { id: spec.id, kind: "crate", box: crateBox(spec) });
+  }
+
   /** Everything currently collidable, for the debug overlay. */
   colliders(): WorldCollider[] {
-    return [...this.solid, ...this.crates.values(), ...this.movementOnly];
+    return [...this.dynamic, ...this.solid, ...this.crates.values(), ...this.movementOnly];
   }
 }

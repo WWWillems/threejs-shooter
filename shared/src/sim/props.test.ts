@@ -1,8 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import { aabbContains } from './aabb';
-import { propBoxes, isMovementOnlyProp, type PropSpec } from './props';
+import { propBoxes, isMovementOnlyProp, isDynamicProp, type PropSpec } from './props';
 import { generateMap, solidColliders, movementOnlyColliders } from './mapLayout';
-import { levelFromMap, mapFromLevel, parseLevelDocument, validateLevel } from './level';
+import {
+  LEVEL_OBJECT_TYPES,
+  levelFromMap,
+  mapFromLevel,
+  parseLevelDocument,
+  validateLevel,
+} from './level';
 
 const forklift: PropSpec = { id: 'test-forklift', type: 'forklift',
   position: { x: 0, y: 0, z: 0 }, rotation: 0, scale: 1 };
@@ -26,14 +32,14 @@ describe('yard props', () => {
     const map = generateMap();
     const solids = solidColliders(map).map((c) => c.tag.id);
     const soft = movementOnlyColliders(map).map((c) => c.id);
-    for (const prop of map.props) {
+    for (const prop of map.props.filter(p=>!isDynamicProp(p.type) && propBoxes(p).length>0)) {
       expect(solids.includes(`${prop.id}:0`)).toBe(!isMovementOnlyProp(prop.type));
       expect(soft.includes(`${prop.id}:0`)).toBe(isMovementOnlyProp(prop.type));
     }
   });
   it('blocks walking through chain-link while leaving projectiles clear', () => {
     const map = generateMap();
-    for (const prop of map.props.filter((p) => p.type === 'fence' || p.type === 'fence-gate')) {
+    for (const prop of map.props.filter((p) => p.type === 'fence')) {
       expect(solidColliders(map).some((c) => c.tag.id.startsWith(prop.id + ':'))).toBe(false);
       const barrier = movementOnlyColliders(map).find((c) => c.id === prop.id + ':0')!;
       expect(aabbContains(barrier.box, { ...prop.position, y: 1.2 })).toBe(true);
@@ -55,5 +61,45 @@ describe('yard props', () => {
     });
     object.transform.rotation.x = .2;
     expect(validateLevel(level).some((d) => d.message.includes('Y axis'))).toBe(true);
+  });
+
+  it('rejects tilt on every authored interactive prop', () => {
+    const level = levelFromMap(generateMap());
+    const interactiveTypes = [
+      'tire-stack',
+      'fire-barrel',
+      'explosive-barrel',
+      'smoke-zone',
+      'alarm-zone',
+      'warning-light',
+      'cover-panel',
+      'fence-gate',
+    ] as const;
+
+    for (const type of interactiveTypes) {
+      const object = level.objects.find((entry) => entry.type === type);
+      expect(object, `missing ${type} in generated level`).toBeDefined();
+      object!.transform.rotation.x = .2;
+      expect(validateLevel(level).some((diagnostic) =>
+        diagnostic.path.endsWith('.transform.rotation') &&
+        diagnostic.message.includes(`${type} supports rotation around the Y axis only`)
+      )).toBe(true);
+      object!.transform.rotation.x = 0;
+    }
+  });
+
+  it('exposes every interactive prop to level authors', () => {
+    const interactiveTypes = [
+      'tire-stack',
+      'fire-barrel',
+      'warning-light',
+      'explosive-barrel',
+      'smoke-zone',
+      'fence-gate',
+      'alarm-zone',
+      'cover-panel',
+    ] as const;
+
+    expect(interactiveTypes.every((type) => LEVEL_OBJECT_TYPES.includes(type))).toBe(true);
   });
 });

@@ -16,6 +16,8 @@ import {
   type LevelObjectType,
   type LevelTransform,
   LEVEL_OBJECT_TYPES,
+  TEAMS,
+  type Team,
   cloneLevelDocument,
   levelObjectLabel,
   parseLevelDocument,
@@ -33,7 +35,9 @@ import { Tree } from "../components/Tree";
 import { WoodenCrate } from "../components/WoodenCrate";
 import { loadClientLevelDocument } from "../levelLoader";
 
-type PaletteType = LevelObjectType | "spawn-point";
+/** A spawn point in the palette: one entry per team. */
+type SpawnPaletteType = `spawn-${Team}`;
+type PaletteType = LevelObjectType | SpawnPaletteType;
 
 interface SelectionEntry {
   id: string;
@@ -41,7 +45,29 @@ interface SelectionEntry {
   transform: LevelTransform;
 }
 
-const PALETTE_TYPES: PaletteType[] = [...LEVEL_OBJECT_TYPES, "spawn-point"];
+const SPAWN_PALETTE_TYPES: SpawnPaletteType[] = TEAMS.map((team) => `spawn-${team}` as const);
+const PALETTE_TYPES: PaletteType[] = [...LEVEL_OBJECT_TYPES, ...SPAWN_PALETTE_TYPES];
+const TEAM_COLORS: Record<Team, number> = { blue: 0x6aa6d8, red: 0xe0654f };
+const TEAM_LABELS: Record<Team, string> = { blue: "Blue", red: "Red" };
+
+const spawnPaletteType = (team: Team): SpawnPaletteType => `spawn-${team}`;
+
+/** The team a spawn palette entry places for, or null for ordinary objects. */
+function spawnTeamOf(type: PaletteType): Team | null {
+  switch (type) {
+    case "spawn-blue":
+      return "blue";
+    case "spawn-red":
+      return "red";
+    default:
+      return null;
+  }
+}
+
+function paletteLabel(type: PaletteType): string {
+  const team = spawnTeamOf(type);
+  return team ? `${TEAM_LABELS[team]} spawn` : levelObjectLabel(type as LevelObjectType);
+}
 const GIZMO_SIZE = 0.5;
 // TransformControls scales its handles to (cameraFrustumOrDistanceFactor * size / 4), so a
 // fixed `size` renders at a wildly different world-space extent depending on zoom/camera type.
@@ -92,6 +118,13 @@ const defaultTransform = (
         rotation: { x: 0, y: 0, z: 0 },
         scale: { x: 1, y: 1, z: 1 },
       };
+    case "tire-stack":
+    case "fire-barrel":
+    case "explosive-barrel":
+    case "smoke-zone":
+    case "alarm-zone":
+    case "warning-light":
+    case "cover-panel":
     case "fence":
     case "fence-gate":
     case "trash-bag":
@@ -546,23 +579,23 @@ export class EditorApp {
   private placeAt(position: THREE.Vector3): void {
     if (!this.placementType) return;
     this.pushHistory();
-    if (this.placementType === "spawn-point") {
+    const spawnTeam = spawnTeamOf(this.placementType);
+    if (spawnTeam) {
       this.level.spawnPoints.push({
         id: newId("spawn"),
         position: { x: position.x, y: 1, z: position.z },
+        team: spawnTeam,
       });
     } else {
-      if (
-        this.placementType === "shop" &&
-        this.level.objects.some((object) => object.type === "shop")
-      ) {
+      const type = this.placementType as LevelObjectType;
+      if (type === "shop" && this.level.objects.some((object) => object.type === "shop")) {
         this.setPlacementType(null);
         return;
       }
       const object: LevelObject = {
-        id: newId(this.placementType),
-        type: this.placementType,
-        transform: defaultTransform(this.placementType, position),
+        id: newId(type),
+        type,
+        transform: defaultTransform(type, position),
       };
       this.level.objects.push(object);
       this.select([object.id]);
@@ -587,11 +620,11 @@ export class EditorApp {
     for (const spawn of this.level.spawnPoints) {
       const marker = new THREE.Mesh(
         new THREE.CylinderGeometry(0.35, 0.35, 0.06, 16),
-        new THREE.MeshBasicMaterial({ color: 0x72c5d8 })
+        new THREE.MeshBasicMaterial({ color: TEAM_COLORS[spawn.team] })
       );
       marker.position.set(spawn.position.x, 0.05, spawn.position.z);
       marker.userData.editorId = spawn.id;
-      marker.userData.editorType = "spawn-point";
+      marker.userData.editorType = spawnPaletteType(spawn.team);
       this.scene.add(marker);
       this.previewObjects.set(spawn.id, marker);
     }
@@ -644,10 +677,22 @@ export class EditorApp {
     ghost.add(gridMarker);
 
     switch (type) {
-      case "fence":
+      case "tire-stack":
+        addBox(new THREE.Vector3(1.15, 1.2, 1.15), .6); break;
+      case "fire-barrel":
+      case "explosive-barrel":
+        addBox(new THREE.Vector3(.66, .92, .66), .46); break;
+      case "cover-panel":
+        addBox(new THREE.Vector3(2.4, 1.5, .55), .75); break;
+      case "smoke-zone":
+        addBox(new THREE.Vector3(.48, .5, .38), .25); break;
+      case "alarm-zone":
+      case "warning-light":
+        addBox(new THREE.Vector3(.44, 1.8, .36), .9); break;
       case "fence-gate":
-        addBox(new THREE.Vector3(4.18, 2.68, .24), 1.34);
-        break;
+        addBox(new THREE.Vector3(4.18, 5.7, .3), 2.85); break;
+      case "fence":
+        addBox(new THREE.Vector3(4.18, 2.68, .24), 1.34); break;
       case "wall":
         addBox(new THREE.Vector3(8, 2.5, 0.5), 1.25);
         break;
@@ -712,10 +757,16 @@ export class EditorApp {
       case "forklift":
         addBox(new THREE.Vector3(2, 2.5, 3), 1.25);
         break;
-      case "spawn-point": {
+      case "spawn-blue":
+      case "spawn-red": {
         const spawn = new THREE.Mesh(
           new THREE.CylinderGeometry(0.35, 0.35, 0.06, 16),
-          material
+          new THREE.MeshBasicMaterial({
+            color: TEAM_COLORS[spawnTeamOf(type)!],
+            transparent: true,
+            opacity: 0.5,
+            depthWrite: false,
+          })
         );
         spawn.position.y = 0.05;
         ghost.add(spawn);
@@ -747,7 +798,14 @@ export class EditorApp {
     const vector = new THREE.Vector3(position.x, position.y, position.z);
     let visual: THREE.Object3D;
     switch (object.type) {
-      case "fence":
+      case "tire-stack":
+    case "fire-barrel":
+    case "explosive-barrel":
+    case "smoke-zone":
+    case "alarm-zone":
+    case "warning-light":
+    case "cover-panel":
+    case "fence":
       case "fence-gate":
       case "trash-bag":
       case "oil-barrel":
@@ -972,7 +1030,7 @@ export class EditorApp {
     const query = this.search.value.trim().toLowerCase();
     this.objectBrowser.replaceChildren();
     for (const type of PALETTE_TYPES) {
-      const label = type === "spawn-point" ? "Spawn point" : levelObjectLabel(type);
+      const label = paletteLabel(type);
       if (query && !label.toLowerCase().includes(query)) continue;
       const button = document.createElement("button");
       button.dataset.objectType = type;
@@ -1047,7 +1105,19 @@ export class EditorApp {
   }
 
   private async createThumbnailObject(type: PaletteType): Promise<THREE.Object3D> {
+    if(type === 'fence-gate') {
+      const group=new THREE.Group();
+      const [frame,panel]=await Promise.all([this.thumbnailLoader.loadAsync('/models/noir-lift-gate-frame.glb'),this.thumbnailLoader.loadAsync('/models/noir-lift-gate-panel.glb')]);
+      group.add(frame.scene.clone(true),panel.scene.clone(true));return group;
+    }
     const modelUrls: Partial<Record<PaletteType, string>> = {
+      "tire-stack": "/models/noir-tire-stack.glb",
+      "cover-panel": "/models/noir-cover-panel.glb",
+      "fire-barrel": "/models/noir-fire-barrel.glb",
+      "explosive-barrel": "/models/noir-explosive-barrel.glb",
+      "smoke-zone": "/models/noir-smoke-zone.glb",
+      "alarm-zone": "/models/noir-alarm-zone.glb",
+      "warning-light": "/models/noir-warning-light.glb",
       car: "/models/noir-pickup.glb",
       shop: "/models/noir-shop.glb",
       warehouse: "/models/noir-warehouse.glb",
@@ -1098,17 +1168,26 @@ export class EditorApp {
           new THREE.ConeGeometry(0.25, 0.8, 16),
           new THREE.MeshStandardMaterial({ color: 0xe87531, roughness: 0.7 })
         );
-      case "spawn-point":
+      case "spawn-blue":
+      case "spawn-red": {
+        const color = new THREE.Color(TEAM_COLORS[spawnTeamOf(type)!]);
         return new THREE.Mesh(
           new THREE.CylinderGeometry(0.35, 0.35, 0.08, 16),
           new THREE.MeshStandardMaterial({
-            color: 0x72c5d8,
-            emissive: 0x164955,
+            color,
+            emissive: color.clone().multiplyScalar(0.35),
             emissiveIntensity: 1.5,
           })
         );
-      case "fence":
-      case "fence-gate":
+      }
+      case "tire-stack":
+    case "fire-barrel":
+    case "explosive-barrel":
+    case "smoke-zone":
+    case "alarm-zone":
+    case "warning-light":
+    case "cover-panel":
+    case "fence":
       case "trash-bag":
       case "oil-barrel":
       case "forklift":
@@ -1139,7 +1218,7 @@ export class EditorApp {
       if (spawn) {
         entries.push({
           id,
-          type: "spawn-point",
+          type: spawnPaletteType(spawn.team),
           transform: {
             position: { ...spawn.position },
             rotation: { x: 0, y: 0, z: 0 },
@@ -1174,14 +1253,26 @@ export class EditorApp {
           )
           .join("")}
       </div>`;
+    const spawnTeam = spawnTeamOf(entry.type);
+    const teamField = spawnTeam
+      ? `
+      <h3>Team</h3>
+      <div class="inspector-team">
+        ${TEAMS.map(
+          (team) =>
+            `<label class="inspector-team-option team-${team}"><input type="radio" name="spawn-team" data-team="${team}" value="${team}" ${team === spawnTeam ? "checked" : ""}>${TEAM_LABELS[team]}</label>`
+        ).join("")}
+      </div>`
+      : "";
     this.inspector.innerHTML =
-      `<p>${levelObjectLabel(entry.type === "spawn-point" ? "bush" : entry.type)} · ${entry.id}</p>` +
+      `<p>${paletteLabel(entry.type)} · ${entry.id}</p>` +
+      teamField +
       fields("Position", [
         { axis: "x", value: entry.transform.position.x },
         { axis: "y", value: entry.transform.position.y },
         { axis: "z", value: entry.transform.position.z },
       ]) +
-      (entry.type === "spawn-point"
+      (spawnTeam
         ? ""
         : fields("Rotation", [
             { axis: "x", value: entry.transform.rotation.x },
@@ -1207,6 +1298,19 @@ export class EditorApp {
           object.transform[section][axis] = Number(input.value);
         } else if (spawn && section === "position") {
           spawn.position[axis] = Number(input.value);
+        }
+        this.renderLevel();
+        this.updateValidation();
+      });
+    });
+    this.inspector.querySelectorAll<HTMLInputElement>("input[data-team]").forEach((input) => {
+      input.addEventListener("change", () => {
+        const team = input.dataset.team;
+        if (!input.checked || (team !== "blue" && team !== "red")) return;
+        this.pushHistory();
+        // Re-team every selected spawn point at once
+        for (const spawn of this.level.spawnPoints) {
+          if (this.selection.has(spawn.id)) spawn.team = team;
         }
         this.renderLevel();
         this.updateValidation();

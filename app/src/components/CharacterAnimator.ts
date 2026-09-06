@@ -57,7 +57,7 @@ export class CharacterAnimator {
       : !motion.grounded ? (motion.verticalSpeed > .15 ? 'Jump' : 'Fall')
       : this.landedFor > 0 && !motion.crouched ? 'Land'
       : motion.crouched ? (motion.speed > .25 ? 'CrouchWalk' : 'CrouchIdle')
-      : motion.speed > 13 ? 'Run' : motion.speed > .25 ? 'Walk' : 'Idle';
+      : motion.speed > 8 ? 'Run' : motion.speed > .25 ? 'Walk' : 'Idle';
     const action = this.actions.get(next);
     if (action && action !== this.current) {
       action.reset().setEffectiveTimeScale(1).setEffectiveWeight(1).play();
@@ -66,7 +66,7 @@ export class CharacterAnimator {
     }
     this.state = next;
     if (this.current && ['Walk', 'Run', 'CrouchWalk'].includes(next)) {
-      const pace = next === 'Run' ? 20 : next === 'CrouchWalk' ? 5 : 10;
+      const pace = next === 'Run' ? 10 : next === 'CrouchWalk' ? 3.5 : 6;
       this.current.timeScale = THREE.MathUtils.clamp(motion.speed / pace, .5, 1.7) * (motion.forward < -.2 ? -1 : 1);
     }
     this.mixer.update(dt);

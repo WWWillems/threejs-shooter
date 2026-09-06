@@ -7,7 +7,10 @@ export function addYardProp(scene: THREE.Scene, type: PropType, position: THREE.
   const group = new THREE.Group();
   group.position.copy(position);
   group.name = type;
-  attachModel(group, `noir-${type}`);
+  if(type === 'fence-gate') {
+    const frame=new THREE.Group();frame.name='GateFrame';group.add(frame);attachModel(frame,'noir-lift-gate-frame');
+    const panel=new THREE.Group();panel.name='MovingGate';group.add(panel);attachModel(panel,'noir-lift-gate-panel');
+  } else attachModel(group, `noir-${type}`);
   scene.add(group);
   return group;
 }

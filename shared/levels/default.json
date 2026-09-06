@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "id": "default",
   "name": "Default level",
   "seed": 20240913,
@@ -2425,9 +2425,9 @@
       "type": "crate",
       "transform": {
         "position": {
-          "x": -12.1,
+          "x": -11.55,
           "y": 0.5,
-          "z": -8.1
+          "z": -7.55
         },
         "rotation": {
           "x": 0,
@@ -2446,9 +2446,9 @@
       "type": "crate",
       "transform": {
         "position": {
-          "x": 12.1,
+          "x": 11.55,
           "y": 0.5,
-          "z": 8.1
+          "z": 7.55
         },
         "rotation": {
           "x": 0,
@@ -2467,9 +2467,9 @@
       "type": "crate",
       "transform": {
         "position": {
-          "x": -9.9,
+          "x": -10.45,
           "y": 0.5,
-          "z": -8.1
+          "z": -7.55
         },
         "rotation": {
           "x": 0,
@@ -2488,9 +2488,9 @@
       "type": "crate",
       "transform": {
         "position": {
-          "x": 9.9,
+          "x": 10.45,
           "y": 0.5,
-          "z": 8.1
+          "z": 7.55
         },
         "rotation": {
           "x": 0,
@@ -2509,9 +2509,9 @@
       "type": "crate",
       "transform": {
         "position": {
-          "x": -12.1,
+          "x": -11.55,
           "y": 0.5,
-          "z": -5.9
+          "z": -6.45
         },
         "rotation": {
           "x": 0,
@@ -2530,9 +2530,9 @@
       "type": "crate",
       "transform": {
         "position": {
-          "x": 12.1,
+          "x": 11.55,
           "y": 0.5,
-          "z": 5.9
+          "z": 6.45
         },
         "rotation": {
           "x": 0,
@@ -2551,9 +2551,9 @@
       "type": "crate",
       "transform": {
         "position": {
-          "x": -9.9,
+          "x": -10.45,
           "y": 0.5,
-          "z": -5.9
+          "z": -6.45
         },
         "rotation": {
           "x": 0,
@@ -2572,9 +2572,9 @@
       "type": "crate",
       "transform": {
         "position": {
-          "x": 9.9,
+          "x": 10.45,
           "y": 0.5,
-          "z": 5.9
+          "z": 6.45
         },
         "rotation": {
           "x": 0,
@@ -2593,9 +2593,9 @@
       "type": "crate",
       "transform": {
         "position": {
-          "x": -11,
+          "x": -11.55,
           "y": 1.5,
-          "z": -7.5
+          "z": -7
         },
         "rotation": {
           "x": 0,
@@ -2614,9 +2614,9 @@
       "type": "crate",
       "transform": {
         "position": {
-          "x": 11,
+          "x": 11.55,
           "y": 1.5,
-          "z": 7.5
+          "z": 7
         },
         "rotation": {
           "x": 0,
@@ -2635,9 +2635,9 @@
       "type": "crate",
       "transform": {
         "position": {
-          "x": -11,
+          "x": -10.45,
           "y": 1.5,
-          "z": -6.5
+          "z": -7
         },
         "rotation": {
           "x": 0,
@@ -2656,9 +2656,9 @@
       "type": "crate",
       "transform": {
         "position": {
-          "x": 11,
+          "x": 10.45,
           "y": 1.5,
-          "z": 6.5
+          "z": 7
         },
         "rotation": {
           "x": 0,
@@ -4393,11 +4393,348 @@
           "z": 1
         }
       }
+    },
+    {
+      "id": "tires-yard-s",
+      "type": "tire-stack",
+      "transform": {
+        "position": {
+          "x": 10.5,
+          "y": 0,
+          "z": -16
+        },
+        "rotation": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "tires-yard-n",
+      "type": "tire-stack",
+      "transform": {
+        "position": {
+          "x": -10.5,
+          "y": 0,
+          "z": 16
+        },
+        "rotation": {
+          "x": 0,
+          "y": 3.141592653589793,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "cover-yard-s",
+      "type": "cover-panel",
+      "transform": {
+        "position": {
+          "x": -11,
+          "y": 0,
+          "z": -13
+        },
+        "rotation": {
+          "x": 0,
+          "y": 0.2,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "cover-yard-n",
+      "type": "cover-panel",
+      "transform": {
+        "position": {
+          "x": 11,
+          "y": 0,
+          "z": 13
+        },
+        "rotation": {
+          "x": 0,
+          "y": 3.3415926535897933,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "fire-flank-s",
+      "type": "fire-barrel",
+      "transform": {
+        "position": {
+          "x": 23,
+          "y": 0,
+          "z": -13
+        },
+        "rotation": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "fire-flank-n",
+      "type": "fire-barrel",
+      "transform": {
+        "position": {
+          "x": -23,
+          "y": 0,
+          "z": 13
+        },
+        "rotation": {
+          "x": 0,
+          "y": 3.141592653589793,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "fuel-yard-s",
+      "type": "explosive-barrel",
+      "transform": {
+        "position": {
+          "x": 6.1,
+          "y": 0,
+          "z": -13.4
+        },
+        "rotation": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "fuel-yard-n",
+      "type": "explosive-barrel",
+      "transform": {
+        "position": {
+          "x": -6.1,
+          "y": 0,
+          "z": 13.4
+        },
+        "rotation": {
+          "x": 0,
+          "y": 3.141592653589793,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "fuel-mid-s",
+      "type": "explosive-barrel",
+      "transform": {
+        "position": {
+          "x": 6,
+          "y": 0,
+          "z": -6
+        },
+        "rotation": {
+          "x": 0,
+          "y": 0.3,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "fuel-mid-n",
+      "type": "explosive-barrel",
+      "transform": {
+        "position": {
+          "x": -6,
+          "y": 0,
+          "z": 6
+        },
+        "rotation": {
+          "x": 0,
+          "y": 3.441592653589793,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "smoke-flank-s",
+      "type": "smoke-zone",
+      "transform": {
+        "position": {
+          "x": -16,
+          "y": 0,
+          "z": -8
+        },
+        "rotation": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "smoke-flank-n",
+      "type": "smoke-zone",
+      "transform": {
+        "position": {
+          "x": 16,
+          "y": 0,
+          "z": 8
+        },
+        "rotation": {
+          "x": 0,
+          "y": 3.141592653589793,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "alarm-yard-s",
+      "type": "alarm-zone",
+      "transform": {
+        "position": {
+          "x": 17,
+          "y": 0,
+          "z": -11
+        },
+        "rotation": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "alarm-yard-n",
+      "type": "alarm-zone",
+      "transform": {
+        "position": {
+          "x": -17,
+          "y": 0,
+          "z": 11
+        },
+        "rotation": {
+          "x": 0,
+          "y": 3.141592653589793,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "beacon-yard-s",
+      "type": "warning-light",
+      "transform": {
+        "position": {
+          "x": -17,
+          "y": 0,
+          "z": -11
+        },
+        "rotation": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
+    },
+    {
+      "id": "beacon-yard-n",
+      "type": "warning-light",
+      "transform": {
+        "position": {
+          "x": 17,
+          "y": 0,
+          "z": 11
+        },
+        "rotation": {
+          "x": 0,
+          "y": 3.141592653589793,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      }
     }
   ],
   "spawnPoints": [
     {
       "id": "spawn-0",
+      "team": "blue",
       "position": {
         "x": -16,
         "y": 1,
@@ -4406,6 +4743,7 @@
     },
     {
       "id": "spawn-1",
+      "team": "blue",
       "position": {
         "x": -11,
         "y": 1,
@@ -4414,6 +4752,7 @@
     },
     {
       "id": "spawn-2",
+      "team": "blue",
       "position": {
         "x": 0,
         "y": 1,
@@ -4422,6 +4761,7 @@
     },
     {
       "id": "spawn-3",
+      "team": "blue",
       "position": {
         "x": 11,
         "y": 1,
@@ -4430,6 +4770,7 @@
     },
     {
       "id": "spawn-4",
+      "team": "blue",
       "position": {
         "x": 16,
         "y": 1,
@@ -4438,6 +4779,7 @@
     },
     {
       "id": "spawn-5",
+      "team": "red",
       "position": {
         "x": 16,
         "y": 1,
@@ -4446,6 +4788,7 @@
     },
     {
       "id": "spawn-6",
+      "team": "red",
       "position": {
         "x": 11,
         "y": 1,
@@ -4454,6 +4797,7 @@
     },
     {
       "id": "spawn-7",
+      "team": "red",
       "position": {
         "x": 0,
         "y": 1,
@@ -4462,6 +4806,7 @@
     },
     {
       "id": "spawn-8",
+      "team": "red",
       "position": {
         "x": -11,
         "y": 1,
@@ -4470,6 +4815,7 @@
     },
     {
       "id": "spawn-9",
+      "team": "red",
       "position": {
         "x": -16,
         "y": 1,

@@ -43,6 +43,7 @@ export function attachSocketIO(io: GameServer, room: GameRoom): void {
 
     // socket.io's listener typing does not distribute over a generic event
     // name, so each contract event is registered explicitly.
+    socket.on(GAME_EVENTS.WORLD.INTERACT, (p) => room.applyIntent(socket.id, GAME_EVENTS.WORLD.INTERACT, p));
     socket.on(GAME_EVENTS.USER.JOINED, (p) =>
       room.applyIntent(socket.id, GAME_EVENTS.USER.JOINED, p)
     );

@@ -27,7 +27,8 @@ export class MuzzleEffect {
     this.flash.visible = this.smoke.visible = false;
     scene.add(this.flash, this.smoke, this.light);
   }
-  fire(position: THREE.Vector3, direction: THREE.Vector3, size: number): void {
+  fire(position: THREE.Vector3, direction: THREE.Vector3, size: number, color=0xffd799): void {
+    this.flashMaterial.color.setHex(color);this.light.color.setHex(color);
     this.age = 0; this.size = size; this.origin.copy(position); this.direction.copy(direction).normalize();
     this.flash.position.copy(position);
     this.flash.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, -1), this.direction);

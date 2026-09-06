@@ -27,6 +27,7 @@ export class InputManager {
   private onShootCallbacks: InputCallback[] = [];
   private onReloadCallbacks: InputCallback[] = [];
   private onThrowGrenadeCallbacks: InputCallback[] = [];
+  private onCycleGrenadeCallbacks: InputCallback[] = [];
   private onWeaponSwitchCallbacks: ((index: number) => void)[] = [];
   private onMouseMoveCallbacks: ((mousePos: THREE.Vector2) => void)[] = [];
   private onShowLeaderboardCallbacks: InputCallback[] = [];
@@ -36,6 +37,8 @@ export class InputManager {
 
   // Input state
   private keyboardEnabled = true;
+  private interactCallbacks: InputCallback[] = [];
+  public onInteract(callback: InputCallback): void {this.interactCallbacks.push(callback);}
   private mouseEnabled = true;
 
   constructor(private domElement: HTMLCanvasElement) {
@@ -104,6 +107,9 @@ export class InputManager {
 
       // Handle special key events
       switch (event.code) {
+        case "KeyV":
+          if (!event.repeat) this.interactCallbacks.forEach(cb=>cb());
+          break;
         case "KeyR":
           for (const callback of this.onReloadCallbacks) {
             callback();
@@ -113,6 +119,9 @@ export class InputManager {
           for (const callback of this.onThrowGrenadeCallbacks) {
             callback();
           }
+          break;
+        case "KeyC":
+          if (!event.repeat) this.onCycleGrenadeCallbacks.forEach((cb) => cb());
           break;
         case "Digit1":
           for (const callback of this.onWeaponSwitchCallbacks) {
@@ -128,6 +137,9 @@ export class InputManager {
           for (const callback of this.onWeaponSwitchCallbacks) {
             callback(2);
           }
+          break;
+        case "Digit4": case "Digit5": case "Digit6": case "Digit7":
+          for(const callback of this.onWeaponSwitchCallbacks)callback(Number(event.code.slice(-1))-1);
           break;
         case "KeyQ":
           for (const callback of this.onWeaponSwitchCallbacks) {
@@ -235,6 +247,11 @@ export class InputManager {
   /** Register callback for the grenade throw key (F). */
   public onThrowGrenade(callback: InputCallback): void {
     this.onThrowGrenadeCallbacks.push(callback);
+  }
+
+  /** Register callback for the grenade kind cycle key (C). */
+  public onCycleGrenade(callback: InputCallback): void {
+    this.onCycleGrenadeCallbacks.push(callback);
   }
 
   /**

@@ -8,8 +8,8 @@ import {
 import type { Collider } from "./projectile";
 import { Rng } from "./rng";
 import { scale, vec3 } from "./vec3";
-import { propBoxes, isMovementOnlyProp, type PropSpec, type PropType } from "./props";
-import { SPAWN_POINTS } from "./spawnPoints";
+import { propBoxes, isMovementOnlyProp, isDynamicProp, type PropSpec, type PropType } from "./props";
+import { SPAWN_POINTS, type SpawnPoint } from "./spawnPoints";
 
 /**
  * The map, generated deterministically from a seed so the server and every
@@ -107,7 +107,8 @@ export interface MapLayout {
   cones: (ConeSpec & { id: string })[];
   trees: TreeSpec[];
   bushes: BushSpec[];
-  spawnPoints: Vec3[];
+  /** Where players (re)spawn; each point belongs to one team. */
+  spawnPoints: SpawnPoint[];
   props: PropSpec[];
 }
 
@@ -141,6 +142,15 @@ export function generateMap(seed: number = MAP_SEED): MapLayout {
   layoutYard(arena);
   layoutMid(arena);
   layoutFlanks(arena);
+  arena.prop('tire-stack','tires-yard',10.5,-16,0);
+  arena.prop('cover-panel','cover-yard',-11,-13,0.2);
+  arena.prop('fire-barrel','fire-flank',23,-13,0);
+  arena.prop('explosive-barrel','fuel-yard',6.1,-13.4,0);
+  arena.prop('explosive-barrel','fuel-mid',6,-6,0.3);
+  arena.prop('smoke-zone','smoke-flank',-16,-8,0);
+  arena.prop('alarm-zone','alarm-yard',17,-11,0);
+  arena.prop('warning-light','beacon-yard',-17,-11,0);
+
 
   return {
     seed,
@@ -154,7 +164,10 @@ export function generateMap(seed: number = MAP_SEED): MapLayout {
     trees: arena.trees,
     bushes: arena.bushes,
     props: arena.props,
-    spawnPoints: SPAWN_POINTS.map((point) => ({ ...point })),
+    spawnPoints: SPAWN_POINTS.map((point) => ({
+      position: { ...point.position },
+      team: point.team,
+    })),
   };
 }
 
@@ -249,15 +262,18 @@ class ArenaBuilder {
     this.crate(x, z, 1, PI / 7, 1);
   }
 
-  /** Seven crates in three tiers: a lane landmark and the tallest cover on the map. */
+  /**
+   * Seven crates in three supported tiers: a lane landmark and the tallest
+   * cover on the map. Each upper crate overlaps the two crates below it.
+   */
   pyramid(x: number, z: number, size = 1): void {
-    const d = size * 1.1;
+    const d = size * 0.55;
     this.crate(x - d, z - d, size, 0);
     this.crate(x + d, z - d, size, PI / 6);
     this.crate(x - d, z + d, size, -PI / 8);
     this.crate(x + d, z + d, size, PI / 3);
-    this.crate(x, z - size / 2, size, PI / 4, 1);
-    this.crate(x, z + size / 2, size, -PI / 4, 1);
+    this.crate(x - d, z, size, PI / 4, 1);
+    this.crate(x + d, z, size, -PI / 4, 1);
     this.crate(x, z, size, PI / 10, 2);
   }
 
@@ -566,7 +582,7 @@ export function solidColliders(map: MapLayout): Collider<StaticTag>[] {
     })
   );
   for (const prop of map.props) {
-    if (isMovementOnlyProp(prop.type)) continue;
+    if (isMovementOnlyProp(prop.type) || isDynamicProp(prop.type)) continue;
     propBoxes(prop).forEach((box, index) => colliders.push({
       box, tag: { kind: "static", id: `${prop.id}:${index}` },
     }));
@@ -582,7 +598,7 @@ export function movementOnlyColliders(
   map: MapLayout
 ): { id: string; box: AABB }[] {
   return [
-    ...map.props.filter((prop) => isMovementOnlyProp(prop.type)).flatMap((prop) =>
+    ...map.props.filter((prop) => isMovementOnlyProp(prop.type) && !isDynamicProp(prop.type)).flatMap((prop) =>
       propBoxes(prop).map((box, index) => ({ id: `${prop.id}:${index}`, box }))),
     ...map.bushes.map((bush) => ({ id: bush.id, box: bushBox(bush) })),
     ...map.cones.map((cone) => ({ id: cone.id, box: coneBox(cone) })),

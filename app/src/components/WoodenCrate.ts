@@ -4,8 +4,8 @@ import { CRATE_MAX_HP } from "@threejs-shooter/shared";
 
 /**
  * A crate mesh that mirrors server state. The server owns crate HP; the
- * client only shows damage (`applyServerHp`) and removes destroyed crates
- * (`destroy`).
+ * client only shows damage (`applyServerHp`), removes destroyed crates
+ * (`destroy`) and puts them back on a round reset (`restore`).
  */
 export interface DestructibleCrate extends THREE.Group {
   /** Id from the shared map layout; the server refers to crates by this. */
@@ -17,6 +17,8 @@ export interface DestructibleCrate extends THREE.Group {
   applyServerHp?: (hp: number) => void;
   /** Play the destruction effect and remove the crate from the scene. */
   destroy?: (withEffect?: boolean) => void;
+  /** The server rebuilt this crate (round reset): back in the scene, intact. */
+  restore?: () => void;
   isDestroyed?: boolean;
 }
 
@@ -136,13 +138,33 @@ function addToScene(
     scene.remove(this);
   };
 
-  void crateModel.then((source) => {
-    if (crate.isDestroyed) return;
-    crate.add(instantiateCrateModel(source, size));
+  // The model is attached once loaded, or on restore if the crate was
+  // destroyed before the GLB arrived.
+  let modelSource: THREE.Group | null = null;
+  let modelAttached = false;
+  const attachModel = () => {
+    if (modelAttached || !modelSource) return;
+    modelAttached = true;
+    crate.add(instantiateCrateModel(modelSource, size));
     // Re-apply any damage reported while the model was still loading.
     if (crate.health !== undefined && crate.health < CRATE_MAX_HP) {
       crate.applyServerHp?.(crate.health);
     }
+  };
+
+  crate.restore = function (): void {
+    if (!this.isDestroyed) return;
+    this.isDestroyed = false;
+    this.health = CRATE_MAX_HP;
+    scene.add(this);
+    attachModel();
+    this.applyServerHp?.(CRATE_MAX_HP);
+  };
+
+  void crateModel.then((source) => {
+    modelSource = source;
+    if (crate.isDestroyed) return;
+    attachModel();
   });
 
   return crate;

@@ -3,11 +3,26 @@ import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { attachModel } from "../core/models";
 import { CharacterAnimator, type CharacterMotion } from "../components/CharacterAnimator";
 import { WeaponSystem } from "../components/Weapon";
+import { WEAPON_IDS, WEAPONS, type WeaponId } from "@threejs-shooter/shared";
+import { sfx } from "../audio/sfx";
 
 const POSES = ["Idle", "Walk", "Run", "Crouch", "Crouch walk", "Jump", "Death"] as const;
 type Pose = (typeof POSES)[number];
 
-const WEAPON_NAMES = ["Pistol", "Assault rifle", "Shotgun"] as const;
+const getWeaponAmmoType = (id: WeaponId): string => {
+  const stats = WEAPONS[id];
+  return "ammoType" in stats && typeof stats.ammoType === "string" ? stats.ammoType : "Ammo";
+};
+
+const WEAPON_OPTIONS: readonly {
+  id: WeaponId;
+  name: string;
+  ammoType: string;
+}[] = WEAPON_IDS.map((id) => ({
+  id,
+  name: WEAPONS[id].name,
+  ammoType: getWeaponAmmoType(id),
+}));
 
 const JUMP_DURATION = 0.75;
 
@@ -62,8 +77,11 @@ export class CharacterWorkshopApp {
       </aside>
       <aside class="workshop-panel panel-inspector">
         <div class="panel-section">
-          <div class="panel-header"><span>Weapon</span></div>
-          <div class="segmented weapon-list"></div>
+          <div class="panel-header panel-header-with-meta">
+            <span>Weapons</span>
+            <span class="panel-count">${WEAPON_OPTIONS.length} available</span>
+          </div>
+          <div class="weapon-list" role="listbox" aria-label="Available weapons"></div>
         </div>
         <div class="panel-section panel-section-grow">
           <div class="panel-header"><span>Status</span></div>
@@ -145,7 +163,9 @@ export class CharacterWorkshopApp {
     this.player = new THREE.Mesh(new THREE.BoxGeometry(1, 2, 1), new THREE.MeshBasicMaterial({ visible: false }));
     this.player.position.y = 1;
     this.scene.add(this.player);
+    sfx.setListener(this.camera, this.player);
     this.weapons = new WeaponSystem(this.scene, this.player, null);
+    for (const id of WEAPON_IDS.slice(3)) this.weapons.grantWeapon(id, 100, false);
     attachModel(this.player, "noir-character", (model) => {
       model.position.y = -1;
       this.animator = new CharacterAnimator(model, model.animations);
@@ -172,22 +192,41 @@ export class CharacterWorkshopApp {
   }
 
   private buildWeaponList(): void {
-    WEAPON_NAMES.forEach((name, index) => {
+    WEAPON_OPTIONS.forEach((option, index) => {
       const button = document.createElement("button");
+      button.type = "button";
+      button.className = "weapon-option";
       button.dataset.weaponIndex = String(index);
-      button.textContent = name;
+      button.dataset.weaponName = option.name;
+      button.setAttribute("role", "option");
+      button.setAttribute("aria-label", `${option.name}, ${option.ammoType}`);
+      button.setAttribute("aria-selected", String(index === 0));
+      button.title = `Select ${option.name} (${index + 1})`;
+      button.innerHTML = `
+        <span class="weapon-option-key" aria-hidden="true">${index + 1}</span>
+        <span class="weapon-option-copy">
+          <span class="weapon-option-name"></span>
+          <span class="weapon-option-ammo"></span>
+        </span>
+        <span class="weapon-option-check" aria-hidden="true">◆</span>
+      `;
+      button.querySelector(".weapon-option-name")!.textContent = option.name;
+      button.querySelector(".weapon-option-ammo")!.textContent = option.ammoType;
       button.classList.toggle("active", index === 0);
       button.addEventListener("click", () => {
         this.weapons.switchToWeapon(index);
-        this.weaponList.querySelectorAll("button").forEach((entry) => {
+        this.weaponList.querySelectorAll<HTMLButtonElement>("button").forEach((entry) => {
           entry.classList.toggle("active", entry === button);
+          entry.setAttribute("aria-selected", String(entry === button));
         });
+        this.updateStatus();
       });
       this.weaponList.append(button);
     });
   }
 
   private bindActions(): void {
+    this.shell.addEventListener("pointerdown", () => sfx.unlock(), { passive: true });
     this.shell.addEventListener("click", (event) => {
       const target = event.target;
       if (!(target instanceof HTMLElement)) return;
@@ -216,6 +255,7 @@ export class CharacterWorkshopApp {
 
   private bindKeyboard(): void {
     window.addEventListener("keydown", (event) => {
+      sfx.unlock();
       const index = Number(event.key) - 1;
       if (Number.isInteger(index) && index >= 0 && index < POSES.length) {
         this.setPose(POSES[index]);
@@ -263,7 +303,9 @@ export class CharacterWorkshopApp {
     const ammo = this.weapons.getAmmoInfo();
     const state = this.animator?.state ?? "Loading rig…";
     this.statusFields.state.textContent = state;
-    this.statusFields.weapon.textContent = ammo.isEmpty ? "None" : this.weaponList.querySelector("button.active")?.textContent ?? "—";
+    this.statusFields.weapon.textContent = ammo.isEmpty
+      ? "None"
+      : this.weaponList.querySelector<HTMLButtonElement>("button.active")?.dataset.weaponName ?? "—";
     this.statusFields.ammo.textContent = `${ammo.current} / ${ammo.total}`;
     this.statusFields.reloading.textContent = ammo.isReloading ? "Yes" : "No";
     this.statusFields.firing.textContent = this.shotAge < 0.15 ? "Yes" : "No";
@@ -286,7 +328,7 @@ export class CharacterWorkshopApp {
     this.player.position.y = 1 + (jumping ? Math.sin((this.jumpAge / JUMP_DURATION) * Math.PI) * 0.65 : 0);
 
     const motion: CharacterMotion = {
-      speed: this.pose === "Run" ? 20 : this.pose === "Walk" ? 10 : this.pose === "Crouch walk" ? 5 : 0,
+      speed: this.pose === "Run" ? 10 : this.pose === "Walk" ? 6 : this.pose === "Crouch walk" ? 3.5 : 0,
       forward: 1,
       strafe: 0,
       verticalSpeed: this.jumpAge < JUMP_DURATION / 2 ? 3 : -3,

@@ -1,0 +1,350 @@
+@import "./theme.css";
+
+/* ---------- Overlay shell ---------- */
+
+.main-menu {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(10, 11, 13, 0.72);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+  pointer-events: auto;
+}
+
+.menu-panel {
+  width: 100%;
+  max-width: 420px;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+}
+
+.menu-screen {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.menu-screen[hidden] {
+  display: none;
+}
+
+/* ---------- Logo ---------- */
+
+.logo-container {
+  display: flex;
+  justify-content: center;
+}
+
+.game-logo {
+  max-width: 180px;
+  max-height: 72px;
+}
+
+/* ---------- Back button ---------- */
+
+.menu-back-button {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  height: 24px;
+  padding: 0 9px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--text-muted);
+  font: inherit;
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.12s ease, color 0.12s ease,
+    border-color 0.12s ease;
+}
+
+.menu-back-button:hover {
+  background: #262a31;
+  color: var(--text);
+  border-color: var(--border-strong);
+}
+
+/* ---------- Controls panel ---------- */
+
+.controls-panel {
+  background: var(--bg-panel-alt);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 10px 12px;
+}
+
+.controls-panel-title {
+  text-align: center;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+}
+
+.controls-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.control-row {
+  display: grid;
+  grid-template-columns: 112px 1fr;
+  align-items: center;
+  column-gap: 8px;
+}
+
+.control-keys {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.control-label {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.control-note {
+  font-size: 10px;
+  color: var(--text-dim);
+  font-style: italic;
+  white-space: nowrap;
+}
+
+/* Key-cap preview: a small beveled key instead of plain text. */
+.keycap {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 24px;
+  height: 24px;
+  padding: 0 6px;
+  border-radius: 5px;
+  background: linear-gradient(to bottom, var(--bg-panel-alt), var(--bg-input));
+  border: 1px solid var(--border-strong);
+  box-shadow: 0 1px 0 var(--border-strong),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  color: var(--text);
+  font: 10px/1 ui-monospace, "SF Mono", Menlo, monospace;
+  font-weight: 600;
+  text-transform: uppercase;
+  flex-shrink: 0;
+}
+
+/* Mouse action preview: a small mouse silhouette instead of "Mouse" / "Left Click" text. */
+.mouse-icon {
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+}
+
+.mouse-icon .mouse-body {
+  fill: var(--bg-input);
+  stroke: var(--border-strong);
+  stroke-width: 1.5;
+}
+
+.mouse-icon .mouse-divider {
+  stroke: var(--border-strong);
+  stroke-width: 1.5;
+}
+
+.mouse-icon .mouse-wheel {
+  fill: var(--text-dim);
+}
+
+.mouse-icon .mouse-arrow {
+  fill: var(--text-dim);
+  opacity: 0.85;
+}
+
+.mouse-icon .mouse-button-highlight {
+  fill: var(--accent);
+}
+
+/* ---------- Mode select cards ---------- */
+
+.mode-cards {
+  display: flex;
+  gap: 10px;
+}
+
+.mode-card {
+  flex: 1;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  padding: 12px 12px 14px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--bg-panel-alt);
+  color: var(--text-muted);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  appearance: none;
+  transition: background-color 0.12s ease, color 0.12s ease,
+    border-color 0.12s ease;
+}
+
+.mode-card:hover:not(:disabled) {
+  border-color: var(--border-strong);
+  background: #262a31;
+  color: var(--text);
+}
+
+.mode-card:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.mode-card-primary {
+  border-color: var(--accent-border);
+  background: var(--accent-soft);
+}
+
+.mode-card-primary:hover:not(:disabled) {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.mode-card-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.mode-card-primary .mode-card-title {
+  color: var(--accent-strong);
+}
+
+.mode-card-subtitle {
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+.mode-card-badge {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  padding: 2px 6px;
+  border-radius: var(--radius);
+  border: 1px solid var(--accent-border);
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+/* ---------- Nickname step ---------- */
+
+.nickname-container {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.nickname-container label {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.nickname-input {
+  width: 100%;
+  padding: 8px 10px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border-strong);
+  background: var(--bg-input);
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+  box-sizing: border-box;
+}
+
+.nickname-input::placeholder {
+  color: var(--text-dim);
+}
+
+.nickname-input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-soft);
+}
+
+.start-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 38px;
+  padding: 0 20px;
+  border-radius: var(--radius);
+  border: 1px solid var(--accent);
+  background: var(--accent);
+  color: #241a0e;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  transition: background-color 0.12s ease, border-color 0.12s ease;
+}
+
+.start-button:hover:not(:disabled) {
+  background: var(--accent-strong);
+  border-color: var(--accent-strong);
+}
+
+.start-button:disabled {
+  cursor: not-allowed;
+  background: var(--bg-panel-alt);
+  border-color: var(--border);
+  color: var(--text-dim);
+}
+
+/* Why the last join attempt failed (e.g. server full). */
+.menu-error {
+  margin: 0;
+  padding: 8px 10px;
+  border-radius: var(--radius);
+  border: 1px solid var(--danger);
+  background: rgba(226, 114, 90, 0.12);
+  color: var(--danger);
+  font-size: 12px;
+}
+
+.menu-error[hidden] {
+  display: none;
+}
+
+/* ---------- Responsive ---------- */
+
+@media (max-width: 420px) {
+  .mode-cards {
+    flex-direction: column;
+  }
+
+  .control-row {
+    grid-template-columns: 92px 1fr;
+  }
+}

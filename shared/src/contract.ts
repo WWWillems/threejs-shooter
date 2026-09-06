@@ -9,6 +9,7 @@ import type {
   GameStateEvent,
   GrenadeExplodedEvent,
   GrenadeThrowEvent,
+  MatchPhaseEvent,
   PickupClaimEvent,
   PickupExpiredEvent,
   PickupSpec,
@@ -18,8 +19,12 @@ import type {
   RespawnRequestEvent,
   Stamped,
   UserConnectionEvent,
+  UserJoinRejectedEvent,
+  UserJoinedBroadcast,
   UserJoinedEvent,
   WeaponEvent,
+  WorldBlastEvent,
+  WorldInteractIntent,
   WorldSnapshot,
 } from "./types";
 
@@ -30,6 +35,7 @@ import type {
  * and `new Server<ClientToServerEvents, ServerToClientEvents>()`.
  */
 export interface ClientToServerEvents {
+  [GAME_EVENTS.WORLD.INTERACT]: (payload: WorldInteractIntent) => void;
   [GAME_EVENTS.USER.JOINED]: (payload: UserJoinedEvent) => void;
   [GAME_EVENTS.CHAT.MESSAGE]: (payload: ChatMessageIntent) => void;
   [GAME_EVENTS.PLAYER.POSITION]: (payload: PlayerPositionEvent) => void;
@@ -42,11 +48,15 @@ export interface ClientToServerEvents {
 
 /** Events the server may send to a client, bound to their payload types. */
 export interface ServerToClientEvents {
+  [GAME_EVENTS.WORLD.ARC]: (payload: { points: import("./types").Vec3[] }) => void;
+  [GAME_EVENTS.WORLD.BLAST]: (payload: WorldBlastEvent) => void;
   [GAME_EVENTS.GAME.STATE]: (payload: GameStateEvent) => void;
   [GAME_EVENTS.WORLD.SNAPSHOT]: (payload: WorldSnapshot) => void;
+  [GAME_EVENTS.MATCH.PHASE]: (payload: MatchPhaseEvent) => void;
   [GAME_EVENTS.CHAT.MESSAGE]: (payload: ChatMessageEvent) => void;
   [GAME_EVENTS.USER.CONNECTED]: (payload: Stamped<UserConnectionEvent>) => void;
-  [GAME_EVENTS.USER.JOINED]: (payload: Stamped<UserJoinedEvent>) => void;
+  [GAME_EVENTS.USER.JOINED]: (payload: Stamped<UserJoinedBroadcast>) => void;
+  [GAME_EVENTS.USER.JOIN_REJECTED]: (payload: UserJoinRejectedEvent) => void;
   [GAME_EVENTS.USER.DISCONNECTED]: (
     payload: Stamped<UserConnectionEvent>
   ) => void;

@@ -31,10 +31,13 @@ import {
   STREET_LIGHT_SIZE,
   TREE_TRUNK_SIZE,
 } from "./mapLayout";
+import { initialInteractions, interactionBoxes } from "./interactions";
 import { PROP_TYPES, type PropSpec } from "./props";
 import { PLAYER_SIZE, SPAWN_POINTS } from "./spawnPoints";
+import { MAX_TEAM_SIZE, TEAMS, isTeam, type Team } from "./teams";
 
-export const LEVEL_SCHEMA_VERSION = 1 as const;
+/** v2: spawn points carry the team they belong to. */
+export const LEVEL_SCHEMA_VERSION = 2 as const;
 
 export const LEVEL_OBJECT_TYPES = [
   "wall",
@@ -67,6 +70,7 @@ export interface LevelObject {
 export interface LevelSpawnPoint {
   id: string;
   position: Vec3;
+  team: Team;
 }
 
 export interface LevelDocument {
@@ -241,9 +245,10 @@ export function levelFromMap(
     seed: map.seed,
     groundSize: GROUND_SIZE,
     objects,
-    spawnPoints: map.spawnPoints.map((position, index) => ({
+    spawnPoints: map.spawnPoints.map((spawn, index) => ({
       id: `spawn-${index}`,
-      position: copyVec3(position),
+      position: copyVec3(spawn.position),
+      team: spawn.team,
     })),
   };
 }
@@ -280,6 +285,13 @@ export function mapFromLevel(level: LevelDocument): MapLayout {
     const objectTransform = object.transform;
     const position = asVec3(objectTransform);
     switch (object.type) {
+      case "tire-stack":
+      case "fire-barrel":
+      case "explosive-barrel":
+      case "smoke-zone":
+      case "alarm-zone":
+      case "warning-light":
+      case "cover-panel":
       case "fence":
       case "fence-gate":
       case "trash-bag":
@@ -390,7 +402,10 @@ export function mapFromLevel(level: LevelDocument): MapLayout {
     trees,
     bushes,
     props,
-    spawnPoints: level.spawnPoints.map((spawn) => copyVec3(spawn.position)),
+    spawnPoints: level.spawnPoints.map((spawn) => ({
+      position: copyVec3(spawn.position),
+      team: spawn.team,
+    })),
   };
 }
 
@@ -513,7 +528,19 @@ export function validateLevel(
       return;
     }
 
-    if ((type === "trash-bag" || type === "oil-barrel" || type === "forklift" || type === "fence" || type === "fence-gate") &&
+    if (
+      (type === "trash-bag" ||
+        type === "oil-barrel" ||
+        type === "forklift" ||
+        type === "fence" ||
+        type === "fence-gate" ||
+        type === "tire-stack" ||
+        type === "fire-barrel" ||
+        type === "explosive-barrel" ||
+        type === "smoke-zone" ||
+        type === "alarm-zone" ||
+        type === "warning-light" ||
+        type === "cover-panel") &&
       (Math.abs(objectTransform.rotation.x) > .0001 || Math.abs(objectTransform.rotation.z) > .0001)) {
       diagnostics.push({ path: `${path}.transform.rotation`,
         message: `${type} supports rotation around the Y axis only`, severity: "error" });
@@ -557,7 +584,18 @@ export function validateLevel(
       type === "traffic-cone" ||
       type === "tree" ||
       type === "bush" ||
-      type === "trash-bag" || type === "oil-barrel" || type === "forklift" || type === "fence" || type === "fence-gate"
+      type === "trash-bag" ||
+      type === "oil-barrel" ||
+      type === "forklift" ||
+      type === "fence" ||
+      type === "fence-gate" ||
+      type === "tire-stack" ||
+      type === "fire-barrel" ||
+      type === "explosive-barrel" ||
+      type === "smoke-zone" ||
+      type === "alarm-zone" ||
+      type === "warning-light" ||
+      type === "cover-panel"
     ) {
       if (Math.abs(scale.x - scale.y) > 0.0001 || Math.abs(scale.x - scale.z) > 0.0001) {
         diagnostics.push({
@@ -600,6 +638,7 @@ export function validateLevel(
     });
   }
   const spawnIds = new Set<string>();
+  const spawnsPerTeam: Record<Team, number> = { blue: 0, red: 0 };
   spawns.forEach((spawn, index) => {
     const path = `spawnPoints[${index}]`;
     if (!isRecord(spawn)) {
@@ -612,6 +651,15 @@ export function validateLevel(
       diagnostics.push({ path: `${path}.id`, message: `Duplicate spawn ID "${spawn.id}"`, severity: "error" });
     } else {
       spawnIds.add(spawn.id);
+    }
+    if (!isTeam(spawn.team)) {
+      diagnostics.push({
+        path: `${path}.team`,
+        message: `Spawn team must be one of ${TEAMS.map((team) => `"${team}"`).join(", ")}`,
+        severity: "error",
+      });
+    } else {
+      spawnsPerTeam[spawn.team] += 1;
     }
     if (!validateVec3(spawn.position, `${path}.position`, diagnostics)) return;
     if (
@@ -626,13 +674,31 @@ export function validateLevel(
       });
     }
   });
+  if (spawns.length > 0) {
+    for (const team of TEAMS) {
+      const count = spawnsPerTeam[team];
+      if (count === 0) {
+        diagnostics.push({
+          path: "spawnPoints",
+          message: `A playable level needs at least one ${team} spawn point`,
+          severity: "error",
+        });
+      } else if (count !== MAX_TEAM_SIZE) {
+        diagnostics.push({
+          path: "spawnPoints",
+          message: `Expected ${MAX_TEAM_SIZE} ${team} spawn points (one per player), found ${count}`,
+          severity: "warning",
+        });
+      }
+    }
+  }
 
   if (diagnostics.some((diagnostic) => diagnostic.severity === "error")) return diagnostics;
 
   try {
     const level = value as unknown as LevelDocument;
     const map = mapFromLevel(level);
-    const colliders = [...solidColliders(map), ...movementOnlyColliders(map)];
+    const colliders = [...solidColliders(map), ...movementOnlyColliders(map), ...initialInteractions(map.props).flatMap(s=>interactionBoxes(map.props.find(p=>p.id===s.id)!,s).map(box=>({box})))];
     for (const spawn of level.spawnPoints) {
       const playerBox = aabbFromCenterSize(spawn.position, PLAYER_SIZE);
       if (colliders.some((collider) => aabbIntersects(playerBox, collider.box))) {
@@ -674,6 +740,13 @@ export function cloneLevelDocument(level: LevelDocument): LevelDocument {
 
 export function levelObjectLabel(type: LevelObjectType): string {
   switch (type) {
+    case "tire-stack": return "Tire Stack";
+    case "fire-barrel": return "Fire Barrel";
+    case "explosive-barrel": return "Explosive Barrel";
+    case "smoke-zone": return "Smoke Zone";
+    case "alarm-zone": return "Alarm Zone";
+    case "warning-light": return "Warning Light";
+    case "cover-panel": return "Cover Panel";
     case "fence": return "Chain-link fence";
     case "fence-gate": return "Chain-link gate";
     case "trash-bag": return "Trash bag";

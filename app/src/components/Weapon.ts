@@ -12,7 +12,7 @@ import { sfx } from "../audio/sfx";
 import type { SfxKind } from "../audio/recipes";
 import {
   GAME_EVENTS,
-  WEAPONS,
+  WEAPONS, WEAPON_IDS,
   pelletYawOffsets,
   type ClientEventName,
   type OutgoingPayload,
@@ -41,25 +41,16 @@ export enum WeaponType {
   PISTOL = "pistol",
   RIFLE = "rifle",
   SHOTGUN = "shotgun",
+  ROCKET = "rocket",
+  FLAMETHROWER = "flamethrower",
+  PRECISION = "precision",
+  ARC = "arc",
 }
 
 // Define a type for impact animation functions
 type ImpactAnimationFn = (delta: number) => void;
 
-function shotSfxKind(id: WeaponId): SfxKind {
-  switch (id) {
-    case "pistol":
-      return "shot:pistol";
-    case "rifle":
-      return "shot:rifle";
-    case "shotgun":
-      return "shot:shotgun";
-    default: {
-      const exhaustive: never = id;
-      throw new Error(`Unknown weapon id: ${String(exhaustive)}`);
-    }
-  }
-}
+function shotSfxKind(id: WeaponId): SfxKind { return `shot:${id}`; }
 
 // Add window interface augmentation
 declare global {
@@ -78,6 +69,7 @@ export class WeaponSystem {
   private recoil = 0;
   private equip = 0;
   private dead = false;
+  private combatAllowed = true;
   private remoteReload = 0;
   private readonly muzzleEffect: MuzzleEffect;
   private pickupManager: PickupManager | null = null;
@@ -152,7 +144,7 @@ export class WeaponSystem {
   private createHeldModel(id: WeaponId): THREE.Group {
     const group = new THREE.Group();
     group.name = `held-${id}`;
-    attachModel(group, `noir-${id}`);
+    attachModel(group, `noir-${id}`, model=>model.traverse(o=>{if(/^(Muzzle|Magazine|Slide|Pump|Bolt)\.\d+$/.test(o.name))o.name=o.name.replace(/\.\d+$/, "");}));
     return group;
   }
 
@@ -173,6 +165,12 @@ export class WeaponSystem {
     this.isMouseDown = false;
     if (dead) for (const weapon of this.weapons) weapon.isReloading = false;
     else { this.recoil = 0; this.equip = 0; }
+  }
+
+  /** Between rounds the trigger does nothing; the server rejects shots anyway. */
+  public setCombatAllowed(allowed: boolean): void {
+    this.combatAllowed = allowed;
+    if (!allowed) this.isMouseDown = false;
   }
 
   public updatePresentation(delta: number, crouched: boolean): void {
@@ -212,6 +210,8 @@ export class WeaponSystem {
     if (slide) slide.position.z = this.recoil * .35;
     const magazine = model.getObjectByName('Magazine');
     if (magazine) magazine.position.y = -reach * .18;
+    const bolt = model.getObjectByName('Bolt');
+    if(bolt) {const age=performance.now()/1000-weapon.lastShotTime;bolt.position.z=age>.12&&age<.7?Math.sin((age-.12)/.58*Math.PI)*.085:0;}
     const pump = model.getObjectByName('Pump');
     if (pump) {
       const age = performance.now() / 1000 - weapon.lastShotTime;
@@ -227,7 +227,7 @@ export class WeaponSystem {
     const currentWeapon = this.getCurrentWeapon();
 
     // Dead players cannot keep firing an already-held automatic trigger.
-    if (this.dead || currentWeapon.id === null) {
+    if (this.dead || !this.combatAllowed || currentWeapon.id === null) {
       return null;
     }
 
@@ -334,16 +334,16 @@ export class WeaponSystem {
       const pelletDirection = normalizedDirection
         .clone()
         .applyAxisAngle(up, yaw);
-      const bullet = new Bullet(position.clone(), pelletDirection, scene);
+      const bullet = new Bullet(position.clone(), pelletDirection, scene, currentWeapon.id ?? "pistol");
       this.bullets.push(bullet);
       if (yaw === 0 || primaryBullet === null) primaryBullet = bullet;
     }
 
     // Create muzzle flash
-    const strength = currentWeapon.id === 'shotgun' ? 1.5 : currentWeapon.id === 'rifle' ? .75 : 1;
+    const strength = currentWeapon.id === 'flamethrower' ? .18 : currentWeapon.id === 'rocket' ? 2 : currentWeapon.id === 'precision' ? 1.7 : currentWeapon.id === 'shotgun' ? 1.5 : currentWeapon.id === 'rifle' ? .75 : 1;
     this.recoil = Math.min(.22, this.recoil + .12 * strength);
     pulseCharacterShot(this.player, strength);
-    this.muzzleEffect.fire(position, direction, strength);
+    this.muzzleEffect.fire(position, direction, strength, currentWeapon.id === "arc" ? 0x77ddff : currentWeapon.id === "flamethrower" ? 0xff982e : 0xffd799);
 
     return primaryBullet;
   }
@@ -355,6 +355,7 @@ export class WeaponSystem {
   ): void {
     for (let i = this.bullets.length - 1; i >= 0; i--) {
       const bullet = this.bullets[i];
+      const before = bullet.getPosition().clone();
       const position = bullet.getPosition();
 
       // Update bullet and check if it's still alive
@@ -368,7 +369,13 @@ export class WeaponSystem {
 
       // Check for collision with cars if collision detector is provided
       if (collisionDetector) {
-        if (collisionDetector.checkForBulletCollision(position)) {
+        const steps=Math.max(1,Math.ceil(before.distanceTo(position)/.2));
+        let collided=false;
+        for(let sample=0;sample<=steps;sample++) {
+          const point=before.clone().lerp(position,sample/steps);
+          if(collisionDetector.checkForBulletCollision(point)){position.copy(point);collided=true;break;}
+        }
+        if (collided) {
           // Create impact effect at the bullet's position
           this.createImpactEffect(position);
 
@@ -785,23 +792,36 @@ export class WeaponSystem {
       total: currentWeapon.totalBullets,
       isReloading: currentWeapon.isReloading,
       isEmpty: currentWeapon.id === null,
+      ammoType: currentWeapon.id ? WEAPONS[currentWeapon.id].ammoType : "",
     };
   }
 
   /** Build the held model for a weapon id. */
-  private createModelFor(id: WeaponId): THREE.Group {
-    switch (id) {
-      case "pistol":
-        return this.createPistol();
-      case "rifle":
-        return this.createRifle();
-      case "shotgun":
-        return this.createShotgun();
-      default: {
-        const exhaustive: never = id;
-        throw new Error(`Unknown weapon id: ${String(exhaustive)}`);
-      }
+  private createModelFor(id: WeaponId): THREE.Group { return this.createHeldModel(id); }
+
+  private readonly storedAmmo = new Map<WeaponId, number>();
+  public addAmmoById(id: WeaponId, amount: number): void {
+    if (!Number.isFinite(amount) || amount <= 0) return;
+    const weapon=this.weapons.find(w=>w.id===id);
+    if(weapon) weapon.totalBullets+=amount;
+    else this.storedAmmo.set(id,(this.storedAmmo.get(id)??0)+amount);
+  }
+  /** A fresh crate weapon includes a loaded magazine; duplicates become matching ammo. */
+  public grantWeapon(id: WeaponId, reserve=WEAPONS[id].ammoPickup, select=true): void {
+    let index=this.weapons.findIndex(w=>w.id===id);
+    if(index>=0) {this.addAmmoById(id,reserve+WEAPONS[id].magazineSize);}
+    else {
+      const weapon=this.createWeapon(WEAPONS[id],this.createHeldModel(id));
+      weapon.totalBullets=reserve+(this.storedAmmo.get(id)??0);this.storedAmmo.delete(id);
+      index=this.weapons.findIndex(w=>w.id===null);
+      if(index<0){index=this.weapons.length;this.weapons.push(weapon);}else this.weapons[index]=weapon;
+      if(index===this.currentWeaponIndex)this.scene.add(weapon.model);
     }
+    if(select)this.switchToWeapon(index);
+  }
+  public equipById(id: WeaponId): void {
+    const index=this.weapons.findIndex(w=>w.id===id);
+    if(index<0)this.grantWeapon(id,0);else this.switchToWeapon(index);
   }
 
   /**
@@ -810,6 +830,10 @@ export class WeaponSystem {
    * @returns True if weapon was added successfully, false otherwise
    */
   public addWeapon(weapon: Weapon): boolean {
+    if(weapon.id && this.weapons.some(w=>w.id===weapon.id)) {
+      this.addAmmoById(weapon.id,weapon.totalBullets+weapon.bulletsInMagazine);return true;
+    }
+    if(weapon.id) {weapon.totalBullets+=this.storedAmmo.get(weapon.id)??0;this.storedAmmo.delete(weapon.id);}
     // First, check if we have an empty slot to replace
     // Note: If you're seeing a TypeScript error about findIndex,
     // update your tsconfig.json to include "lib": ["es2015", "dom"] or later
@@ -839,7 +863,7 @@ export class WeaponSystem {
     }
 
     // If we don't have an empty slot but have fewer than 3 weapons, add it
-    if (this.weapons.length < 3) {
+    if (this.weapons.length < WEAPON_IDS.length) {
       weapon.model = this.createModelFor(weapon.id);
 
       // Add the weapon to the inventory
@@ -880,7 +904,7 @@ export class WeaponSystem {
     if (this.isMouseDown && !this.dead) {
       const currentWeapon = this.getCurrentWeapon();
       // Only auto-fire for assault rifle
-      if (currentWeapon.name === "Assault Rifle") {
+      if (currentWeapon.id && WEAPONS[currentWeapon.id].automatic) {
         this.shoot(scene);
       }
     }

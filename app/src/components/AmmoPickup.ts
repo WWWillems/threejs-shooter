@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { Pickup } from "./Pickup";
+import { WEAPONS } from "@threejs-shooter/shared";
 import { WeaponType } from "./Weapon";
 
 /**
@@ -40,21 +41,24 @@ export class AmmoPickup extends Pickup {
     // Accent stripe
     const stripeGeometry = new THREE.BoxGeometry(0.52, 0.1, 0.82);
     const stripeMaterial = new THREE.MeshStandardMaterial({
-      color: this.getColorForWeaponType(this.weaponType),
+      color: WEAPONS[this.pickupData.weaponType!].color,
     });
     const stripe = new THREE.Mesh(stripeGeometry, stripeMaterial);
     stripe.position.y = 0.2;
     group.add(stripe);
 
-    // Add bullet detail on top
-    const bulletGeometry = new THREE.CylinderGeometry(0.05, 0.05, 0.2, 8);
-    const bulletMaterial = new THREE.MeshStandardMaterial({ color: 0xcccc00 });
-
-    for (let i = 0; i < 3; i++) {
-      const bullet = new THREE.Mesh(bulletGeometry, bulletMaterial);
-      bullet.rotation.x = Math.PI / 2;
-      bullet.position.set(0.1 * (i - 1), 0.35, 0.1);
-      group.add(bullet);
+    const id=this.pickupData.weaponType!;
+    const detail=new THREE.MeshStandardMaterial({color:WEAPONS[id].color,metalness:.4,roughness:.45});
+    if(id===WeaponType.FLAMETHROWER) {
+      const can=new THREE.Mesh(new THREE.CylinderGeometry(.12,.12,.3,12),detail);can.position.y=.4;group.add(can);
+    } else if(id===WeaponType.ARC) {
+      for(const x of [-.1,.1]){const cell=new THREE.Mesh(new THREE.BoxGeometry(.09,.25,.12),detail);cell.position.set(x,.4,0);group.add(cell);}
+    } else {
+      for (let i=0;i<(id===WeaponType.ROCKET?1:3);i++) {
+        const radius=id===WeaponType.ROCKET?.085:.035;
+        const bullet=new THREE.Mesh(new THREE.ConeGeometry(radius,id===WeaponType.ROCKET?.5:.22,10),detail);
+        bullet.rotation.x=Math.PI/2;bullet.position.set(id===WeaponType.ROCKET?0:.12*(i-1),.36,0);group.add(bullet);
+      }
     }
 
     // Add animation
@@ -64,26 +68,11 @@ export class AmmoPickup extends Pickup {
   }
 
   protected getPickupType(): string {
-    return `ammo_${this.weaponType}`;
+    return `ammo_${this.pickupData.weaponType}`;
   }
 
   protected collectionEffectColor(): number {
     return 0xcccc00;
-  }
-
-  private getColorForWeaponType(weaponType: WeaponType): number {
-    switch (weaponType) {
-      case WeaponType.PISTOL:
-        return 0x4444ff; // Blue
-      case WeaponType.SHOTGUN:
-        return 0xff4444; // Red
-      case WeaponType.RIFLE:
-        return 0x44ff44; // Green
-      default: {
-        const unhandled: never = weaponType;
-        return unhandled;
-      }
-    }
   }
 
   private addHoverAnimation(group: THREE.Group): void {

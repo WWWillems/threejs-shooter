@@ -5,6 +5,10 @@
  */
 
 export type SfxKind =
+  | "shot:rocket" | "shot:flamethrower" | "shot:precision" | "shot:arc"
+  | "world:alarm"
+  | "world:gate"
+  | "world:smoke"
   | "shot:pistol"
   | "shot:rifle"
   | "shot:shotgun"
@@ -20,6 +24,10 @@ export type SfxKind =
   | "crate:break"
   | "grenade:throw"
   | "grenade:explode"
+  | "grenade:flash"
+  | "grenade:smoke"
+  | "grenade:gas"
+  | "grenade:molotov"
   | "hit:taken"
   | "hit:marker"
   | "hit:other"
@@ -180,6 +188,27 @@ function chime(
  */
 export function synthesize(ctx: AudioContext, kind: SfxKind, out: AudioNode, when: number): number {
   switch (kind) {
+    case "shot:rocket":
+      thump(ctx,out,when,100,28,.4,.5);
+      return noise(ctx,out,when,{filter:"lowpass",frequency:1800,duration:.6,gain:.25});
+    case "shot:flamethrower":
+      return noise(ctx,out,when,{filter:"bandpass",frequency:650,duration:.13,gain:.09});
+    case "shot:precision":
+      noise(ctx,out,when,{filter:"highpass",frequency:2400,duration:.12,gain:.4});
+      return thump(ctx,out,when,150,35,.5,.35);
+    case "shot:arc":
+      noise(ctx,out,when,{filter:"highpass",frequency:3600,duration:.18,gain:.15});
+      return tone(ctx,out,when,{type:"sawtooth",frequency:1300,frequencyEnd:160,duration:.24,gain:.09});
+    case "world:alarm":
+      tone(ctx,out,when,{type:"triangle",frequency:640,frequencyEnd:980,duration:.35,gain:.1});
+      tone(ctx,out,when+.4,{type:"triangle",frequency:980,frequencyEnd:640,duration:.35,gain:.1});
+      return .8;
+    case "world:gate":
+      noise(ctx,out,when,{filter:"bandpass",frequency:380,duration:.9,gain:.14});
+      thump(ctx,out,when,85,60,.8,.12);
+      return .9;
+    case "world:smoke":
+      return noise(ctx,out,when,{filter:"highpass",frequency:1300,duration:.9,gain:.13});
     case "shot:pistol": {
       noise(ctx, out, when, { filter: "bandpass", frequency: 1800, q: 0.8, duration: 0.06, gain: 0.7 });
       return thump(ctx, out, when, 90, 50, 0.12, 0.6);
@@ -266,6 +295,50 @@ export function synthesize(ctx: AudioContext, kind: SfxKind, out: AudioNode, whe
         duration: 0.6,
         gain: 1,
         attack: 0.005,
+      });
+    }
+    case "grenade:flash": {
+      // A sharp crack, then a piercing ring that lingers in the ears.
+      noise(ctx, out, when, { filter: "highpass", frequency: 3000, duration: 0.05, gain: 0.9 });
+      thump(ctx, out, when, 180, 70, 0.25, 0.5);
+      return tone(ctx, out, when + 0.03, { type: "sine", frequency: 4200, duration: 1.4, gain: 0.12, attack: 0.01 });
+    }
+    case "grenade:smoke": {
+      // A dull pop and a long hiss as the canister vents.
+      click(ctx, out, when, 900, 0.05, 0.5, 2);
+      return noise(ctx, out, when + 0.04, {
+        filter: "highpass",
+        frequency: 1500,
+        frequencyEnd: 900,
+        duration: 1.6,
+        gain: 0.16,
+        attack: 0.05,
+      });
+    }
+    case "grenade:gas": {
+      // Softer pop, lower and wetter hiss.
+      click(ctx, out, when, 600, 0.05, 0.4, 2);
+      return noise(ctx, out, when + 0.04, {
+        filter: "bandpass",
+        frequency: 700,
+        frequencyEnd: 350,
+        q: 0.8,
+        duration: 1.8,
+        gain: 0.18,
+        attack: 0.08,
+      });
+    }
+    case "grenade:molotov": {
+      // Glass breaking, then the fuel catching in a low whoosh.
+      noise(ctx, out, when, { filter: "highpass", frequency: 3500, duration: 0.12, gain: 0.5, attack: 0.002 });
+      click(ctx, out, when, 2400, 0.04, 0.3, 3);
+      return noise(ctx, out, when + 0.05, {
+        filter: "lowpass",
+        frequency: 300,
+        frequencyEnd: 900,
+        duration: 0.9,
+        gain: 0.45,
+        attack: 0.12,
       });
     }
     case "hit:taken": {

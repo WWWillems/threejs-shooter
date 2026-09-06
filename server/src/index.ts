@@ -55,5 +55,5 @@ app.get("/", (_req, res) => {
 });
 
 app.get("/leaderboard", (_req, res) => {
-  res.send(room.leaderBoard);
+  res.json(room.leaderboardResponse());
 });

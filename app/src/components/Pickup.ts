@@ -3,6 +3,80 @@ import type { PlayerController } from "./PlayerController";
 import type { WeaponType } from "./Weapon";
 import { PICKUP_FLASH_DISTANCE, PICKUP_FLASH_INTENSITY } from "../core/Scene";
 
+const PICKUP_FLASH_DURATION = 0.3;
+const PICKUP_FLASH_POOL_SIZE = 4;
+
+interface PickupFlashSlot {
+  light: THREE.PointLight;
+  age: number;
+}
+
+/**
+ * Point lights are kept in the scene for the lifetime of the game. Adding a
+ * light while rendering can make Three.js compile a new lighting shader on
+ * the next frame, which is visible as a hitch when collecting a pickup.
+ */
+class PickupFlashPool {
+  private readonly slots: PickupFlashSlot[];
+
+  constructor(private readonly scene: THREE.Scene) {
+    this.slots = Array.from({ length: PICKUP_FLASH_POOL_SIZE }, () => {
+      const light = new THREE.PointLight(
+        0xffffff,
+        0,
+        PICKUP_FLASH_DISTANCE,
+        2
+      );
+      scene.add(light);
+      return { light, age: PICKUP_FLASH_DURATION };
+    });
+  }
+
+  flash(position: THREE.Vector3, color: number): void {
+    const slot = this.slots.reduce((oldest, candidate) =>
+      candidate.age > oldest.age ? candidate : oldest
+    );
+    slot.light.position.copy(position);
+    slot.light.color.setHex(color);
+    slot.light.intensity = PICKUP_FLASH_INTENSITY;
+    slot.age = 0;
+  }
+
+  update(delta: number): void {
+    for (const slot of this.slots) {
+      if (slot.age >= PICKUP_FLASH_DURATION) continue;
+      slot.age += delta;
+      slot.light.intensity =
+        PICKUP_FLASH_INTENSITY *
+        Math.max(0, 1 - slot.age / PICKUP_FLASH_DURATION);
+    }
+  }
+}
+
+const pickupFlashPools = new WeakMap<THREE.Scene, PickupFlashPool>();
+
+function getPickupFlashPool(scene: THREE.Scene): PickupFlashPool {
+  let pool = pickupFlashPools.get(scene);
+  if (!pool) {
+    pool = new PickupFlashPool(scene);
+    pickupFlashPools.set(scene, pool);
+  }
+  return pool;
+}
+
+/** Allocate pickup flash lights before the first gameplay render. */
+export function prewarmPickupEffects(scene: THREE.Scene): void {
+  getPickupFlashPool(scene);
+}
+
+/** Advance pooled pickup flashes without creating per-collection timers. */
+export function updatePickupEffects(
+  scene: THREE.Scene,
+  delta: number
+): void {
+  getPickupFlashPool(scene).update(delta);
+}
+
 // Interface for pickup data
 export interface PickupData {
   [key: string]: unknown;
@@ -105,20 +179,7 @@ export abstract class Pickup {
    * Create pickup effect when collected
    */
   protected createCollectionEffect(color = 0xff0000): void {
-    // Brief point-light flash in physical units (candela, decay 2)
-    const pickupEffect = new THREE.PointLight(
-      color,
-      PICKUP_FLASH_INTENSITY,
-      PICKUP_FLASH_DISTANCE,
-      2
-    );
-    pickupEffect.position.copy(this.mesh.position);
-    this.scene.add(pickupEffect);
-
-    // Remove the light after a short delay
-    setTimeout(() => {
-      this.scene.remove(pickupEffect);
-    }, 300);
+    getPickupFlashPool(this.scene).flash(this.mesh.position, color);
   }
 }
 

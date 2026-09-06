@@ -38,7 +38,8 @@ export class GameLoop {
     remotePlayerManager: RemotePlayerManager,
     grenadeRenderer: GrenadeRenderer,
     player: THREE.Mesh,
-    private readonly renderFrame?: () => void
+    private readonly renderFrame?: () => void,
+    private readonly updateWorld?: (dt: number) => void
   ) {
     this.scene = scene;
     this.camera = camera;
@@ -93,8 +94,8 @@ export class GameLoop {
     // Update pickup manager
     this.pickupManager.update(delta);
 
-    // Update remote players
-    this.remotePlayerManager.update(delta);
+    // Update remote players (also renders their nameplates)
+    this.remotePlayerManager.update(delta, this.camera);
 
     // Update server-simulated grenades and explosion effects
     this.grenadeRenderer.update(delta);
@@ -112,6 +113,8 @@ export class GameLoop {
         animation(delta);
       }
     }
+
+    this.updateWorld?.(Math.min(delta,.1));
 
     // Render the scene
     if (this.renderFrame) this.renderFrame();

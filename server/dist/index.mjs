@@ -8,18 +8,27 @@ import { fileURLToPath } from 'node:url';
 
 const GAME_EVENTS = {
   GAME: {
-    /** Server -> joining client: snapshot of all players currently in the game. */
+    /** Server -> client: authoritative full sync of the world (on join and on every round reset). */
     STATE: "game:state"
+  },
+  MATCH: {
+    /** Server -> all: the match entered a new phase (warmup, countdown, active, round-end). */
+    PHASE: "match:phase"
   },
   WORLD: {
     /** Server -> all, every tick: continuous state of everything that moves. */
-    SNAPSHOT: "world:snapshot"
+    SNAPSHOT: "world:snapshot",
+    INTERACT: "world:interact",
+    BLAST: "world:blast",
+    ARC: "world:arc"
   },
   USER: {
     /** Server -> others: a socket connected (before it joined the game). */
     CONNECTED: "user:connected",
     /** Client -> server: join the game. Server -> others: someone joined. */
     JOINED: "user:joined",
+    /** Server -> joining client: the join was refused (room full). */
+    JOIN_REJECTED: "user:join-rejected",
     /** Server -> others: a player left. */
     DISCONNECTED: "user:disconnected"
   },
@@ -52,9 +61,9 @@ const GAME_EVENTS = {
     DESTROYED: "crate:destroyed"
   },
   GRENADE: {
-    /** Client -> server: throw intent. Server -> others: someone threw (cosmetic). */
+    /** Client -> server: throw intent (with the grenade kind). Server -> others: someone threw (cosmetic). */
     THROW: "grenade:throw",
-    /** Server -> all: a grenade detonated; damage travels as COMBAT.HIT. */
+    /** Server -> all: a grenade detonated; frag damage travels as COMBAT.HIT, clouds via WORLD.SNAPSHOT. */
     EXPLODED: "grenade:exploded"
   },
   PICKUP: {
@@ -171,12 +180,12 @@ function sweepSegmentRotatedAABB(from, to, box, yaw) {
   );
 }
 
-var __defProp$3 = Object.defineProperty;
-var __defNormalProp$3 = (obj, key, value) => key in obj ? __defProp$3(obj, key, { enumerable: true, configurable: true, writable: true, value }) : obj[key] = value;
-var __publicField$3 = (obj, key, value) => __defNormalProp$3(obj, key + "" , value);
+var __defProp$4 = Object.defineProperty;
+var __defNormalProp$4 = (obj, key, value) => key in obj ? __defProp$4(obj, key, { enumerable: true, configurable: true, writable: true, value }) : obj[key] = value;
+var __publicField$4 = (obj, key, value) => __defNormalProp$4(obj, key + "" , value);
 class Rng {
   constructor(seed) {
-    __publicField$3(this, "state");
+    __publicField$4(this, "state");
     this.state = seed >>> 0;
   }
   /** Uniform float in [0, 1). */
@@ -198,8 +207,76 @@ class Rng {
 }
 
 const WEAPONS = {
+  rocket: {
+    id: "rocket",
+    name: "Rocket Launcher",
+    ammoType: "Rockets",
+    ammoPickup: 2,
+    color: 14191699,
+    fireRate: 1.4,
+    damage: 120,
+    bulletSpeed: 18,
+    range: 65,
+    magazineSize: 1,
+    reserveAmmo: 4,
+    reloadTime: 2.8,
+    pellets: 1,
+    spreadAngle: 0
+  },
+  flamethrower: {
+    id: "flamethrower",
+    name: "Flamethrower",
+    ammoType: "Fuel",
+    ammoPickup: 40,
+    color: 15971149,
+    automatic: true,
+    fireRate: 0.08,
+    damage: 2,
+    bulletSpeed: 18,
+    range: 7,
+    magazineSize: 80,
+    reserveAmmo: 160,
+    reloadTime: 2.6,
+    pellets: 3,
+    spreadAngle: 0.12
+  },
+  precision: {
+    id: "precision",
+    name: "Precision Rifle",
+    ammoType: ".308 rounds",
+    ammoPickup: 8,
+    color: 11911626,
+    fireRate: 1.35,
+    damage: 85,
+    bulletSpeed: 180,
+    range: 140,
+    magazineSize: 5,
+    reserveAmmo: 20,
+    reloadTime: 2.5,
+    pellets: 1,
+    spreadAngle: 0
+  },
+  arc: {
+    id: "arc",
+    name: "Arc Gun",
+    ammoType: "Arc cells",
+    ammoPickup: 12,
+    color: 7854315,
+    fireRate: 0.65,
+    damage: 32,
+    bulletSpeed: 75,
+    range: 18,
+    magazineSize: 8,
+    reserveAmmo: 32,
+    reloadTime: 2,
+    pellets: 1,
+    spreadAngle: 0
+  },
   pistol: {
     id: "pistol",
+    ammoType: "9mm rounds",
+    ammoPickup: 30,
+    color: 7184383,
     name: "Pistol",
     fireRate: 0.4,
     damage: 25,
@@ -213,6 +290,10 @@ const WEAPONS = {
   },
   rifle: {
     id: "rifle",
+    ammoType: "5.56mm rounds",
+    ammoPickup: 40,
+    color: 8629368,
+    automatic: true,
     name: "Assault Rifle",
     fireRate: 0.1,
     damage: 25,
@@ -226,6 +307,9 @@ const WEAPONS = {
   },
   shotgun: {
     id: "shotgun",
+    ammoType: "12-gauge shells",
+    ammoPickup: 12,
+    color: 14127462,
     name: "Shotgun",
     fireRate: 0.8,
     damage: 25,
@@ -238,7 +322,9 @@ const WEAPONS = {
     spreadAngle: 0.1
   }
 };
-const WEAPON_IDS = ["pistol", "rifle", "shotgun"];
+const WEAPON_IDS = ["pistol", "rifle", "shotgun", "rocket", "flamethrower", "precision", "arc"];
+const ROCKET_BLAST_RADIUS = 5.5;
+const rocketBlastDamage = (distance) => Math.max(0, Math.round(WEAPONS.rocket.damage * (1 - distance / ROCKET_BLAST_RADIUS)));
 const isWeaponId = (value) => typeof value === "string" && WEAPON_IDS.includes(value);
 function pelletYawOffsets(weapon) {
   const offsets = [];
@@ -263,9 +349,6 @@ function spawnPellets(nextId, ownerId, weapon, origin, direction) {
     maxRange: weapon.range
   }));
 }
-function projectileStepEnd(p, dt) {
-  return add(p.position, scale(p.direction, p.speed * dt));
-}
 function sweepProjectile(from, to, colliders, skip) {
   let best = null;
   for (const collider of colliders) {
@@ -284,30 +367,45 @@ function sweepProjectile(from, to, colliders, skip) {
   return best;
 }
 function integrateProjectile(p, dt, colliders, skip) {
-  const to = projectileStepEnd(p, dt);
+  const step = Math.min(p.speed * Math.max(0, dt), Math.max(0, p.maxRange - p.traveled));
+  let to = add(p.position, scale(p.direction, step));
+  let ground = false;
+  if (to.y <= 0 && p.direction.y < 0) {
+    const t = Math.max(0, p.position.y / (p.position.y - to.y));
+    to = lerp(p.position, to, t);
+    ground = true;
+  }
   const hit = sweepProjectile(p.position, to, colliders, skip);
   if (hit) {
-    p.traveled += p.speed * dt * hit.t;
+    p.traveled += Math.hypot(to.x - p.position.x, to.y - p.position.y, to.z - p.position.z) * hit.t;
     p.position = hit.point;
     return { hit, expired: true };
   }
-  p.traveled += p.speed * dt;
+  p.traveled += Math.hypot(to.x - p.position.x, to.y - p.position.y, to.z - p.position.z);
   p.position = to;
-  return { hit: null, expired: p.traveled >= p.maxRange };
+  return { hit: null, expired: ground || p.traveled >= p.maxRange - 1e-6 };
 }
 
-const PROP_TYPES = ["trash-bag", "oil-barrel", "forklift", "fence", "fence-gate"];
+const PROP_TYPES = ["trash-bag", "oil-barrel", "forklift", "fence", "fence-gate", "tire-stack", "fire-barrel", "explosive-barrel", "smoke-zone", "alarm-zone", "warning-light", "cover-panel"];
 const PARTS = {
   "trash-bag": [{ center: { x: 0, y: 0.47, z: 0 }, size: { x: 0.78, y: 0.94, z: 0.64 } }],
   "oil-barrel": [{ center: { x: 0, y: 0.46, z: 0 }, size: { x: 0.66, y: 0.92, z: 0.66 } }],
   fence: [{ center: { x: 0, y: 1.34, z: 0 }, size: { x: 4.18, y: 2.68, z: 0.18 } }],
   "fence-gate": [{ center: { x: 0, y: 1.34, z: 0 }, size: { x: 4.18, y: 2.68, z: 0.24 } }],
+  "tire-stack": [{ center: { x: 0, y: 0.6, z: 0 }, size: { x: 1.15, y: 1.2, z: 1.15 } }],
+  "cover-panel": [{ center: { x: 0, y: 0.75, z: 0 }, size: { x: 2.4, y: 1.5, z: 0.55 } }],
+  "fire-barrel": [{ center: { x: 0, y: 0.46, z: 0 }, size: { x: 0.66, y: 0.92, z: 0.66 } }],
+  "explosive-barrel": [{ center: { x: 0, y: 0.46, z: 0 }, size: { x: 0.66, y: 0.92, z: 0.66 } }],
+  "smoke-zone": [],
+  "alarm-zone": [],
+  "warning-light": [],
   forklift: [
     { center: { x: 0, y: 1.25, z: 0.04 }, size: { x: 1.76, y: 2.5, z: 2.55 } },
     { center: { x: 0, y: 0.15, z: -1.98 }, size: { x: 1.06, y: 0.3, z: 1.46 } }
   ]
 };
 const isMovementOnlyProp = (type) => type === "trash-bag" || type === "fence" || type === "fence-gate";
+const isDynamicProp = (type) => ["fence-gate", "tire-stack", "explosive-barrel", "cover-panel", "smoke-zone", "alarm-zone"].includes(type);
 function propBoxes(prop) {
   const c = Math.cos(prop.rotation), s = Math.sin(prop.rotation), k = prop.scale;
   return PARTS[prop.type].map(({ center, size }) => aabbFromRotatedBox({
@@ -319,25 +417,31 @@ function propBoxes(prop) {
 
 const PLAYER_SIZE = vec3(1, 2, 1);
 const PLAYER_MAX_HP = 100;
+const spawn = (x, y, z, team) => ({
+  position: vec3(x, y, z),
+  team
+});
 const SPAWN_POINTS = [
-  vec3(-16, 1, -33),
-  vec3(-11, 1, -34),
-  vec3(0, 1, -34),
-  vec3(11, 1, -34),
-  vec3(16, 1, -33),
-  vec3(16, 1, 33),
-  vec3(11, 1, 34),
-  vec3(0, 1, 34),
-  vec3(-11, 1, 34),
-  vec3(-16, 1, 33)
+  spawn(-16, 1, -33, "blue"),
+  spawn(-11, 1, -34, "blue"),
+  spawn(0, 1, -34, "blue"),
+  spawn(11, 1, -34, "blue"),
+  spawn(16, 1, -33, "blue"),
+  spawn(16, 1, 33, "red"),
+  spawn(11, 1, 34, "red"),
+  spawn(0, 1, 34, "red"),
+  spawn(-11, 1, 34, "red"),
+  spawn(-16, 1, 33, "red")
 ];
 const facingCenterYaw = (position) => Math.atan2(position.x, position.z);
+const spawnPointsFor = (team, points = SPAWN_POINTS) => points.filter((point) => point.team === team);
 function pickSpawnPoint(occupied, points = SPAWN_POINTS) {
+  if (points.length === 0) throw new Error("pickSpawnPoint needs at least one spawn point");
   const others = [...occupied];
-  if (others.length === 0) return points[0];
-  let best = points[0];
+  if (others.length === 0) return points[0].position;
+  let best = points[0].position;
   let bestScore = -Infinity;
-  for (const p of points) {
+  for (const { position: p } of points) {
     let nearest = Infinity;
     for (const o of others) {
       const dx = p.x - o.x;
@@ -352,9 +456,9 @@ function pickSpawnPoint(occupied, points = SPAWN_POINTS) {
   return best;
 }
 
-var __defProp$2 = Object.defineProperty;
-var __defNormalProp$2 = (obj, key, value) => key in obj ? __defProp$2(obj, key, { enumerable: true, configurable: true, writable: true, value }) : obj[key] = value;
-var __publicField$2 = (obj, key, value) => __defNormalProp$2(obj, typeof key !== "symbol" ? key + "" : key, value);
+var __defProp$3 = Object.defineProperty;
+var __defNormalProp$3 = (obj, key, value) => key in obj ? __defProp$3(obj, key, { enumerable: true, configurable: true, writable: true, value }) : obj[key] = value;
+var __publicField$3 = (obj, key, value) => __defNormalProp$3(obj, typeof key !== "symbol" ? key + "" : key, value);
 const MAP_SEED = 20240913;
 const GROUND_SIZE = 76;
 const WALL_HEIGHT = 2.5;
@@ -376,6 +480,14 @@ function generateMap(seed = MAP_SEED) {
   layoutYard(arena);
   layoutMid(arena);
   layoutFlanks(arena);
+  arena.prop("tire-stack", "tires-yard", 10.5, -16, 0);
+  arena.prop("cover-panel", "cover-yard", -11, -13, 0.2);
+  arena.prop("fire-barrel", "fire-flank", 23, -13, 0);
+  arena.prop("explosive-barrel", "fuel-yard", 6.1, -13.4, 0);
+  arena.prop("explosive-barrel", "fuel-mid", 6, -6, 0.3);
+  arena.prop("smoke-zone", "smoke-flank", -16, -8, 0);
+  arena.prop("alarm-zone", "alarm-yard", 17, -11, 0);
+  arena.prop("warning-light", "beacon-yard", -17, -11, 0);
   return {
     seed,
     walls: generateWalls(),
@@ -388,21 +500,24 @@ function generateMap(seed = MAP_SEED) {
     trees: arena.trees,
     bushes: arena.bushes,
     props: arena.props,
-    spawnPoints: SPAWN_POINTS.map((point) => ({ ...point }))
+    spawnPoints: SPAWN_POINTS.map((point) => ({
+      position: { ...point.position },
+      team: point.team
+    }))
   };
 }
 const mirrored = (p) => vec3(-p.x || 0, p.y, -p.z || 0);
 class ArenaBuilder {
   constructor(rng) {
-    __publicField$2(this, "rng", rng);
-    __publicField$2(this, "buildings", []);
-    __publicField$2(this, "cars", []);
-    __publicField$2(this, "streetLights", []);
-    __publicField$2(this, "crates", []);
-    __publicField$2(this, "cones", []);
-    __publicField$2(this, "trees", []);
-    __publicField$2(this, "bushes", []);
-    __publicField$2(this, "props", []);
+    __publicField$3(this, "rng", rng);
+    __publicField$3(this, "buildings", []);
+    __publicField$3(this, "cars", []);
+    __publicField$3(this, "streetLights", []);
+    __publicField$3(this, "crates", []);
+    __publicField$3(this, "cones", []);
+    __publicField$3(this, "trees", []);
+    __publicField$3(this, "bushes", []);
+    __publicField$3(this, "props", []);
   }
   building(type, id, x, z, rotation = 0) {
     this.both(
@@ -465,15 +580,18 @@ class ArenaBuilder {
     this.crate(x + d, z + d, 1, PI / 16);
     this.crate(x, z, 1, PI / 7, 1);
   }
-  /** Seven crates in three tiers: a lane landmark and the tallest cover on the map. */
+  /**
+   * Seven crates in three supported tiers: a lane landmark and the tallest
+   * cover on the map. Each upper crate overlaps the two crates below it.
+   */
   pyramid(x, z, size = 1) {
-    const d = size * 1.1;
+    const d = size * 0.55;
     this.crate(x - d, z - d, size, 0);
     this.crate(x + d, z - d, size, PI / 6);
     this.crate(x - d, z + d, size, -PI / 8);
     this.crate(x + d, z + d, size, PI / 3);
-    this.crate(x, z - size / 2, size, PI / 4, 1);
-    this.crate(x, z + size / 2, size, -PI / 4, 1);
+    this.crate(x - d, z, size, PI / 4, 1);
+    this.crate(x + d, z, size, -PI / 4, 1);
     this.crate(x, z, size, PI / 10, 2);
   }
   /** `count` crates in a row along X with a staggered second row on top. */
@@ -718,7 +836,7 @@ function solidColliders(map) {
     })
   );
   for (const prop of map.props) {
-    if (isMovementOnlyProp(prop.type)) continue;
+    if (isMovementOnlyProp(prop.type) || isDynamicProp(prop.type)) continue;
     propBoxes(prop).forEach((box, index) => colliders.push({
       box,
       tag: { kind: "static", id: `${prop.id}:${index}` }
@@ -728,13 +846,109 @@ function solidColliders(map) {
 }
 function movementOnlyColliders(map) {
   return [
-    ...map.props.filter((prop) => isMovementOnlyProp(prop.type)).flatMap((prop) => propBoxes(prop).map((box, index) => ({ id: `${prop.id}:${index}`, box }))),
+    ...map.props.filter((prop) => isMovementOnlyProp(prop.type) && !isDynamicProp(prop.type)).flatMap((prop) => propBoxes(prop).map((box, index) => ({ id: `${prop.id}:${index}`, box }))),
     ...map.bushes.map((bush) => ({ id: bush.id, box: bushBox(bush) })),
     ...map.cones.map((cone) => ({ id: cone.id, box: coneBox(cone) }))
   ];
 }
 
-const LEVEL_SCHEMA_VERSION = 1;
+var __defProp$2 = Object.defineProperty;
+var __defNormalProp$2 = (obj, key, value) => key in obj ? __defProp$2(obj, key, { enumerable: true, configurable: true, writable: true, value }) : obj[key] = value;
+var __publicField$2 = (obj, key, value) => __defNormalProp$2(obj, typeof key !== "symbol" ? key + "" : key, value);
+const interactionHp = (type) => type === "explosive-barrel" ? 45 : type === "tire-stack" ? 120 : type === "cover-panel" ? 80 : 1;
+function initialInteractions(props) {
+  return props.filter((p) => isDynamicProp(p.type)).map((p) => ({ id: p.id, hp: interactionHp(p.type), open: 0, targetOpen: false, active: 0, cooldown: 0 }));
+}
+function interactionBoxes(prop, state) {
+  if (state.hp <= 0)
+    return [];
+  const guides = prop.type === "fence-gate" ? [-2.02, 2.02].map((x) => {
+    const c = Math.cos(prop.rotation), sin = Math.sin(prop.rotation), k = prop.scale;
+    return aabbFromCenterSize({ x: prop.position.x + x * c * k, y: prop.position.y + 2.75 * k, z: prop.position.z - x * sin * k }, { x: 0.26 * k, y: 5.5 * k, z: 0.3 * k });
+  }) : [];
+  return [...guides, ...propBoxes({ ...prop, position: { ...prop.position, y: prop.position.y + (prop.type === "fence-gate" ? state.open * 3 * prop.scale : 0) } })];
+}
+const interactionDistance = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
+class InteractiveWorld {
+  constructor(props) {
+    __publicField$2(this, "specs");
+    __publicField$2(this, "states", /* @__PURE__ */ new Map());
+    this.specs = new Map(props.filter((p) => isDynamicProp(p.type)).map((p) => [p.id, p]));
+    this.reset();
+  }
+  reset() {
+    this.states.clear();
+    for (const s of initialInteractions([...this.specs.values()])) this.states.set(s.id, s);
+  }
+  snapshot() {
+    return [...this.states.values()].map((s) => ({ ...s }));
+  }
+  interact(id, player, players) {
+    const p = this.specs.get(id), s = this.states.get(id);
+    if (!p || !s || !player.position || player.status !== "alive" || s.hp <= 0 || s.cooldown > 0 || interactionDistance(p.position, player.position) > 3 * p.scale || Math.abs(player.position.y - p.position.y) > 3)
+      return false;
+    if (p.type === "fence-gate") {
+      if (s.targetOpen && this.occupied(p, players))
+        return false;
+      s.targetOpen = !s.targetOpen;
+      s.cooldown = 1;
+      return true;
+    }
+    if (p.type === "smoke-zone") {
+      s.active = 7;
+      s.cooldown = 22;
+      return true;
+    }
+    return false;
+  }
+  occupied(p, players) {
+    return players.some((player) => player.status === "alive" && player.position && propBoxes(p).some((b) => aabbIntersects(b, aabbFromCenterSize(player.position, { x: 1.4, y: 2, z: 1.4 }))));
+  }
+  tick(dt, players, enabled = true) {
+    for (const [id, s] of this.states) {
+      const p = this.specs.get(id);
+      s.active = Math.max(0, s.active - dt);
+      s.cooldown = Math.max(0, s.cooldown - dt);
+      if (p.type === "fence-gate") {
+        if (!s.targetOpen && s.open > 0 && this.occupied(p, players))
+          s.targetOpen = true;
+        s.open = Math.max(0, Math.min(1, s.open + (s.targetOpen ? 1 : -1) * dt));
+      }
+      if (enabled && p.type === "alarm-zone" && s.cooldown === 0 && players.some((v) => v.status === "alive" && v.position && interactionDistance(p.position, v.position) < 3 * p.scale && Math.abs(v.position.y - p.position.y) < 3)) {
+        s.active = 4;
+        s.cooldown = 10;
+      }
+    }
+  }
+  /** Returns true only for the first destruction of an explosive barrel. */
+  damage(id, damage) {
+    const s = this.states.get(id), p = this.specs.get(id);
+    if (!s || !p || !["tire-stack", "cover-panel", "explosive-barrel"].includes(p.type) || s.hp <= 0 || !Number.isFinite(damage) || damage <= 0)
+      return false;
+    s.hp = Math.max(0, s.hp - damage);
+    if (s.hp === 0 && p.type === "explosive-barrel") {
+      s.active = 8;
+      return true;
+    }
+    return false;
+  }
+}
+
+const TEAMS = ["blue", "red"];
+const MAX_TEAM_SIZE = 5;
+MAX_TEAM_SIZE * TEAMS.length;
+const isTeam = (value) => value === "blue" || value === "red";
+const emptyTeamScores = () => ({ blue: 0, red: 0 });
+function pickTeam(counts) {
+  const blueOpen = counts.blue < MAX_TEAM_SIZE;
+  const redOpen = counts.red < MAX_TEAM_SIZE;
+  if (!blueOpen && !redOpen) return null;
+  if (!redOpen) return "blue";
+  if (!blueOpen) return "red";
+  return counts.red < counts.blue ? "red" : "blue";
+}
+
+const LEVEL_SCHEMA_VERSION = 2;
 const LEVEL_OBJECT_TYPES = [
   "wall",
   "shop",
@@ -779,6 +993,13 @@ function mapFromLevel(level) {
     const objectTransform = object.transform;
     const position = asVec3(objectTransform);
     switch (object.type) {
+      case "tire-stack":
+      case "fire-barrel":
+      case "explosive-barrel":
+      case "smoke-zone":
+      case "alarm-zone":
+      case "warning-light":
+      case "cover-panel":
       case "fence":
       case "fence-gate":
       case "trash-bag":
@@ -891,7 +1112,10 @@ function mapFromLevel(level) {
     trees,
     bushes,
     props,
-    spawnPoints: level.spawnPoints.map((spawn) => copyVec3(spawn.position))
+    spawnPoints: level.spawnPoints.map((spawn) => ({
+      position: copyVec3(spawn.position),
+      team: spawn.team
+    }))
   };
 }
 function isRecord(value) {
@@ -987,7 +1211,7 @@ function validateLevel(value) {
     if (!isRecord(objectTransform) || !validateVec3(objectTransform.position, `${path}.transform.position`, diagnostics) || !validateVec3(objectTransform.rotation, `${path}.transform.rotation`, diagnostics) || !validateVec3(objectTransform.scale, `${path}.transform.scale`, diagnostics)) {
       return;
     }
-    if ((type === "trash-bag" || type === "oil-barrel" || type === "forklift" || type === "fence" || type === "fence-gate") && (Math.abs(objectTransform.rotation.x) > 1e-4 || Math.abs(objectTransform.rotation.z) > 1e-4)) {
+    if ((type === "trash-bag" || type === "oil-barrel" || type === "forklift" || type === "fence" || type === "fence-gate" || type === "tire-stack" || type === "fire-barrel" || type === "explosive-barrel" || type === "smoke-zone" || type === "alarm-zone" || type === "warning-light" || type === "cover-panel") && (Math.abs(objectTransform.rotation.x) > 1e-4 || Math.abs(objectTransform.rotation.z) > 1e-4)) {
       diagnostics.push({
         path: `${path}.transform.rotation`,
         message: `${type} supports rotation around the Y axis only`,
@@ -1017,7 +1241,7 @@ function validateLevel(value) {
         severity: "error"
       });
     }
-    if (type === "car" || type === "warehouse" || type === "tenement" || type === "street-light" || type === "crate" || type === "traffic-cone" || type === "tree" || type === "bush" || type === "trash-bag" || type === "oil-barrel" || type === "forklift" || type === "fence" || type === "fence-gate") {
+    if (type === "car" || type === "warehouse" || type === "tenement" || type === "street-light" || type === "crate" || type === "traffic-cone" || type === "tree" || type === "bush" || type === "trash-bag" || type === "oil-barrel" || type === "forklift" || type === "fence" || type === "fence-gate" || type === "tire-stack" || type === "fire-barrel" || type === "explosive-barrel" || type === "smoke-zone" || type === "alarm-zone" || type === "warning-light" || type === "cover-panel") {
       if (Math.abs(scale.x - scale.y) > 1e-4 || Math.abs(scale.x - scale.z) > 1e-4) {
         diagnostics.push({
           path: `${path}.transform.scale`,
@@ -1057,6 +1281,7 @@ function validateLevel(value) {
     });
   }
   const spawnIds = /* @__PURE__ */ new Set();
+  const spawnsPerTeam = { blue: 0, red: 0 };
   spawns.forEach((spawn, index) => {
     const path = `spawnPoints[${index}]`;
     if (!isRecord(spawn)) {
@@ -1070,6 +1295,15 @@ function validateLevel(value) {
     } else {
       spawnIds.add(spawn.id);
     }
+    if (!isTeam(spawn.team)) {
+      diagnostics.push({
+        path: `${path}.team`,
+        message: `Spawn team must be one of ${TEAMS.map((team) => `"${team}"`).join(", ")}`,
+        severity: "error"
+      });
+    } else {
+      spawnsPerTeam[spawn.team] += 1;
+    }
     if (!validateVec3(spawn.position, `${path}.position`, diagnostics)) return;
     if (isFiniteNumber(value.groundSize) && (Math.abs(spawn.position.x) > value.groundSize / 2 || Math.abs(spawn.position.z) > value.groundSize / 2)) {
       diagnostics.push({
@@ -1079,11 +1313,29 @@ function validateLevel(value) {
       });
     }
   });
+  if (spawns.length > 0) {
+    for (const team of TEAMS) {
+      const count = spawnsPerTeam[team];
+      if (count === 0) {
+        diagnostics.push({
+          path: "spawnPoints",
+          message: `A playable level needs at least one ${team} spawn point`,
+          severity: "error"
+        });
+      } else if (count !== MAX_TEAM_SIZE) {
+        diagnostics.push({
+          path: "spawnPoints",
+          message: `Expected ${MAX_TEAM_SIZE} ${team} spawn points (one per player), found ${count}`,
+          severity: "warning"
+        });
+      }
+    }
+  }
   if (diagnostics.some((diagnostic) => diagnostic.severity === "error")) return diagnostics;
   try {
     const level = value;
     const map = mapFromLevel(level);
-    const colliders = [...solidColliders(map), ...movementOnlyColliders(map)];
+    const colliders = [...solidColliders(map), ...movementOnlyColliders(map), ...initialInteractions(map.props).flatMap((s) => interactionBoxes(map.props.find((p) => p.id === s.id), s).map((box) => ({ box })))];
     for (const spawn of level.spawnPoints) {
       const playerBox = aabbFromCenterSize(spawn.position, PLAYER_SIZE);
       if (colliders.some((collider) => aabbIntersects(playerBox, collider.box))) {
@@ -1112,70 +1364,62 @@ function parseLevelDocument(input) {
   return input;
 }
 
+const DEFAULT_MATCH_RULES = {
+  killLimit: 30,
+  roundMs: 8 * 6e4,
+  roundEndMs: 8e3,
+  countdownMs: 5e3
+};
+const initialMatchState = () => ({
+  phase: "warmup",
+  phaseEndsAt: null,
+  result: null
+});
+const canPlayRound = (counts) => counts.blue > 0 && counts.red > 0;
+function roundWinner(scores) {
+  if (scores.blue === scores.red) return "draw";
+  return scores.blue > scores.red ? "blue" : "red";
+}
+const movementAllowed = (phase) => phase !== "countdown";
+const combatAllowed = (phase) => phase === "warmup" || phase === "active";
+function stepMatch(state, input, rules = DEFAULT_MATCH_RULES) {
+  const { now, teamCounts, teamScores } = input;
+  const playable = canPlayRound(teamCounts);
+  const expired = state.phaseEndsAt !== null && now >= state.phaseEndsAt;
+  const go = (to, phaseEndsAt, reset, result = null) => ({
+    state: { phase: to, phaseEndsAt, result },
+    transition: { from: state.phase, to, reset }
+  });
+  const stay = { state, transition: null };
+  switch (state.phase) {
+    case "warmup":
+      return playable ? go("countdown", now + rules.countdownMs, true) : stay;
+    case "countdown":
+      if (!playable) return go("warmup", null, false);
+      return expired ? go("active", now + rules.roundMs, false) : stay;
+    case "active": {
+      const limitReached = Math.max(teamScores.blue, teamScores.red) >= rules.killLimit;
+      if (!limitReached && !expired) return stay;
+      return go("round-end", now + rules.roundEndMs, false, {
+        winner: roundWinner(teamScores),
+        teamScores: { ...teamScores }
+      });
+    }
+    case "round-end":
+      if (!expired) return stay;
+      return playable ? go("countdown", now + rules.countdownMs, true) : go("warmup", null, true);
+    default: {
+      const unhandled = state.phase;
+      throw new Error(`Unhandled match phase: ${String(unhandled)}`);
+    }
+  }
+}
+
 const playerHitbox = (position, yaw) => ({
   box: aabbFromCenterSize(position, PLAYER_SIZE),
   yaw
 });
 const playerCollider = (position, yaw, tag) => ({ ...playerHitbox(position, yaw), tag });
-
-const PICKUP_REACH = 2;
-const PICKUP_LIFETIME = 30;
-const PICKUP_MAX_COUNT = 10;
-const PICKUP_SPAWN_INTERVAL = [5, 15];
-const PICKUP_HEIGHT = 0.5;
-const PICKUP_FOOTPRINT = vec3(1, 1, 1);
-const PICKUP_PLAYER_CLEARANCE = 10;
-const CRATE_DROP_CHANCE = 0.5;
-function isWithinPickupReach(playerPos, pickupPos) {
-  const dx = playerPos.x - pickupPos.x;
-  const dz = playerPos.z - pickupPos.z;
-  return dx * dx + dz * dz <= PICKUP_REACH * PICKUP_REACH;
-}
-function rollPickupContents(rng, id, position) {
-  if (rng.next() < 0.5) {
-    return {
-      id,
-      kind: "health",
-      position,
-      amount: Math.floor(rng.range(10, 50))
-    };
-  }
-  return {
-    id,
-    kind: "ammo",
-    position,
-    weaponId: WEAPON_IDS[rng.int(WEAPON_IDS.length)],
-    amount: Math.floor(rng.range(20, 80))
-  };
-}
-function rollCrateDrop(rng, id, position) {
-  if (rng.next() < 0.5) {
-    return { id, kind: "health", position, amount: 25 };
-  }
-  return {
-    id,
-    kind: "ammo",
-    position,
-    weaponId: WEAPON_IDS[rng.int(WEAPON_IDS.length)],
-    amount: 30
-  };
-}
-function findPickupSpawnPosition(rng, blockers, playerPositions, attempts = 30) {
-  const half = GROUND_SIZE / 2 - 2;
-  for (let i = 0; i < attempts; i++) {
-    const candidate = vec3(rng.range(-half, half), PICKUP_HEIGHT, rng.range(-half, half));
-    const tooClose = playerPositions.some((p) => {
-      const dx = p.x - candidate.x;
-      const dz = p.z - candidate.z;
-      return dx * dx + dz * dz < PICKUP_PLAYER_CLEARANCE * PICKUP_PLAYER_CLEARANCE;
-    });
-    if (tooClose) continue;
-    const footprint = aabbFromCenterSize(candidate, PICKUP_FOOTPRINT);
-    if (blockers.some((b) => aabbIntersects(footprint, b))) continue;
-    return candidate;
-  }
-  return null;
-}
 
 const GRENADE = {
   /** Velocity kept tangential to the surface after a bounce. */
@@ -1197,10 +1441,90 @@ const GRENADE = {
   /** Below this speed a bounce leaves the grenade resting. */
   restSpeed: 0.5
 };
-function spawnGrenade(id, ownerId, origin, direction) {
+const GRENADE_KINDS = ["frag", "smoke", "flash", "gas", "molotov"];
+const isGrenadeKind = (value) => typeof value === "string" && GRENADE_KINDS.includes(value);
+const shattersOnImpact = (kind) => kind === "molotov";
+const GRENADE_LOADOUT = {
+  frag: { start: 2, pickup: 2 },
+  smoke: { start: 1, pickup: 2 },
+  flash: { start: 1, pickup: 2 },
+  gas: { start: 0, pickup: 2 },
+  molotov: { start: 0, pickup: 2 }
+};
+const GRENADE_EFFECTS = {
+  smoke: {
+    /** Cloud radius, u. */
+    radius: 3.5,
+    /** Seconds the cloud lingers. */
+    duration: 9
+  },
+  gas: {
+    radius: 3,
+    duration: 8,
+    /** Damage per second to anyone standing inside. */
+    dps: 12
+  },
+  flash: {
+    /** Blinding falls off linearly to zero at this distance. */
+    radius: 9},
+  molotov: {
+    /** Radius of the burning pool, u. */
+    radius: 2.5,
+    /** Seconds the fire burns. */
+    duration: 6,
+    /** Damage per second to anyone standing in the fire: fast, so it clears cover. */
+    dps: 25
+  }
+};
+const CLOUD_EFFECTS = {
+  smoke: { ...GRENADE_EFFECTS.smoke, dps: 0, source: "smoke" },
+  gas: { ...GRENADE_EFFECTS.gas, source: "gas" },
+  fire: { ...GRENADE_EFFECTS.molotov, source: "molotov" }
+};
+function cloudKindOf(kind) {
+  switch (kind) {
+    case "smoke":
+      return "smoke";
+    case "gas":
+      return "gas";
+    case "molotov":
+      return "fire";
+    case "frag":
+    case "flash":
+      return null;
+    default: {
+      const unhandled = kind;
+      throw new Error(`Unhandled grenade kind: ${String(unhandled)}`);
+    }
+  }
+}
+const CLOUD_HEIGHT = 2.5;
+function spawnCloud(id, grenade, kind) {
+  return {
+    id,
+    kind,
+    ownerId: grenade.ownerId,
+    position: { x: grenade.position.x, y: 0, z: grenade.position.z },
+    remaining: CLOUD_EFFECTS[kind].duration
+  };
+}
+function cloudContains(cloud, point) {
+  const { radius } = CLOUD_EFFECTS[cloud.kind];
+  const dy = point.y - cloud.position.y;
+  if (dy < -0.5 || dy > CLOUD_HEIGHT) return false;
+  return Math.hypot(point.x - cloud.position.x, point.z - cloud.position.z) < radius;
+}
+function flashIntensity(center, target) {
+  const d = distance(center, target);
+  const { radius } = GRENADE_EFFECTS.flash;
+  if (d >= radius) return 0;
+  return Math.round((1 - d / radius) * 100) / 100;
+}
+function spawnGrenade(id, ownerId, kind, origin, direction) {
   const dir = normalize(direction);
   return {
     id,
+    kind,
     ownerId,
     position: { ...origin },
     velocity: add(scale(dir, GRENADE.throwSpeed), vec3(0, GRENADE.throwLift, 0)),
@@ -1286,6 +1610,77 @@ function faceNormal(box, point, velocity) {
   return best;
 }
 
+const PICKUP_REACH = 2;
+const PICKUP_LIFETIME = 30;
+const PICKUP_MAX_COUNT = 10;
+const PICKUP_SPAWN_INTERVAL = [5, 15];
+const PICKUP_HEIGHT = 0.5;
+const PICKUP_FOOTPRINT = vec3(1, 1, 1);
+const PICKUP_PLAYER_CLEARANCE = 10;
+const CRATE_DROP_CHANCE = 0.5;
+function isWithinPickupReach(playerPos, pickupPos) {
+  const dx = playerPos.x - pickupPos.x;
+  const dz = playerPos.z - pickupPos.z;
+  return dx * dx + dz * dz <= PICKUP_REACH * PICKUP_REACH;
+}
+function rollPickupContents(rng, id, position) {
+  if (rng.next() < 0.5) {
+    return {
+      id,
+      kind: "health",
+      position,
+      amount: Math.floor(rng.range(10, 50))
+    };
+  }
+  const weaponId = WEAPON_IDS[rng.int(WEAPON_IDS.length)];
+  return {
+    id,
+    kind: "ammo",
+    position,
+    weaponId,
+    amount: WEAPONS[weaponId].ammoPickup
+  };
+}
+const CRATE_DROP_ODDS = { weapon: 0.3, throwable: 0.5, health: 0.75 };
+function rollCrateDrop(rng, id, position) {
+  const roll = rng.next();
+  if (roll < CRATE_DROP_ODDS.weapon) {
+    const weaponId2 = WEAPON_IDS[rng.int(WEAPON_IDS.length)];
+    return { id, kind: "weapon", position, weaponId: weaponId2, amount: WEAPONS[weaponId2].ammoPickup };
+  }
+  if (roll < CRATE_DROP_ODDS.throwable) {
+    const grenadeKind = GRENADE_KINDS[rng.int(GRENADE_KINDS.length)];
+    return { id, kind: "throwable", position, grenadeKind, amount: GRENADE_LOADOUT[grenadeKind].pickup };
+  }
+  if (roll < CRATE_DROP_ODDS.health) {
+    return { id, kind: "health", position, amount: 25 };
+  }
+  const weaponId = WEAPON_IDS[rng.int(WEAPON_IDS.length)];
+  return {
+    id,
+    kind: "ammo",
+    position,
+    weaponId,
+    amount: WEAPONS[weaponId].ammoPickup
+  };
+}
+function findPickupSpawnPosition(rng, blockers, playerPositions, attempts = 30) {
+  const half = GROUND_SIZE / 2 - 2;
+  for (let i = 0; i < attempts; i++) {
+    const candidate = vec3(rng.range(-half, half), PICKUP_HEIGHT, rng.range(-half, half));
+    const tooClose = playerPositions.some((p) => {
+      const dx = p.x - candidate.x;
+      const dz = p.z - candidate.z;
+      return dx * dx + dz * dz < PICKUP_PLAYER_CLEARANCE * PICKUP_PLAYER_CLEARANCE;
+    });
+    if (tooClose) continue;
+    const footprint = aabbFromCenterSize(candidate, PICKUP_FOOTPRINT);
+    if (blockers.some((b) => aabbIntersects(footprint, b))) continue;
+    return candidate;
+  }
+  return null;
+}
+
 var __defProp$1 = Object.defineProperty;
 var __defNormalProp$1 = (obj, key, value) => key in obj ? __defProp$1(obj, key, { enumerable: true, configurable: true, writable: true, value }) : obj[key] = value;
 var __publicField$1 = (obj, key, value) => __defNormalProp$1(obj, typeof key !== "symbol" ? key + "" : key, value);
@@ -1299,18 +1694,30 @@ class GameRoom {
     __publicField$1(this, "transport", transport);
     /** Last known state of every player who has joined, keyed by player id. */
     __publicField$1(this, "players", /* @__PURE__ */ new Map());
+    /** This round's per-player rows; zeroed on every round reset. */
     __publicField$1(this, "leaderBoard", {});
+    /**
+     * Kills per team this round. Kept apart from the per-player rows so a
+     * leaver's kills stay on the board until the reset.
+     */
+    __publicField$1(this, "teamScores", emptyTeamScores());
+    /** Where the round loop stands. Advanced once per tick by `stepMatch`. */
+    __publicField$1(this, "match", initialMatchState());
     __publicField$1(this, "map");
+    __publicField$1(this, "interactions");
     /** Bullets in flight. */
     __publicField$1(this, "projectiles", []);
     /** Grenades in flight or resting, keyed by grenade id. */
     __publicField$1(this, "grenades", /* @__PURE__ */ new Map());
+    /** Smoke and gas clouds left by grenades, keyed by cloud id. */
+    __publicField$1(this, "clouds", /* @__PURE__ */ new Map());
     /** Surviving crates keyed by crate id. */
     __publicField$1(this, "crates", /* @__PURE__ */ new Map());
     /** Pickups lying in the world keyed by pickup id. */
     __publicField$1(this, "pickups", /* @__PURE__ */ new Map());
     __publicField$1(this, "clock");
     __publicField$1(this, "rng");
+    __publicField$1(this, "matchRules");
     /** Shared solid geometry; crates and players are added per query. */
     __publicField$1(this, "staticColliders");
     __publicField$1(this, "tickCount", 0);
@@ -1323,11 +1730,25 @@ class GameRoom {
     this.clock = options.clock ?? Date.now;
     this.rng = new Rng(options.seed ?? Date.now() & 4294967295);
     this.map = options.map ?? generateMap();
+    this.matchRules = options.matchRules ?? DEFAULT_MATCH_RULES;
     this.staticColliders = solidColliders(this.map);
-    for (const spec of this.map.crates) {
-      this.crates.set(spec.id, { spec, hp: CRATE_MAX_HP });
-    }
+    this.interactions = new InteractiveWorld(this.map.props);
+    this.resetCrates();
     this.pickupSpawnIn = this.rollPickupSpawnDelay();
+  }
+  /** What `GET /leaderboard` serves. */
+  leaderboardResponse() {
+    return {
+      players: this.leaderBoard,
+      teams: { ...this.teamScores },
+      match: this.snapshotMatch()
+    };
+  }
+  /** How many joined players each team has right now. */
+  teamCounts() {
+    const counts = { blue: 0, red: 0 };
+    for (const player of this.players.values()) counts[player.team] += 1;
+    return counts;
   }
   /** A transport-level connection was established; the player has not joined yet. */
   connect(playerId) {
@@ -1351,6 +1772,12 @@ class GameRoom {
   /** Route a client -> server event to its handler. */
   applyIntent(playerId, event, payload) {
     switch (event) {
+      case GAME_EVENTS.WORLD.INTERACT: {
+        const player = this.players.get(playerId);
+        const id = payload?.id;
+        if (player && typeof id === "string" && combatAllowed(this.match.phase)) this.interactions.interact(id, player, [...this.players.values()]);
+        break;
+      }
       case GAME_EVENTS.USER.JOINED:
         this.handleJoin(playerId, payload);
         break;
@@ -1387,53 +1814,172 @@ class GameRoom {
    */
   tick(dt, now = this.clock()) {
     this.tickCount += 1;
+    this.interactions.tick(dt, [...this.players.values()], combatAllowed(this.match.phase));
     this.stepProjectiles(dt);
     this.stepGrenades(dt);
+    this.stepClouds(dt);
     this.stepCarContact(dt);
     this.stepPickups(dt, now);
+    this.stepMatch(now);
     this.transport.broadcast(GAME_EVENTS.WORLD.SNAPSHOT, {
       tick: this.tickCount,
       serverTime: now,
       players: this.snapshotPlayers(),
-      grenades: this.snapshotGrenades()
+      grenades: this.snapshotGrenades(),
+      clouds: this.snapshotClouds(),
+      interactions: this.interactions.snapshot(),
+      match: this.snapshotMatch()
     });
+  }
+  // ---- match pacing ------------------------------------------------------
+  /** Advance the round loop and carry out whatever transition it reports. */
+  stepMatch(now) {
+    const { state, transition } = stepMatch(
+      this.match,
+      { now, teamCounts: this.teamCounts(), teamScores: this.teamScores },
+      this.matchRules
+    );
+    this.match = state;
+    if (!transition) return;
+    if (transition.reset) this.resetWorld();
+    this.transport.broadcast(GAME_EVENTS.MATCH.PHASE, this.matchPhaseEvent(transition));
+  }
+  matchPhaseEvent(transition) {
+    const base = this.snapshotMatch();
+    const result = this.match.result;
+    if (transition.to !== "round-end" || !result) return base;
+    return {
+      ...base,
+      result: { ...result, leaderboard: Object.values(this.leaderBoard) }
+    };
+  }
+  /**
+   * A new round starts: scores, players, crates, pickups, grenades and
+   * bullets all go back to their initial state, then every player gets an
+   * authoritative full sync to rebuild their world from.
+   */
+  resetWorld() {
+    this.interactions.reset();
+    this.teamScores.blue = 0;
+    this.teamScores.red = 0;
+    for (const row of Object.values(this.leaderBoard)) {
+      row.kills = 0;
+      row.deaths = 0;
+      row.score = 0;
+    }
+    this.projectiles.length = 0;
+    this.grenades.clear();
+    this.clouds.clear();
+    this.pickups.clear();
+    this.pickupSpawnIn = this.rollPickupSpawnDelay();
+    this.resetCrates();
+    for (const player of this.players.values()) {
+      this.placeAtSpawn(player);
+      player.lastShotAt = -Infinity;
+      player.lastThrowAt = -Infinity;
+      player.pendingHazardDamage = 0;
+      player.pendingCloudDamage = 0;
+    }
+    for (const playerId of this.players.keys()) {
+      this.transport.send(playerId, GAME_EVENTS.GAME.STATE, this.gameStateFor(playerId));
+    }
+  }
+  resetCrates() {
+    this.crates.clear();
+    for (const spec of this.map.crates) {
+      this.crates.set(spec.id, { spec, hp: CRATE_MAX_HP });
+    }
+  }
+  /** Stand `player` up, alive with full HP, on their team's spawn street. */
+  placeAtSpawn(player) {
+    const position = this.pickSpawnFor(player.team, player.id);
+    player.status = "alive";
+    player.pose = void 0;
+    player.hp = PLAYER_MAX_HP;
+    player.position = { ...position };
+    player.rotation = facingCenterYaw(position);
+    player.positionAt = this.clock();
+    return position;
+  }
+  gameStateFor(playerId) {
+    return {
+      selfId: playerId,
+      interactions: this.interactions.snapshot(),
+      players: this.snapshotPlayers(),
+      crates: this.snapshotCrates(),
+      pickups: [...this.pickups.values()].map((p) => p.spec),
+      match: { ...this.snapshotMatch(), result: this.match.result }
+    };
+  }
+  snapshotMatch() {
+    return {
+      phase: this.match.phase,
+      phaseEndsAt: this.match.phaseEndsAt,
+      teamScores: { ...this.teamScores }
+    };
   }
   // ---- intents -----------------------------------------------------------
   handleJoin(playerId, payload) {
+    this.players.delete(playerId);
+    delete this.leaderBoard[playerId];
+    const team = pickTeam(this.teamCounts());
+    if (team === null) {
+      this.transport.send(playerId, GAME_EVENTS.USER.JOIN_REJECTED, {
+        reason: "room-full"
+      });
+      return;
+    }
     const name = sanitizeNickname(payload.name);
-    this.transport.send(playerId, GAME_EVENTS.GAME.STATE, {
-      selfId: playerId,
-      players: this.snapshotPlayers(),
-      crates: this.snapshotCrates(),
-      pickups: [...this.pickups.values()].map((p) => p.spec)
-    });
+    const position = this.pickSpawnFor(team, playerId);
+    const rotation = facingCenterYaw(position);
     this.players.set(playerId, {
       id: playerId,
       userId: playerId,
       name,
+      team,
       status: "alive",
       hp: PLAYER_MAX_HP,
-      position: payload.position,
-      rotation: facingCenterYaw(payload.position),
+      position,
+      rotation,
       positionAt: this.clock(),
       lastShotAt: -Infinity,
       lastThrowAt: -Infinity,
       lastChatAt: -Infinity,
-      pendingHazardDamage: 0
+      pendingHazardDamage: 0,
+      pendingCloudDamage: 0
     });
     this.leaderBoard[playerId] = {
       id: playerId,
       userId: playerId,
       name,
+      team,
       kills: 0,
       deaths: 0,
       score: 0
     };
+    this.transport.send(playerId, GAME_EVENTS.GAME.STATE, this.gameStateFor(playerId));
     this.transport.broadcast(
       GAME_EVENTS.USER.JOINED,
-      { id: playerId, userId: playerId, ...payload, name },
+      {
+        id: playerId,
+        userId: playerId,
+        timestamp: payload.timestamp,
+        name,
+        team,
+        position: { ...position },
+        rotation
+      },
       playerId
     );
+  }
+  /** A spawn in `team`'s zone, as far as possible from everyone else. */
+  pickSpawnFor(team, playerId) {
+    const others = [];
+    for (const other of this.players.values()) {
+      if (other.id !== playerId && other.position) others.push(other.position);
+    }
+    const points = spawnPointsFor(team, this.map.spawnPoints);
+    return { ...pickSpawnPoint(others, points) };
   }
   handleChatMessage(playerId, payload) {
     const player = this.players.get(playerId);
@@ -1454,6 +2000,7 @@ class GameRoom {
   handlePosition(playerId, payload) {
     const player = this.players.get(playerId);
     if (!player || player.status === "dead") return;
+    if (!movementAllowed(this.match.phase)) return;
     player.position = payload.position;
     player.rotation = payload.rotation;
     player.positionAt = this.clock();
@@ -1467,17 +2014,7 @@ class GameRoom {
   handleRespawn(playerId, _payload) {
     const player = this.players.get(playerId);
     if (!player || player.status !== "dead") return;
-    const others = [];
-    for (const other of this.players.values()) {
-      if (other.id !== playerId && other.position) others.push(other.position);
-    }
-    const position = pickSpawnPoint(others, this.map.spawnPoints);
-    player.status = "alive";
-    player.pose = void 0;
-    player.hp = PLAYER_MAX_HP;
-    player.position = { ...position };
-    player.rotation = facingCenterYaw(position);
-    player.positionAt = this.clock();
+    const position = this.placeAtSpawn(player);
     this.transport.broadcast(GAME_EVENTS.PLAYER.RESPAWN, {
       playerId,
       position,
@@ -1488,10 +2025,11 @@ class GameRoom {
   handleShoot(playerId, payload) {
     const player = this.players.get(playerId);
     if (!player || player.status !== "alive") return;
+    if (!combatAllowed(this.match.phase)) return;
     if (!isWeaponId(payload.weaponType)) return;
     const origin = payload.data?.position;
     const direction = payload.data?.direction;
-    if (!origin || !direction) return;
+    if (!origin || !direction || ![origin.x, origin.y, origin.z, direction.x, direction.y, direction.z].every(Number.isFinite) || Math.hypot(direction.x, direction.y, direction.z) < 1e-6) return;
     const weapon = WEAPONS[payload.weaponType];
     const now = this.clock();
     const minInterval = weapon.fireRate * 1e3 * FIRE_RATE_TOLERANCE;
@@ -1513,7 +2051,7 @@ class GameRoom {
     );
   }
   handleWeaponSwitch(playerId, payload) {
-    if (!this.players.has(playerId)) return;
+    if (!this.players.has(playerId) || !isWeaponId(payload.weaponType)) return;
     this.transport.broadcast(
       GAME_EVENTS.WEAPON.SWITCH,
       { id: playerId, userId: playerId, ...payload },
@@ -1523,6 +2061,7 @@ class GameRoom {
   handlePickupClaim(playerId, payload) {
     const player = this.players.get(playerId);
     if (!player || player.status !== "alive" || !player.position) return;
+    if (!combatAllowed(this.match.phase)) return;
     const pickup = this.pickups.get(payload.pickupId);
     if (!pickup) return;
     if (!isWithinPickupReach(player.position, pickup.spec.position)) return;
@@ -1531,7 +2070,9 @@ class GameRoom {
       case "health":
         player.hp = Math.min(PLAYER_MAX_HP, player.hp + pickup.spec.amount);
         break;
+      case "weapon":
       case "ammo":
+      case "throwable":
         break;
       default: {
         const unhandled = pickup.spec;
@@ -1547,14 +2088,15 @@ class GameRoom {
   handleGrenadeThrow(playerId, payload) {
     const player = this.players.get(playerId);
     if (!player || player.status !== "alive") return;
-    if (!payload.position || !payload.direction) return;
+    if (!combatAllowed(this.match.phase)) return;
+    if (!payload.position || !payload.direction || !isGrenadeKind(payload.kind)) return;
     const now = this.clock();
     if (now - player.lastThrowAt < GRENADE.throwCooldown * 1e3) return;
     player.lastThrowAt = now;
     const id = `grenade-${this.nextGrenadeId++}`;
     this.grenades.set(
       id,
-      spawnGrenade(id, playerId, payload.position, payload.direction)
+      spawnGrenade(id, playerId, payload.kind, payload.position, payload.direction)
     );
     this.transport.broadcast(
       GAME_EVENTS.GRENADE.THROW,
@@ -1565,15 +2107,61 @@ class GameRoom {
   // ---- simulation --------------------------------------------------------
   stepGrenades(dt) {
     if (this.grenades.size === 0) return;
-    const colliders = [...this.staticColliders, ...this.crateColliders()];
+    const colliders = [...this.staticColliders, ...this.crateColliders(), ...this.interactionColliders()];
     for (const grenade of this.grenades.values()) {
-      integrateGrenade(grenade, dt, colliders);
-      if (grenade.fuse <= 0) this.explodeGrenade(grenade);
+      const bounce = integrateGrenade(grenade, dt, colliders);
+      const shattered = bounce !== null && shattersOnImpact(grenade.kind);
+      if (grenade.fuse <= 0 || shattered) this.explodeGrenade(grenade);
     }
   }
+  /**
+   * The fuse ran out (or the bottle broke): resolve what this kind of grenade
+   * does and tell everyone.
+   */
   explodeGrenade(grenade) {
     this.grenades.delete(grenade.id);
+    const outcome = {
+      grenadeId: grenade.id,
+      kind: grenade.kind,
+      ownerId: grenade.ownerId,
+      position: grenade.position,
+      hits: [],
+      flashed: []
+    };
+    switch (grenade.kind) {
+      case "frag":
+        outcome.hits = this.fragHits(grenade.position);
+        break;
+      case "flash":
+        outcome.flashed = this.flashVictims(grenade.position);
+        break;
+      case "smoke":
+      case "gas":
+      case "molotov": {
+        const cloudKind = cloudKindOf(grenade.kind);
+        if (!cloudKind) break;
+        this.clouds.set(`cloud-${grenade.id}`, spawnCloud(`cloud-${grenade.id}`, grenade, cloudKind));
+        break;
+      }
+      default: {
+        const unhandled = grenade.kind;
+        throw new Error(`Unhandled grenade kind: ${String(unhandled)}`);
+      }
+    }
+    this.transport.broadcast(GAME_EVENTS.GRENADE.EXPLODED, outcome);
+    if (grenade.kind !== "frag") return;
     const center = grenade.position;
+    for (const p of this.interactions.specs.values()) this.damageInteraction(p.id, blastDamage(center, { ...p.position, y: p.position.y + 0.5 }), grenade.ownerId);
+    for (const { targetId, damage } of outcome.hits) {
+      if (this.players.has(targetId)) {
+        this.applyDamage(grenade.ownerId, targetId, damage, "grenade", center);
+      } else {
+        this.damageCrate(targetId, damage);
+      }
+    }
+  }
+  /** Players and crates inside a frag blast at `center`, with the damage each takes. */
+  fragHits(center) {
     const hits = [];
     for (const player of this.players.values()) {
       if (player.status !== "alive" || !player.position) continue;
@@ -1586,36 +2174,68 @@ class GameRoom {
       if (damage <= 0) continue;
       hits.push({ targetId: crate.spec.id, damage });
     }
-    this.transport.broadcast(GAME_EVENTS.GRENADE.EXPLODED, {
-      grenadeId: grenade.id,
-      ownerId: grenade.ownerId,
-      position: center,
-      hits
-    });
-    for (const { targetId, damage } of hits) {
-      if (this.players.has(targetId)) {
-        this.applyDamage(grenade.ownerId, targetId, damage, "grenade", center);
-      } else {
-        this.damageCrate(targetId, damage);
+    return hits;
+  }
+  /**
+   * Everyone alive within the flash radius who has a clear line to it, the
+   * thrower included. Solid cover blocks the flash, like rocket splash.
+   */
+  flashVictims(center) {
+    const blockers = [...this.staticColliders, ...this.crateColliders(), ...this.interactionColliders()];
+    const flashed = [];
+    for (const player of this.players.values()) {
+      if (player.status !== "alive" || !player.position) continue;
+      const intensity = flashIntensity(center, player.position);
+      if (intensity <= 0 || sweepProjectile(center, player.position, blockers)) continue;
+      flashed.push({ targetId: player.id, intensity });
+    }
+    return flashed;
+  }
+  /**
+   * Clouds thin out and vanish; while a gas cloud or a fire lasts, anyone
+   * standing in it takes its damage per second. Like car contact, damage
+   * accumulates per player and lands in whole points so the event stream stays
+   * sparse. Overlapping hazards do not stack: the worst one applies.
+   */
+  stepClouds(dt) {
+    if (this.clouds.size === 0) return;
+    for (const cloud of this.clouds.values()) {
+      cloud.remaining -= dt;
+      if (cloud.remaining <= 0) this.clouds.delete(cloud.id);
+    }
+    for (const player of this.players.values()) {
+      if (player.status !== "alive" || !player.position) continue;
+      const position = player.position;
+      let hazard = null;
+      for (const cloud of this.clouds.values()) {
+        if (CLOUD_EFFECTS[cloud.kind].dps <= 0 || !cloudContains(cloud, position)) continue;
+        if (!hazard || CLOUD_EFFECTS[cloud.kind].dps > CLOUD_EFFECTS[hazard.kind].dps) hazard = cloud;
       }
+      if (!hazard) {
+        player.pendingCloudDamage = 0;
+        continue;
+      }
+      player.pendingCloudDamage += CLOUD_EFFECTS[hazard.kind].dps * dt;
+      const whole = Math.floor(player.pendingCloudDamage);
+      if (whole <= 0) continue;
+      player.pendingCloudDamage -= whole;
+      this.applyDamage(hazard.ownerId, player.id, whole, cloudDamageSource(hazard.kind), position);
     }
   }
   stepProjectiles(dt) {
     if (this.projectiles.length === 0) return;
-    const colliders = [
-      ...this.staticColliders,
-      ...this.crateColliders(),
-      ...this.playerColliders()
-    ];
     for (let i = this.projectiles.length - 1; i >= 0; i--) {
       const projectile = this.projectiles[i];
       const { hit, expired } = integrateProjectile(
         projectile,
         dt,
-        colliders,
+        [...this.staticColliders, ...this.crateColliders(), ...this.playerColliders(), ...this.interactionColliders()],
         (c) => c.tag.kind === "player" && c.tag.id === projectile.ownerId
       );
-      if (hit) {
+      if (projectile.weaponId === "rocket" && expired) {
+        this.explodeRocket(projectile);
+      } else if (hit) {
+        if (projectile.weaponId === "arc" && hit.collider.tag.kind === "player") this.chainArc(projectile, hit.collider.tag.id);
         switch (hit.collider.tag.kind) {
           case "player":
             this.applyDamage(
@@ -1629,6 +2249,9 @@ class GameRoom {
           case "crate":
             this.damageCrate(hit.collider.tag.id, projectile.damage);
             break;
+          case "interactive":
+            this.damageInteraction(hit.collider.tag.id, projectile.damage, projectile.ownerId);
+            break;
           case "static":
             break;
           default: {
@@ -1640,10 +2263,45 @@ class GameRoom {
       if (expired) this.projectiles.splice(i, 1);
     }
   }
+  explodeRocket(projectile) {
+    const center = { x: projectile.position.x - projectile.direction.x * 0.04, y: Math.max(0.04, projectile.position.y - projectile.direction.y * 0.04), z: projectile.position.z - projectile.direction.z * 0.04 };
+    this.transport.broadcast(GAME_EVENTS.WORLD.BLAST, { id: `rocket-${projectile.id}`, position: center });
+    const blockers = [...this.staticColliders, ...this.crateColliders(), ...this.interactionColliders()];
+    const damageAt = (p) => rocketBlastDamage(Math.hypot(p.x - center.x, p.y - center.y, p.z - center.z));
+    for (const player of this.players.values()) {
+      if (!player.position || player.status !== "alive") continue;
+      const damage = damageAt(player.position);
+      if (damage > 0 && !sweepProjectile(center, player.position, blockers)) this.applyDamage(projectile.ownerId, player.id, damage, "rocket", center);
+    }
+    for (const crate of this.crates.values()) {
+      const damage = damageAt(aabbCenter(crateBox(crate.spec)));
+      if (damage > 0) this.damageCrate(crate.spec.id, damage);
+    }
+    for (const prop of this.interactions.specs.values()) this.damageInteraction(prop.id, damageAt({ ...prop.position, y: prop.position.y + 0.5 }), projectile.ownerId);
+  }
+  chainArc(projectile, firstId) {
+    const first = this.players.get(firstId);
+    if (!first?.position) return;
+    const points = [{ ...projectile.position }, { ...first.position }];
+    const visited = /* @__PURE__ */ new Set([firstId, projectile.ownerId]);
+    let from = first.position;
+    const blockers = [...this.staticColliders, ...this.crateColliders(), ...this.interactionColliders()];
+    for (const damage of [20, 12]) {
+      const candidates = [...this.players.values()].filter((p) => p.status === "alive" && p.position && !visited.has(p.id)).map((p) => ({ p, d: Math.hypot(p.position.x - from.x, p.position.y - from.y, p.position.z - from.z) })).filter((v) => v.d <= 4).sort((a, b) => a.d - b.d);
+      const target = candidates.find(({ p }) => !sweepProjectile(from, p.position, blockers))?.p;
+      if (!target?.position) break;
+      visited.add(target.id);
+      this.applyDamage(projectile.ownerId, target.id, damage, "arc", target.position);
+      from = target.position;
+      points.push({ ...from });
+    }
+    this.transport.broadcast(GAME_EVENTS.WORLD.ARC, { points });
+  }
   /** Apply damage to a crate; destroy it and maybe drop a pickup at zero HP. */
   damageCrate(crateId, damage) {
     const crate = this.crates.get(crateId);
     if (!crate) return;
+    if (!combatAllowed(this.match.phase)) return;
     crate.hp = Math.max(0, crate.hp - damage);
     this.transport.broadcast(GAME_EVENTS.CRATE.DAMAGED, {
       crateId,
@@ -1674,12 +2332,14 @@ class GameRoom {
         pickupId: pickup.spec.id
       });
     }
+    if (!combatAllowed(this.match.phase)) return;
     this.pickupSpawnIn -= dt;
     if (this.pickupSpawnIn > 0) return;
     this.pickupSpawnIn = this.rollPickupSpawnDelay();
     if (this.pickups.size >= PICKUP_MAX_COUNT) return;
     const blockers = [
       ...this.staticColliders.map((c) => c.box),
+      ...this.interactionColliders().map((c) => c.box),
       ...this.crateColliders().map((c) => c.box)
     ];
     const playerPositions = [];
@@ -1728,6 +2388,7 @@ class GameRoom {
   applyDamage(shooterId, targetId, damage, source, position) {
     const target = this.players.get(targetId);
     if (!target || target.status !== "alive") return;
+    if (!combatAllowed(this.match.phase)) return;
     target.hp = Math.max(0, target.hp - damage);
     this.transport.broadcast(GAME_EVENTS.COMBAT.HIT, {
       shooterId,
@@ -1739,18 +2400,53 @@ class GameRoom {
     });
     if (target.hp > 0) return;
     target.status = "dead";
+    const killerPlayer = this.players.get(shooterId);
     const killer = this.leaderBoard[shooterId];
-    if (killer && shooterId !== targetId) {
-      killer.kills += 1;
-      killer.score += KILL_SCORE;
+    const teamKill = killerPlayer !== void 0 && killerPlayer.team === target.team;
+    if (killer && killerPlayer && shooterId !== targetId) {
+      const delta = teamKill ? -1 : 1;
+      killer.kills += delta;
+      killer.score += delta * KILL_SCORE;
+      this.teamScores[killerPlayer.team] += delta;
     }
     const victim = this.leaderBoard[targetId];
     if (victim) victim.deaths += 1;
     this.transport.broadcast(GAME_EVENTS.COMBAT.KILL, {
       killerId: shooterId,
       victimId: targetId,
-      source
+      source,
+      teamKill: teamKill && shooterId !== targetId,
+      teamScores: { ...this.teamScores }
     });
+  }
+  interactionColliders() {
+    return this.interactions.snapshot().flatMap((s) => {
+      const p = this.interactions.specs.get(s.id);
+      return p.type === "fence-gate" ? [] : interactionBoxes(p, s).map((box) => ({ box, tag: { kind: "interactive", id: s.id } }));
+    });
+  }
+  /** The barrel is marked destroyed before cascading, so a chain detonates each only once. */
+  damageInteraction(id, damage, ownerId) {
+    if (!combatAllowed(this.match.phase)) return;
+    const queue = [];
+    if (this.interactions.damage(id, damage)) queue.push(id);
+    for (let i = 0; i < queue.length; i++) {
+      const p = this.interactions.specs.get(queue[i]);
+      const center = { ...p.position, y: p.position.y + 0.5 };
+      const falloff = (position) => Math.max(0, Math.round(80 * (1 - Math.hypot(position.x - center.x, position.y - center.y, position.z - center.z) / 4)));
+      this.transport.broadcast(GAME_EVENTS.WORLD.BLAST, { id: p.id, position: center });
+      for (const player of this.players.values()) if (player.position) {
+        const amount = falloff(player.position);
+        if (amount > 0) this.applyDamage(ownerId, player.id, amount, "barrel", center);
+      }
+      for (const crate of this.crates.values()) {
+        const amount = falloff(aabbCenter(crateBox(crate.spec)));
+        if (amount > 0) this.damageCrate(crate.spec.id, amount);
+      }
+      for (const other of this.interactions.specs.values()) {
+        if (this.interactions.damage(other.id, falloff({ ...other.position, y: other.position.y + 0.5 }))) queue.push(other.id);
+      }
+    }
   }
   crateColliders() {
     return [...this.crates.values()].map(({ spec }) => ({
@@ -1759,10 +2455,19 @@ class GameRoom {
     }));
   }
   snapshotGrenades() {
-    return [...this.grenades.values()].map(({ id, ownerId, position }) => ({
+    return [...this.grenades.values()].map(({ id, kind, ownerId, position }) => ({
       id,
+      kind,
       ownerId,
       position
+    }));
+  }
+  snapshotClouds() {
+    return [...this.clouds.values()].map(({ id, kind, position, remaining }) => ({
+      id,
+      kind,
+      position,
+      remaining
     }));
   }
   snapshotCrates() {
@@ -1786,11 +2491,12 @@ class GameRoom {
   }
   snapshotPlayers() {
     return [...this.players.values()].map(
-      ({ id, userId, name, status, hp, position, rotation, positionAt, pose }) => ({
+      ({ id, userId, name, team, status, hp, position, rotation, positionAt, pose }) => ({
         pose,
         id,
         userId,
         name,
+        team,
         status,
         hp,
         position,
@@ -1798,6 +2504,20 @@ class GameRoom {
         positionAt
       })
     );
+  }
+}
+function cloudDamageSource(kind) {
+  switch (kind) {
+    case "gas":
+      return "gas";
+    case "fire":
+      return "fire";
+    case "smoke":
+      throw new Error("smoke does no damage");
+    default: {
+      const unhandled = kind;
+      throw new Error(`Unhandled cloud kind: ${String(unhandled)}`);
+    }
   }
 }
 
@@ -1853,6 +2573,7 @@ function attachSocketIO(io, room) {
   io.on("connection", (socket) => {
     console.log("A user connected:", socket.id);
     room.connect(socket.id);
+    socket.on(GAME_EVENTS.WORLD.INTERACT, (p) => room.applyIntent(socket.id, GAME_EVENTS.WORLD.INTERACT, p));
     socket.on(
       GAME_EVENTS.USER.JOINED,
       (p) => room.applyIntent(socket.id, GAME_EVENTS.USER.JOINED, p)
@@ -1926,5 +2647,5 @@ app.get("/", (_req, res) => {
   res.send("<h1>Hello world</h1>");
 });
 app.get("/leaderboard", (_req, res) => {
-  res.send(room.leaderBoard);
+  res.json(room.leaderboardResponse());
 });
