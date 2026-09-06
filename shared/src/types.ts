@@ -83,6 +83,7 @@ export type RespawnRequestEvent = BaseEvent;
 
 /** Server -> all: a player is alive again at `position` with full HP. */
 export interface PlayerRespawnedEvent {
+  armor?: number;
   playerId: string;
   position: Vec3;
   rotation: number;
@@ -152,6 +153,8 @@ export interface CombatHitEvent {
   damage: number;
   /** Target HP after the hit. */
   hp: number;
+  /** Remaining damage absorption; omitted by older clients. */
+  armor?: number;
   source: DamageSource;
   position: Vec3;
 }
@@ -190,7 +193,7 @@ export interface CrateState {
 
 /** A collectable lying in the world. Owned by the server. */
 export type PickupSpec =
-  | { id: string; kind: "health"; position: Vec3; amount: number }
+  | { id: string; kind: "health" | "armor"; position: Vec3; amount: number }
   | {
       id: string;
       kind: "ammo" | "weapon";
@@ -219,6 +222,8 @@ export interface PickupTakenEvent {
   pickup: PickupSpec;
   playerId: string;
   hp: number;
+  /** Remaining damage absorption; omitted by older clients. */
+  armor?: number;
 }
 
 /** Server -> all: the pickup timed out and is gone. */
@@ -235,6 +240,8 @@ export interface PlayerSnapshot {
   team: Team;
   status: PlayerStatus;
   hp: number;
+  /** Remaining damage absorption; omitted by older clients. */
+  armor?: number;
   position?: Vec3;
   rotation: number;
   /**

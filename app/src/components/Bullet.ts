@@ -1,10 +1,13 @@
 import * as THREE from 'three';
+import { attachModel } from '../core/models';
 import {WEAPONS,type WeaponId} from '@threejs-shooter/shared';
 
 /** Cosmetic projectile with the same speed/range as the authoritative simulation. */
 export class Bullet {
   private mesh:THREE.Mesh<THREE.BufferGeometry,THREE.MeshBasicMaterial>;
   private tracer:THREE.Line;
+  private visual?: THREE.Group;
+  private removed = false;
   private velocity:THREE.Vector3;
   private previousPosition:THREE.Vector3;
   private remaining:number;
@@ -19,6 +22,19 @@ export class Bullet {
     this.mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),direction.clone().normalize());
     this.mesh.position.copy(position);this.previousPosition=position.clone();
     this.velocity=direction.clone().normalize().multiplyScalar(stats.bulletSpeed);scene.add(this.mesh);
+    if (!flame) {
+      // Root moves with the simulation; GLB's authored forward axis is -Z.
+      this.visual = new THREE.Group();
+      this.visual.position.copy(position);
+      this.visual.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, -1), direction.clone().normalize());
+      scene.add(this.visual);
+      attachModel(this.visual, `noir-projectile-${rocket ? 'rocket' : id === 'arc' ? 'arc' : 'round'}`, model => {
+        if (this.removed) { model.removeFromParent(); return; }
+        this.mesh.visible = false;
+        model.traverse(o => { if (o instanceof THREE.Mesh) o.castShadow = o.receiveShadow = false; });
+      });
+    }
+
     this.tracer=new THREE.Line(new THREE.BufferGeometry().setFromPoints([position.clone(),position.clone()]),new THREE.LineBasicMaterial({color:id==='arc'?0x79e8ff:0xffb351,transparent:true,opacity:.7}));
     this.tracer.visible=!flame;scene.add(this.tracer);
   }
@@ -32,10 +48,11 @@ export class Bullet {
     const positions=this.tracer.geometry.getAttribute('position');
     positions.setXYZ(0,this.mesh.position.x,this.mesh.position.y,this.mesh.position.z);
     positions.setXYZ(1,this.previousPosition.x,this.previousPosition.y,this.previousPosition.z);positions.needsUpdate=true;
+    this.visual?.position.copy(this.mesh.position);
     this.alive=this.remaining>1e-6&&this.mesh.position.y>0;
     return this.alive;
   }
-  remove(scene:THREE.Scene){scene.remove(this.mesh,this.tracer);this.mesh.geometry.dispose();this.mesh.material.dispose();this.tracer.geometry.dispose();(this.tracer.material as THREE.Material).dispose();}
+  remove(scene:THREE.Scene){this.removed = true; this.visual?.removeFromParent(); scene.remove(this.mesh,this.tracer);this.mesh.geometry.dispose();this.mesh.material.dispose();this.tracer.geometry.dispose();(this.tracer.material as THREE.Material).dispose();}
   isAlive(){return this.alive;}
   getPosition(){return this.mesh.position;}
 }

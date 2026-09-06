@@ -7,7 +7,7 @@ import {
   type GrenadeKind,
 } from "@threejs-shooter/shared";
 import type { NetworkClient } from "../net/NetworkClient";
-import type { Replication } from "../net/Replication";
+import type { ReplicatedWorld, Replication } from "../net/Replication";
 import { sfx } from "../audio/sfx";
 import type { FlashOverlay } from "./FlashOverlay";
 import { grenadeGeometry, grenadeMaterial } from "./grenadeMeshes";
@@ -118,13 +118,13 @@ export class GrenadeRenderer {
     });
   }
 
-  update(delta: number): void {
-    this.syncGrenades();
+  update(delta: number, world?: ReplicatedWorld): void {
+    this.syncGrenades(world);
     this.updateExplosions(delta);
   }
 
-  private syncGrenades(): void {
-    const { grenades } = this.replication.sampleWorld(performance.now());
+  private syncGrenades(world?: ReplicatedWorld): void {
+    const { grenades } = world ?? this.replication.sampleWorld(performance.now());
 
     for (const [id, state] of grenades) {
       let mesh = this.meshes.get(id);

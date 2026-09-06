@@ -6,7 +6,7 @@ import { loadTextureSet } from './textures';
 /** Wet asphalt: PBR aggregate plus a single masked, low-resolution reflection pass. */
 export class Ground {
   constructor(scene: THREE.Scene) {
-    const maps = loadTextureSet('wet-asphalt', { repeat: 16 });
+    const maps = loadTextureSet('wet-asphalt', { repeat: 64 });
     const material = new THREE.MeshPhysicalMaterial({
       map: maps.basecolor, normalMap: maps.normal,
       normalScale: new THREE.Vector2(.65, .65), roughnessMap: maps.roughness,
@@ -16,7 +16,7 @@ export class Ground {
     });
     material.onBeforeCompile = (shader) => {
       shader.vertexShader = 'varying vec2 rainMetres;\n' + shader.vertexShader.replace(
-        '#include <begin_vertex>', '#include <begin_vertex>\nrainMetres = uv * 100.0;'
+        '#include <begin_vertex>', '#include <begin_vertex>\nrainMetres = uv * 400.0;'
       );
       shader.fragmentShader = 'varying vec2 rainMetres;\n' + wetSurfaceGLSL + shader.fragmentShader.replace(
         '#include <roughnessmap_fragment>', `#include <roughnessmap_fragment>
@@ -25,15 +25,15 @@ export class Ground {
         diffuseColor.rgb *= mix(1.0, .78, basinWet);`
       );
     };
-    material.customProgramCacheKey = () => 'asphalt-puddle-basins-v1';
-    const ground = new THREE.Mesh(new THREE.PlaneGeometry(100, 100), material);
+    material.customProgramCacheKey = () => 'asphalt-puddle-basins-v2';
+    const ground = new THREE.Mesh(new THREE.PlaneGeometry(400, 400), material);
     ground.rotation.x = -Math.PI / 2;
     ground.receiveShadow = true;
     scene.add(ground);
 
     // Reflection coverage follows the same roughness texture as the surface.
     // It is strongest in smooth hollows and breaks apart over the aggregate.
-    const reflection = new Reflector(new THREE.PlaneGeometry(100, 100), {
+    const reflection = new Reflector(new THREE.PlaneGeometry(400, 400), {
       textureWidth: 768, textureHeight: 768, multisample: 0, clipBias: .003,
       shader: {
         name: 'Rain puddles',
@@ -49,8 +49,8 @@ export class Ground {
           varying vec2 rainMetres;
           varying vec3 worldPosition;
           void main() {
-            surfaceUv = uv * 16.0;
-            rainMetres = uv * 100.0;
+            surfaceUv = uv * 64.0;
+            rainMetres = uv * 400.0;
             reflectionUv = textureMatrix * vec4(position, 1.0);
             worldPosition = (modelMatrix * vec4(position, 1.0)).xyz;
             gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
@@ -72,7 +72,7 @@ export class Ground {
             float wet = rainPuddle(rainMetres) * .8 + (1.0 - smoothstep(.28, .64, roughness)) * .12;
             vec3 viewDir = normalize(cameraPosition - worldPosition);
             float fresnel = .12 + .5 * pow(1.0 - abs(viewDir.y), 3.0);
-            gl_FragColor = vec4(reflected, wet * fresnel);
+            gl_FragColor = vec4(reflected, wet * fresnel * (1.0 - smoothstep(65.0, 105.0, length(cameraPosition - worldPosition))));
             #include <tonemapping_fragment>
             #include <colorspace_fragment>
           }`,

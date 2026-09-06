@@ -1,3 +1,4 @@
+import { ArmorPickup } from "./ArmorPickup";
 import * as THREE from "three";
 import {
   GAME_EVENTS, WEAPONS,
@@ -85,7 +86,7 @@ export class PickupManager {
       this.removeServerPickup(pickupId);
     });
 
-    net.on(GAME_EVENTS.PICKUP.TAKEN, ({ pickup, playerId, hp }) => {
+    net.on(GAME_EVENTS.PICKUP.TAKEN, ({ pickup, playerId, hp, armor }) => {
       const position = new THREE.Vector3(
         pickup.position.x,
         pickup.position.y,
@@ -101,6 +102,7 @@ export class PickupManager {
       this.removeServerPickup(pickup.id);
 
       if (playerId !== net.selfId) return;
+      this.playerController.applyServerArmor(armor ?? 0);
       this.applyToLocalPlayer(pickup, hp);
     });
   }
@@ -108,6 +110,8 @@ export class PickupManager {
   /** The server says we got it: apply the effect and tell the player. */
   private applyToLocalPlayer(pickup: PickupSpec, hp: number): void {
     switch (pickup.kind) {
+      case "armor":
+        break;
       case "weapon":
         this.playerController.getWeaponSystem().grantWeapon(pickup.weaponId,pickup.amount);
         this.hud?.showWeaponPickupNotification(WEAPONS[pickup.weaponId].name);
@@ -143,6 +147,9 @@ export class PickupManager {
 
     let pickup: Pickup;
     switch (spec.kind) {
+      case "armor":
+        pickup = new ArmorPickup(this.scene, position);
+        break;
       case "weapon":
         pickup = new ArsenalPickup(this.scene,position,spec.weaponId);
         break;

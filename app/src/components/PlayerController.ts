@@ -69,6 +69,9 @@ const startingThrowables = (): Record<GrenadeKind, number> =>
     number
   >;
 
+/** Armor cap, mirroring the server's clamp in `GameRoom.ts` (`Math.min(50, ...)`). */
+const MAX_ARMOR = 50;
+
 /**
  * Controls player character state and movement
  */
@@ -90,6 +93,10 @@ export class PlayerController {
   // Health system
   private maxHealth = 100;
   private currentHealth = 100;
+  private armor = 0;
+  public getArmor(): number { return this.armor; }
+  public getMaxArmor(): number { return MAX_ARMOR; }
+  public applyServerArmor(value: number): void { this.armor = Math.max(0, Math.min(MAX_ARMOR, value)); }
   private isDead = false;
   private combatAllowed = true;
 
@@ -160,8 +167,9 @@ export class PlayerController {
    * HP, death and respawn are owned by the server; we apply what it tells us.
    */
   private setupNetworkListeners(): void {
-    this.net.on(GAME_EVENTS.COMBAT.HIT, ({ targetId, damage, hp }) => {
+    this.net.on(GAME_EVENTS.COMBAT.HIT, ({ targetId, damage, hp, armor }) => {
       if (targetId !== this.net.selfId) return;
+      this.applyServerArmor(armor ?? 0);
       this.applyServerHit(damage, hp);
     });
 
@@ -687,6 +695,7 @@ export class PlayerController {
   }
 
   private applyServerRespawn(position: Vec3, rotation: number, hp: number): void {
+    this.armor = 0;
     this.currentHealth = hp;
     this.isDead = false;
     this.isCrouching = false;

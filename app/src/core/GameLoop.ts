@@ -94,11 +94,12 @@ export class GameLoop {
     // Update pickup manager
     this.pickupManager.update(delta);
 
-    // Update remote players (also renders their nameplates)
-    this.remotePlayerManager.update(delta, this.camera);
+    // Update remote players (also renders their nameplates) and sample the
+    // replicated world once for all server-state renderers.
+    const replicatedWorld = this.remotePlayerManager.update(delta, this.camera);
 
     // Update server-simulated grenades and explosion effects
-    this.grenadeRenderer.update(delta);
+    this.grenadeRenderer.update(delta, replicatedWorld);
 
     // Update HUD
     if (this.hud) {

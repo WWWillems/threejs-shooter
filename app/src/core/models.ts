@@ -17,7 +17,15 @@ export function surface(name: string): THREE.MeshStandardMaterial | undefined {
   const cached = materials.get(slug);
   if (cached) return cached;
   let material: THREE.MeshStandardMaterial;
-  if (slug === 'crate-planks') {
+  if (slug === 'gang-charcoal-canvas' || slug === 'gang-cargo-canvas') {
+    const maps = loadTextureSet('gang-charcoal-canvas', { repeat: 3 });
+    for (const texture of Object.values(maps)) texture.flipY = false;
+    material = new THREE.MeshStandardMaterial({
+      map: maps.basecolor, normalMap: maps.normal, roughnessMap: maps.roughness,
+      aoMap: maps.ao, normalScale: new THREE.Vector2(.15, .15), aoMapIntensity: .35,
+      color: slug === 'gang-cargo-canvas' ? 0xb9b5a1 : 0xffffff,
+    });
+  } else if (slug === 'crate-planks') {
     const maps = loadTextureSet(slug);
     for (const texture of Object.values(maps)) texture.flipY = false;
     material = new THREE.MeshStandardMaterial({ map: maps.basecolor, normalMap: maps.normal,

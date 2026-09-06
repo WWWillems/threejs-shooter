@@ -95,3 +95,32 @@ MCP, holds the rocket launcher, flamethrower, precision rifle and arc gun. The f
 explicit muzzle nodes and detachable magazines; the precision rifle also has a
 moving bolt. Blender renders the matching transparent inventory icons into
 `app/public/icons/`. The standalone character workshop includes all seven weapons.
+
+### Reference-sheet teams
+
+`noir-team-a.blend` and `noir-team-b.blend` are isolated Blender MCP workshops.
+Run `model-team-characters.py` with `TEAM='A'` or `TEAM='B'`, then
+`review-team-characters.py` after both exports exist. The review step canonicalizes
+weapon sockets, keeps nine unique animation clips, attaches external approved PBR
+maps and renders the previews. Team A uses the existing wool; Team B uses approved
+`gang-charcoal-canvas` with subtle normal strength. Both share the original 18-bone
+hierarchy and animation contract. Geometry budgets: A 8,604 triangles; B 6,964.
+The game chooses A for blue and B for red. The character workshop has a team selector.
+
+### Loot and projectile kit
+
+`model-noir-loot.py` builds the isolated `Noir loot workshop`, saves
+`noir-loot.blend`, renders `noir-loot-preview.png`, and exports twelve GLBs:
+seven weapon-specific ammo packs, medical satchel, armor vest, rocket, bullet,
+and arc cell. These assets use 66–1,296 triangles each and 2–6 material primitives.
+Projectiles face game -Z; pickup roots stay at the authoritative spawn position
+while their visual children hover. Cached GLB geometry/materials are shared.
+The vest reuses approved charcoal canvas; the small metal and enamel details
+use named flat PBR materials, requiring no new image generation.
+
+Character refinement scripts are `refine-team-a-character.py` and
+`refine-team-b-professional.py`; run them through Blender MCP sequentially.
+A preserves its base rig generator; B refines the already loaded B workshop.
+Use `preview-refined-team-a.py` and `preview-team-b-professional.py` to review.
+Both exports retain nine clips and eighteen bones; A is 12,268 triangles and
+B is 14,903 triangles. The original base generator is not the final geometry.

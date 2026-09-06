@@ -22,6 +22,14 @@ type LeaderboardPlayer = LeaderboardEntry;
 
 const TEAM_LABEL: Record<Team, string> = { blue: "Blue", red: "Red" };
 
+type WeaponSlotState = {
+  identity: Weapon["id"];
+  selected: boolean;
+  iconElement: HTMLElement;
+  ammoElement: HTMLElement;
+  reloadOverlayElement: HTMLElement | null;
+};
+
 export class HUD {
   private container: HTMLElement;
   private uiOverlay: HTMLElement;
@@ -58,8 +66,11 @@ export class HUD {
   private readonly chat: Chat;
 
   private weaponSlots: HTMLElement[] = [];
+  private weaponSlotStates: Array<WeaponSlotState | null> = [];
   private healthBarElement: HTMLElement | null = null;
   private healthValueElement: HTMLElement | null = null;
+  private armorBarElement: HTMLElement | null = null;
+  private armorValueElement: HTMLElement | null = null;
   private crosshairElement: HTMLElement | null = null;
   private nicknameElement: HTMLElement | null = null;
   private throwableDisplayElement: HTMLElement | null = null;
@@ -111,6 +122,8 @@ export class HUD {
 
     this.healthBarElement = document.getElementById("health-bar-fill");
     this.healthValueElement = document.getElementById("health-value");
+    this.armorBarElement = document.getElementById("armor-bar-fill");
+    this.armorValueElement = document.getElementById("armor-value");
     this.crosshairElement = document.getElementById("crosshair");
     this.nicknameElement = document.getElementById("nickname-display");
     this.throwableDisplayElement = document.getElementById("throwable-display");
@@ -271,15 +284,28 @@ export class HUD {
       <div class="fps-counter hidden" id="fps">0</div>
       
       <div class="health-container">
-        <div class="health-icon">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
-            <path d="M12 5v14M5 12h14" />
-          </svg>
+        <div class="health-stat hp-stat">
+          <div class="health-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+              <path d="M12 5v14M5 12h14" />
+            </svg>
+          </div>
+          <div class="health-bar hp-bar">
+            <div class="health-bar-fill" id="health-bar-fill"></div>
+          </div>
+          <div class="health-value" id="health-value">100 HP</div>
         </div>
-        <div class="health-bar">
-          <div class="health-bar-fill" id="health-bar-fill"></div>
+        <div class="health-stat armor-stat">
+          <div class="armor-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 3l7 3v6c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6l7-3z" />
+            </svg>
+          </div>
+          <div class="health-bar armor-bar">
+            <div class="armor-bar-fill" id="armor-bar-fill"></div>
+          </div>
+          <div class="armor-value" id="armor-value">0 ARMOR</div>
         </div>
-        <div class="health-value" id="health-value">100</div>
       </div>
       
       <div class="nickname-display" id="nickname-display">Player</div>
@@ -991,46 +1017,81 @@ export class HUD {
       const slotElement = this.weaponSlots[i];
       if (slotElement && i < inventory.length) {
         const weapon = inventory[i];
-        slotElement.title = `${i+1} — ${weapon.id ? WEAPONS[weapon.id].ammoType : "Empty"}`;
+        const selected = i === currentWeaponIndex;
+        let state = this.weaponSlotStates[i];
+        if (!state || state.identity !== weapon.id) {
+          state = this.createWeaponSlotContent(slotElement, weapon, selected);
+          this.weaponSlotStates[i] = state;
+        }
 
-        // Check if weapon slot is empty
-        if (weapon.name === "Empty") {
-          slotElement.innerHTML = `
-            <div class="weapon-icon empty ${
-              i === currentWeaponIndex ? "selected" : ""
-            }">
-              <div class="weapon-image">
-                <svg viewBox="0 0 100 40" xmlns="http://www.w3.org/2000/svg">
-                  <rect x="30" y="15" width="40" height="10" fill="#444" fill-opacity="0.3" />
-                  <text x="50" y="25" text-anchor="middle" fill="#fff" font-size="10">Empty</text>
-                </svg>
-              </div>
-              <span class="weapon-name">Empty Slot</span>
-              <span class="weapon-ammo">-/-</span>
-            </div>
-          `;
-        } else {
-          // Get the appropriate weapon icon for non-empty slots
-          const weaponIcon = this.getWeaponIcon(weapon.name);
-          const reloadOverlayPercent = this.getReloadOverlayPercent(weapon);
+        const title = `${i+1} — ${weapon.id ? WEAPONS[weapon.id].ammoType : "Empty"}`;
+        if (slotElement.title !== title) {
+          slotElement.title = title;
+        }
 
-          slotElement.innerHTML = `
-            <div class="weapon-icon ${
-              i === currentWeaponIndex ? "selected" : ""
-            }">
-              <div class="weapon-image">
-                ${weaponIcon}
-                <div class="cooldown-overlay" style="height: ${reloadOverlayPercent}%"></div>
-              </div>
-              <span class="weapon-name">${weapon.name}</span>
-              <span class="weapon-ammo">${weapon.bulletsInMagazine}/${
-            weapon.totalBullets
-          }</span>
-            </div>
-          `;
+        if (state.selected !== selected) {
+          state.iconElement.classList.toggle("selected", selected);
+          state.selected = selected;
+        }
+
+        const ammo = weapon.name === "Empty"
+          ? "-/-"
+          : `${weapon.bulletsInMagazine}/${weapon.totalBullets}`;
+        if (state.ammoElement.textContent !== ammo) {
+          state.ammoElement.textContent = ammo;
+        }
+
+        if (state.reloadOverlayElement) {
+          const height = `${this.getReloadOverlayPercent(weapon)}%`;
+          if (state.reloadOverlayElement.style.height !== height) {
+            state.reloadOverlayElement.style.height = height;
+          }
         }
       }
     }
+  }
+
+  private createWeaponSlotContent(
+    slotElement: HTMLElement,
+    weapon: Weapon,
+    selected: boolean
+  ): WeaponSlotState {
+    if (weapon.name === "Empty") {
+      slotElement.innerHTML = `
+        <div class="weapon-icon empty ${selected ? "selected" : ""}">
+          <div class="weapon-image">
+            <svg viewBox="0 0 100 40" xmlns="http://www.w3.org/2000/svg">
+              <rect x="30" y="15" width="40" height="10" fill="#444" fill-opacity="0.3" />
+              <text x="50" y="25" text-anchor="middle" fill="#fff" font-size="10">Empty</text>
+            </svg>
+          </div>
+          <span class="weapon-name">Empty Slot</span>
+          <span class="weapon-ammo">-/-</span>
+        </div>
+      `;
+    } else {
+      const weaponIcon = this.getWeaponIcon(weapon.name);
+      const reloadOverlayPercent = this.getReloadOverlayPercent(weapon);
+
+      slotElement.innerHTML = `
+        <div class="weapon-icon ${selected ? "selected" : ""}">
+          <div class="weapon-image">
+            ${weaponIcon}
+            <div class="cooldown-overlay" style="height: ${reloadOverlayPercent}%"></div>
+          </div>
+          <span class="weapon-name">${weapon.name}</span>
+          <span class="weapon-ammo">${weapon.bulletsInMagazine}/${weapon.totalBullets}</span>
+        </div>
+      `;
+    }
+
+    return {
+      identity: weapon.id,
+      selected,
+      iconElement: slotElement.querySelector<HTMLElement>(".weapon-icon")!,
+      ammoElement: slotElement.querySelector<HTMLElement>(".weapon-ammo")!,
+      reloadOverlayElement: slotElement.querySelector<HTMLElement>(".cooldown-overlay"),
+    };
   }
 
   /**
@@ -1049,24 +1110,29 @@ export class HUD {
 
   private updateHealthDisplay(): void {
     const healthInfo = this.controls.getHealth();
+    const healthPercent = (healthInfo.current / healthInfo.max) * 100;
 
     if (this.healthBarElement) {
-      const healthPercent = (healthInfo.current / healthInfo.max) * 100;
       this.healthBarElement.style.width = `${healthPercent}%`;
-
-      // Change color based on health level
-      if (healthPercent > 60) {
-        this.healthBarElement.style.backgroundColor = "#44ff44"; // Green
-      } else if (healthPercent > 30) {
-        this.healthBarElement.style.backgroundColor = "#ffff44"; // Yellow
-      } else {
-        this.healthBarElement.style.backgroundColor = "#ff4444"; // Red
-      }
+      this.healthBarElement.classList.toggle("medium", healthPercent <= 60 && healthPercent > 30);
+      this.healthBarElement.classList.toggle("low", healthPercent <= 30);
     }
 
     if (this.healthValueElement) {
       const currentHealth = Math.ceil(healthInfo.current);
-      this.healthValueElement.textContent = `${currentHealth} / ${healthInfo.max} HP`;
+      this.healthValueElement.textContent = `${currentHealth} HP`;
+    }
+
+    const playerController = this.controls.getPlayerController();
+    const armor = playerController.getArmor();
+    const armorPercent = (armor / playerController.getMaxArmor()) * 100;
+
+    if (this.armorBarElement) {
+      this.armorBarElement.style.width = `${armorPercent}%`;
+    }
+
+    if (this.armorValueElement) {
+      this.armorValueElement.textContent = `${Math.ceil(armor)} ARMOR`;
     }
 
     // Optional: Add visual effects when health is low

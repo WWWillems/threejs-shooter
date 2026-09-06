@@ -1,3 +1,4 @@
+import { setCharacterTeam } from './components/CharacterVisual';
 import "./style.css";
 import * as THREE from "three";
 import { IsometricControls } from "./components/IsometricControls";
@@ -14,6 +15,7 @@ import { PlayerCollider } from "./components/PlayerCollider";
 import type { CollisionDetector } from "./components/CollisionInterface";
 import { GAME_EVENTS, TICK_RATE, type Team } from "@threejs-shooter/shared";
 import { GameScene } from "./core/Scene";
+import { CityAtmosphere } from "./environment/CityAtmosphere";
 import { Ground } from "./core/Ground";
 import { Player } from "./core/Player";
 import { WorldInteractions } from "./components/WorldInteractions";
@@ -117,6 +119,7 @@ controls.setPickupManager(pickupManager);
 // Render the shared map, then mirror crate HP and destruction from the server
 const environmentBuilder = new EnvironmentBuilder(scene, map);
 environmentBuilder.buildEnvironment();
+const cityAtmosphere=new CityAtmosphere(scene,map,player);
 new CrateSync(net, world, environmentBuilder, map);
 
 // Grenades are server-simulated; this draws them from the snapshot stream,
@@ -146,6 +149,7 @@ const gameLoop = new GameLoop(
   player,
   () => gameScene.render(),
   dt => {
+    cityAtmosphere.update(dt);
     interactions.update(dt);
     grenadeClouds.update(dt);
     flashOverlay.update(dt);
@@ -217,6 +221,7 @@ net.on(GAME_EVENTS.GAME.STATE, ({ selfId, players }) => {
   // Stand where the server put us: on our team's spawn street. On a re-join
   // after a reconnect this is a fresh spawn, possibly on the other team.
   controls.getPlayerController().spawnAt(self.position, self.rotation, self.hp);
+  controls.getPlayerController().applyServerArmor(self.armor ?? 0);
   flashOverlay.clear();
   const firstSync = !inWorld;
   if (firstSync) {
@@ -228,6 +233,7 @@ net.on(GAME_EVENTS.GAME.STATE, ({ selfId, players }) => {
   // joins (and re-joins that landed us on the other team) only.
   if (firstSync || self.team !== currentTeam) hud.showTeamAssigned(self.team);
   currentTeam = self.team;
+  setCharacterTeam(player,self.team);
 });
 
 net.on(GAME_EVENTS.USER.JOIN_REJECTED, ({ reason }) => {

@@ -378,3 +378,32 @@ remaining }`; clouds do not move, so the client draws the newest snapshot's list
 without interpolation (`GrenadeClouds`). Round resets clear them. Clouds are not
 colliders and are unrelated to the yard's `smoke-zone` prop, which stays an
 interactive prop.
+
+### Team silhouettes and district surroundings
+
+Blue uses the Team A reference silhouette (fedora, layered waistcoat, long split
+coat); red uses Team B (watch cap, short hooded jacket, vest/pouches, cargo pockets,
+kneepads, red scarf/armband). Team model changes are asynchronous and generation
+guarded so stale loads cannot replace the latest team. Gameplay hitboxes and all
+nine movement clips are preserved; shared geometry/materials and per-player rigs
+keep the browser cost bounded.
+
+The 400 m asphalt surface preserves the original texture scale while extending
+past the playable yard. Reflections fade at distance and the fog/background share
+a blue-grey horizon instead of black. `CityAtmosphere` adds
+instanced distant buildings/windows, a bounded 180-streak rain field and 16
+drifting paper scraps. Dressing stays outside the collision map, which remains
+authoritative.
+
+### Armor and loot visuals
+
+Armor is a server-owned pickup (`kind: armor`), restoring 25 points up to 50.
+It absorbs incoming damage one-for-one before HP across the combat resolver,
+including area/hazard damage, and resets to zero on respawn/round reset.
+Snapshots, hit events and pickup-taken events replicate the remaining value;
+the HUD displays it beside health. Random spawns include 15% armor; crate
+contents include 10% armor after the existing chance to drop anything.
+The loot GLBs live in `app/public/models/noir-ammo-*`, `noir-health-pickup`,
+`noir-armor-pickup`, and `noir-projectile-*`; the source is `noir-loot.blend`.
+Flame remains a lightweight translucent particle; solid projectiles use cached
+GLBs with tracers. Pickup hover animates a child so server spawn height is stable.

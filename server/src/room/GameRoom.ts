@@ -12,19 +12,15 @@ import {
   PLAYER_SIZE,
   Rng,
   WEAPONS,
-  aabbCenter,
   aabbFromCenterSize,
   aabbIntersects,
-  blastDamage,
   carBox,
   cloudContains,
-  cloudKindOf,
   combatAllowed,
   crateBox,
   emptyTeamScores,
   findPickupSpawnPosition,
   facingCenterYaw,
-  flashIntensity,
   generateMap,
   initialMatchState,
   integrateGrenade,
@@ -57,7 +53,6 @@ import {
   type DamageSource,
   type GameStateEvent,
   type Grenade,
-  type GrenadeExplodedEvent,
   type GrenadeSnapshot,
   type GrenadeThrowEvent,
   type Leaderboard,
@@ -70,7 +65,6 @@ import {
   type MatchTransition,
   type PickupClaimEvent,
   type PickupSpec,
-  type StaticTag,
   type PlayerPositionEvent,
   type PlayerSnapshot,
   type Projectile,
@@ -83,15 +77,17 @@ import {
   type WeaponEvent,
 } from "@threejs-shooter/shared";
 import type { RoomTransport } from "./transport";
-
-/** What a server bullet can hit. */
-import { InteractiveWorld, interactionBoxes, rocketBlastDamage, sweepProjectile } from "@threejs-shooter/shared";
-
-export type WorldTag =
-  | StaticTag
-  | { kind: "interactive"; id: string }
-  | { kind: "crate"; id: string }
-  | { kind: "player"; id: string };
+import { InteractiveWorld, interactionBoxes } from "@threejs-shooter/shared";
+import {
+  planChangesGeometry,
+  resolveArcHit,
+  resolveGrenadeExplosion,
+  resolveProjectileHit,
+  resolveRocketBlast,
+  type CombatColliderTag,
+  type CombatResolutionPlan,
+  type CombatWorldView,
+} from "./outcomeResolution";
 
 interface ServerPlayer extends PlayerSnapshot {
   /** Server clock (ms) of the last accepted shot. */
@@ -177,7 +173,7 @@ export class GameRoom {
   private readonly rng: Rng;
   private readonly matchRules: MatchRules;
   /** Shared solid geometry; crates and players are added per query. */
-  private readonly staticColliders: Collider<WorldTag>[];
+  private readonly staticColliders: Collider<CombatColliderTag>[];
   private tickCount = 0;
   private nextProjectileId = 1;
   private nextPickupId = 1;
@@ -380,6 +376,7 @@ export class GameRoom {
     player.status = "alive";
     player.pose = undefined;
     player.hp = PLAYER_MAX_HP;
+    player.armor = 0;
     player.position = { ...position };
     player.rotation = facingCenterYaw(position);
     player.positionAt = this.clock();
@@ -431,6 +428,7 @@ export class GameRoom {
       team,
       status: "alive",
       hp: PLAYER_MAX_HP,
+      armor: 0,
       position,
       rotation,
       positionAt: this.clock(),
@@ -527,6 +525,7 @@ export class GameRoom {
       playerId,
       position,
       hp: player.hp,
+      armor: player.armor ?? 0,
       rotation: player.rotation,
     });
   }
@@ -587,6 +586,9 @@ export class GameRoom {
     this.pickups.delete(pickup.spec.id);
 
     switch (pickup.spec.kind) {
+      case "armor":
+        player.armor = Math.min(50, (player.armor ?? 0) + pickup.spec.amount);
+        break;
       case "health":
         player.hp = Math.min(PLAYER_MAX_HP, player.hp + pickup.spec.amount);
         break;
@@ -605,6 +607,7 @@ export class GameRoom {
       pickup: pickup.spec,
       playerId,
       hp: player.hp,
+      armor: player.armor ?? 0,
     });
   }
 
@@ -653,86 +656,14 @@ export class GameRoom {
    */
   private explodeGrenade(grenade: Grenade): void {
     this.grenades.delete(grenade.id);
-    const outcome: GrenadeExplodedEvent = {
-      grenadeId: grenade.id,
-      kind: grenade.kind,
-      ownerId: grenade.ownerId,
-      position: grenade.position,
-      hits: [],
-      flashed: [],
-    };
-
-    switch (grenade.kind) {
-      case "frag":
-        outcome.hits = this.fragHits(grenade.position);
-        break;
-      case "flash":
-        outcome.flashed = this.flashVictims(grenade.position);
-        break;
-      case "smoke":
-      case "gas":
-      case "molotov": {
-        const cloudKind = cloudKindOf(grenade.kind);
-        if (!cloudKind) break;
-        this.clouds.set(`cloud-${grenade.id}`, spawnCloud(`cloud-${grenade.id}`, grenade, cloudKind));
-        break;
-      }
-      default: {
-        const unhandled: never = grenade.kind;
-        throw new Error(`Unhandled grenade kind: ${String(unhandled)}`);
-      }
-    }
-
-    this.transport.broadcast(GAME_EVENTS.GRENADE.EXPLODED, outcome);
-
-    if (grenade.kind !== "frag") return;
-    const center = grenade.position;
-    for (const p of this.interactions.specs.values()) this.damageInteraction(p.id, blastDamage(center, {...p.position,y:p.position.y+.5}), grenade.ownerId);
-
-    // Apply through the same paths bullets use so HP, kills and drops stay consistent.
-    for (const { targetId, damage } of outcome.hits) {
-      if (this.players.has(targetId)) {
-        this.applyDamage(grenade.ownerId, targetId, damage, "grenade", center);
-      } else {
-        this.damageCrate(targetId, damage);
-      }
-    }
-  }
-
-  /** Players and crates inside a frag blast at `center`, with the damage each takes. */
-  private fragHits(center: Vec3): GrenadeExplodedEvent["hits"] {
-    const hits: GrenadeExplodedEvent["hits"] = [];
-
-    // Players: `position` is the body centre, same as the player collider
-    for (const player of this.players.values()) {
-      if (player.status !== "alive" || !player.position) continue;
-      const damage = blastDamage(center, player.position);
-      if (damage <= 0) continue;
-      hits.push({ targetId: player.id, damage });
-    }
-
-    for (const crate of this.crates.values()) {
-      const damage = blastDamage(center, aabbCenter(crateBox(crate.spec)));
-      if (damage <= 0) continue;
-      hits.push({ targetId: crate.spec.id, damage });
-    }
-    return hits;
-  }
-
-  /**
-   * Everyone alive within the flash radius who has a clear line to it, the
-   * thrower included. Solid cover blocks the flash, like rocket splash.
-   */
-  private flashVictims(center: Vec3): GrenadeExplodedEvent["flashed"] {
-    const blockers = [...this.staticColliders, ...this.crateColliders(), ...this.interactionColliders()];
-    const flashed: GrenadeExplodedEvent["flashed"] = [];
-    for (const player of this.players.values()) {
-      if (player.status !== "alive" || !player.position) continue;
-      const intensity = flashIntensity(center, player.position);
-      if (intensity <= 0 || sweepProjectile(center, player.position, blockers)) continue;
-      flashed.push({ targetId: player.id, intensity });
-    }
-    return flashed;
+    this.applyCombatPlan(
+      resolveGrenadeExplosion(this.combatWorldView(), {
+        grenadeId: grenade.id,
+        kind: grenade.kind,
+        ownerId: grenade.ownerId,
+        position: grenade.position,
+      })
+    );
   }
 
   /**
@@ -773,107 +704,78 @@ export class GameRoom {
   private stepProjectiles(dt: number): void {
     if (this.projectiles.length === 0) return;
 
+    let colliders: Collider<CombatColliderTag>[] | undefined;
     for (let i = this.projectiles.length - 1; i >= 0; i--) {
       const projectile = this.projectiles[i];
+      colliders ??= [
+        ...this.staticColliders,
+        ...this.crateColliders(),
+        ...this.playerColliders(),
+        ...this.interactionColliders(),
+      ];
       const { hit, expired } = integrateProjectile(
         projectile,
         dt,
-        [...this.staticColliders, ...this.crateColliders(), ...this.playerColliders(), ...this.interactionColliders()],
+        colliders,
         (c) => c.tag.kind === "player" && c.tag.id === projectile.ownerId
       );
 
-      if (projectile.weaponId === 'rocket' && expired) {
-        this.explodeRocket(projectile);
+      let geometryChanged = false;
+      if (projectile.weaponId === "rocket" && expired) {
+        const center = {
+          x: projectile.position.x - projectile.direction.x * 0.04,
+          y: Math.max(0.04, projectile.position.y - projectile.direction.y * 0.04),
+          z: projectile.position.z - projectile.direction.z * 0.04,
+        };
+        geometryChanged = this.applyCombatPlan(
+          resolveRocketBlast(this.combatWorldView(), {
+            projectileId: projectile.id,
+            ownerId: projectile.ownerId,
+            position: center,
+          })
+        );
       } else if (hit) {
-        if (projectile.weaponId === 'arc' && hit.collider.tag.kind === 'player') this.chainArc(projectile,hit.collider.tag.id);
-        switch (hit.collider.tag.kind) {
-          case "player":
-            this.applyDamage(
-              projectile.ownerId,
-              hit.collider.tag.id,
-              projectile.damage,
-              projectile.weaponId,
-              hit.point
-            );
-            break;
-          case "crate":
-            this.damageCrate(hit.collider.tag.id, projectile.damage);
-            break;
-          case "interactive":
-            this.damageInteraction(hit.collider.tag.id, projectile.damage, projectile.ownerId);
-            break;
-          case "static":
-            break;
-          default: {
-            const unhandled: never = hit.collider.tag;
-            throw new Error(`Unhandled collider tag: ${String(unhandled)}`);
-          }
+        const target = hit.collider.tag;
+        if (projectile.weaponId === "arc" && target.kind === "player") {
+          geometryChanged = this.applyCombatPlan(
+            resolveArcHit(this.combatWorldView(), {
+              ownerId: projectile.ownerId,
+              weaponId: projectile.weaponId,
+              projectilePosition: projectile.position,
+              firstTargetId: target.id,
+              damage: projectile.damage,
+            })
+          );
+        } else if (target.kind !== "static") {
+          geometryChanged = this.applyCombatPlan(
+            resolveProjectileHit(this.combatWorldView(), {
+              ownerId: projectile.ownerId,
+              weaponId: projectile.weaponId,
+              position: hit.point,
+              target,
+              damage: projectile.damage,
+            })
+          );
         }
       }
 
+      if (geometryChanged) colliders = undefined;
       if (expired) this.projectiles.splice(i, 1);
     }
   }
 
-  private explodeRocket(projectile: Projectile): void {
-    const center={x:projectile.position.x-projectile.direction.x*.04,y:Math.max(.04,projectile.position.y-projectile.direction.y*.04),z:projectile.position.z-projectile.direction.z*.04};
-    this.transport.broadcast(GAME_EVENTS.WORLD.BLAST,{id:`rocket-${projectile.id}`,position:center});
-    const blockers=[...this.staticColliders,...this.crateColliders(),...this.interactionColliders()];
-    const damageAt=(p:Vec3)=>rocketBlastDamage(Math.hypot(p.x-center.x,p.y-center.y,p.z-center.z));
-    for(const player of this.players.values()) {
-      if(!player.position || player.status!=='alive')continue;
-      const damage=damageAt(player.position);
-      if(damage>0 && !sweepProjectile(center,player.position,blockers)) this.applyDamage(projectile.ownerId,player.id,damage,'rocket',center);
-    }
-    for(const crate of this.crates.values()) {const damage=damageAt(aabbCenter(crateBox(crate.spec)));if(damage>0)this.damageCrate(crate.spec.id,damage);}
-    for(const prop of this.interactions.specs.values()) this.damageInteraction(prop.id,damageAt({...prop.position,y:prop.position.y+.5}),projectile.ownerId);
-  }
-
-  private chainArc(projectile: Projectile, firstId: string): void {
-    const first=this.players.get(firstId);if(!first?.position)return;
-    const points=[{...projectile.position},{...first.position}];
-    const visited=new Set([firstId,projectile.ownerId]);let from=first.position;
-    const blockers=[...this.staticColliders,...this.crateColliders(),...this.interactionColliders()];
-    for(const damage of [20,12]) {
-      const candidates=[...this.players.values()].filter(p=>p.status==='alive'&&p.position&&!visited.has(p.id))
-        .map(p=>({p,d:Math.hypot(p.position!.x-from.x,p.position!.y-from.y,p.position!.z-from.z)})).filter(v=>v.d<=4).sort((a,b)=>a.d-b.d);
-      const target=candidates.find(({p})=>!sweepProjectile(from,p.position!,blockers))?.p;
-      if(!target?.position)break;
-      visited.add(target.id);this.applyDamage(projectile.ownerId,target.id,damage,'arc',target.position);
-      from=target.position;points.push({...from});
-    }
-    this.transport.broadcast(GAME_EVENTS.WORLD.ARC,{points});
-  }
-
   /** Apply damage to a crate; destroy it and maybe drop a pickup at zero HP. */
-  damageCrate(crateId: string, damage: number): void {
-    const crate = this.crates.get(crateId);
-    if (!crate) return;
-    if (!combatAllowed(this.match.phase)) return;
-
-    crate.hp = Math.max(0, crate.hp - damage);
-    this.transport.broadcast(GAME_EVENTS.CRATE.DAMAGED, {
-      crateId,
-      damage,
-      hp: crate.hp,
-      maxHp: CRATE_MAX_HP,
-    });
-
-    if (crate.hp > 0) return;
-
-    this.crates.delete(crateId);
-    const position = crate.spec.position;
-    this.transport.broadcast(GAME_EVENTS.CRATE.DESTROYED, { crateId, position });
-
-    if (this.rng.next() < CRATE_DROP_CHANCE) {
-      this.spawnPickup(
-        rollCrateDrop(this.rng, this.allocatePickupId(), {
-          x: position.x,
-          y: 0.5,
-          z: position.z,
-        })
-      );
-    }
+  damageCrate(crateId: string, damage: number): boolean {
+    if (!combatAllowed(this.match.phase)) return false;
+    return this.applyCombatPlan(
+      resolveProjectileHit(this.combatWorldView(), {
+        ownerId: "",
+        weaponId: "grenade",
+        position: { x: 0, y: 0, z: 0 },
+        target: { kind: "crate", id: crateId },
+        damage,
+      })
+    );
   }
 
   /** Expire old pickups and spawn new ones on the random cadence. */
@@ -956,52 +858,171 @@ export class GameRoom {
     damage: number,
     source: DamageSource,
     position: Vec3
-  ): void {
-    const target = this.players.get(targetId);
-    if (!target || target.status !== "alive") return;
-    // Between rounds nobody gets hurt, whatever is still flying or parked on a car.
-    if (!combatAllowed(this.match.phase)) return;
-
-    target.hp = Math.max(0, target.hp - damage);
-
-    this.transport.broadcast(GAME_EVENTS.COMBAT.HIT, {
-      shooterId,
-      targetId,
-      damage,
-      hp: target.hp,
-      source,
-      position,
-    });
-
-    if (target.hp > 0) return;
-
-    target.status = "dead";
-
-    // Friendly fire is on: killing a teammate costs the kill it would have
-    // earned, for the killer and for the team. World hazards and suicides
-    // credit nobody. Totals may go negative on purpose.
-    const killerPlayer = this.players.get(shooterId);
-    const killer = this.leaderBoard[shooterId];
-    const teamKill = killerPlayer !== undefined && killerPlayer.team === target.team;
-    if (killer && killerPlayer && shooterId !== targetId) {
-      const delta = teamKill ? -1 : 1;
-      killer.kills += delta;
-      killer.score += delta * KILL_SCORE;
-      this.teamScores[killerPlayer.team] += delta;
-    }
-    const victim = this.leaderBoard[targetId];
-    if (victim) victim.deaths += 1;
-
-    this.transport.broadcast(GAME_EVENTS.COMBAT.KILL, {
-      killerId: shooterId,
-      victimId: targetId,
-      source,
-      teamKill: teamKill && shooterId !== targetId,
-      teamScores: { ...this.teamScores },
-    });
+  ): boolean {
+    if (!combatAllowed(this.match.phase)) return false;
+    return this.applyCombatPlan(
+      resolveProjectileHit(this.combatWorldView(), {
+        ownerId: shooterId,
+        weaponId: source,
+        position,
+        target: { kind: "player", id: targetId },
+        damage,
+      })
+    );
   }
 
-  private interactionColliders(): Collider<WorldTag>[] {
+  private combatWorldView(): CombatWorldView {
+    return {
+      players: [...this.players.values()].map((player) => ({
+        id: player.id,
+        team: player.team,
+        status: player.status,
+        hp: player.hp,
+      armor: player.armor ?? 0,
+        position: player.position ? { ...player.position } : undefined,
+      })),
+      crates: [...this.crates.values()].map((crate) => ({
+        id: crate.spec.id,
+        spec: crate.spec,
+        hp: crate.hp,
+      })),
+      interactions: this.interactions.snapshot().flatMap((state) => {
+        const spec = this.interactions.specs.get(state.id);
+        return spec ? [{ id: state.id, spec, state }] : [];
+      }),
+      blockers: [
+        ...this.staticColliders,
+        ...this.crateColliders(),
+        ...this.interactionColliders(),
+      ],
+    };
+  }
+
+  private applyCombatPlan(plan: CombatResolutionPlan): boolean {
+    let geometryChanged = false;
+    for (const operation of plan.operations) {
+      switch (operation.kind) {
+        case "player-damaged": {
+          const target = this.players.get(operation.targetId);
+          if (!target || target.status !== "alive") break;
+          target.hp = operation.hp;
+          target.armor = operation.armor;
+          this.transport.broadcast(GAME_EVENTS.COMBAT.HIT, {
+            shooterId: operation.shooterId,
+            targetId: operation.targetId,
+            damage: operation.damage,
+            hp: operation.hp,
+            armor: operation.armor,
+            source: operation.source,
+            position: operation.position,
+          });
+          break;
+        }
+        case "player-killed": {
+          const target = this.players.get(operation.victimId);
+          if (!target) break;
+          target.status = "dead";
+          const killer = this.leaderBoard[operation.killerId];
+          if (killer && operation.killerTeam) {
+            const delta = operation.teamKill ? -1 : 1;
+            killer.kills += delta;
+            killer.score += delta * KILL_SCORE;
+            this.teamScores[operation.killerTeam] += delta;
+          }
+          const victim = this.leaderBoard[operation.victimId];
+          if (victim) victim.deaths += 1;
+          this.transport.broadcast(GAME_EVENTS.COMBAT.KILL, {
+            killerId: operation.killerId,
+            victimId: operation.victimId,
+            source: operation.source,
+            teamKill: operation.teamKill,
+            teamScores: { ...this.teamScores },
+          });
+          break;
+        }
+        case "crate-damaged": {
+          const crate = this.crates.get(operation.crateId);
+          if (!crate) break;
+          crate.hp = operation.hp;
+          this.transport.broadcast(GAME_EVENTS.CRATE.DAMAGED, {
+            crateId: operation.crateId,
+            damage: operation.damage,
+            hp: operation.hp,
+            maxHp: CRATE_MAX_HP,
+          });
+          break;
+        }
+        case "crate-destroyed": {
+          const crate = this.crates.get(operation.crateId);
+          if (!crate) break;
+          this.crates.delete(operation.crateId);
+          geometryChanged = true;
+          this.transport.broadcast(GAME_EVENTS.CRATE.DESTROYED, {
+            crateId: operation.crateId,
+            position: operation.position,
+          });
+          break;
+        }
+        case "interactive-damaged": {
+          const state = this.interactions.states.get(operation.interactionId);
+          const wasSolid = state !== undefined && state.hp > 0;
+          this.interactions.damage(operation.interactionId, operation.damage);
+          geometryChanged =
+            geometryChanged || (wasSolid && state !== undefined && state.hp <= 0);
+          break;
+        }
+        case "world-blast":
+          this.transport.broadcast(GAME_EVENTS.WORLD.BLAST, {
+            id: operation.id,
+            position: operation.position,
+          });
+          break;
+        case "world-arc":
+          this.transport.broadcast(GAME_EVENTS.WORLD.ARC, {
+            points: operation.points,
+          });
+          break;
+        case "grenade-exploded":
+          this.transport.broadcast(GAME_EVENTS.GRENADE.EXPLODED, {
+            grenadeId: operation.grenadeId,
+            kind: operation.grenadeKind,
+            ownerId: operation.ownerId,
+            position: operation.position,
+            hits: operation.hits,
+            flashed: operation.flashed,
+          });
+          break;
+        case "cloud-created":
+          this.clouds.set(
+            operation.cloudId,
+            spawnCloud(
+              operation.cloudId,
+              { ownerId: operation.ownerId, position: operation.position },
+              operation.cloudKind
+            )
+          );
+          break;
+        case "pickup-drop-request":
+          if (this.rng.next() < CRATE_DROP_CHANCE) {
+            this.spawnPickup(
+              rollCrateDrop(
+                this.rng,
+                this.allocatePickupId(),
+                operation.position
+              )
+            );
+          }
+          break;
+        default: {
+          const unhandled: never = operation;
+          throw new Error(`Unhandled combat operation: ${String(unhandled)}`);
+        }
+      }
+    }
+    return geometryChanged || planChangesGeometry(plan);
+  }
+
+  private interactionColliders(): Collider<CombatColliderTag>[] {
     return this.interactions.snapshot().flatMap(s => {
       const p=this.interactions.specs.get(s.id)!;
       return p.type === "fence-gate" ? [] : interactionBoxes(p,s).map(box=>({box,tag:{kind:"interactive" as const,id:s.id}}));
@@ -1009,27 +1030,20 @@ export class GameRoom {
   }
 
   /** The barrel is marked destroyed before cascading, so a chain detonates each only once. */
-  damageInteraction(id: string, damage: number, ownerId: string): void {
-    if (!combatAllowed(this.match.phase)) return;
-    const queue: string[] = [];
-    if (this.interactions.damage(id,damage)) queue.push(id);
-    for (let i=0;i<queue.length;i++) {
-      const p=this.interactions.specs.get(queue[i])!;
-      const center={...p.position,y:p.position.y+.5};
-      const falloff=(position:Vec3)=>Math.max(0,Math.round(80*(1-Math.hypot(position.x-center.x,position.y-center.y,position.z-center.z)/4)));
-      this.transport.broadcast(GAME_EVENTS.WORLD.BLAST,{id:p.id,position:center});
-      for(const player of this.players.values()) if(player.position) {
-        const amount=falloff(player.position);
-        if(amount>0)this.applyDamage(ownerId,player.id,amount,"barrel",center);
-      }
-      for(const crate of this.crates.values()) {const amount=falloff(aabbCenter(crateBox(crate.spec)));if(amount>0)this.damageCrate(crate.spec.id,amount);}
-      for(const other of this.interactions.specs.values()) {
-        if(this.interactions.damage(other.id,falloff({...other.position,y:other.position.y+.5})))queue.push(other.id);
-      }
-    }
+  damageInteraction(id: string, damage: number, ownerId: string): boolean {
+    if (!combatAllowed(this.match.phase)) return false;
+    return this.applyCombatPlan(
+      resolveProjectileHit(this.combatWorldView(), {
+        ownerId,
+        weaponId: "barrel",
+        position: { x: 0, y: 0, z: 0 },
+        target: { kind: "interactive", id },
+        damage,
+      })
+    );
   }
 
-  private crateColliders(): Collider<WorldTag>[] {
+  private crateColliders(): Collider<CombatColliderTag>[] {
     return [...this.crates.values()].map(({ spec }) => ({
       box: crateBox(spec),
       tag: { kind: "crate", id: spec.id },
@@ -1061,8 +1075,8 @@ export class GameRoom {
     }));
   }
 
-  private playerColliders(): Collider<WorldTag>[] {
-    const colliders: Collider<WorldTag>[] = [];
+  private playerColliders(): Collider<CombatColliderTag>[] {
+    const colliders: Collider<CombatColliderTag>[] = [];
     for (const player of this.players.values()) {
       if (player.status !== "alive" || !player.position) continue;
       colliders.push(
@@ -1077,7 +1091,7 @@ export class GameRoom {
 
   private snapshotPlayers(): PlayerSnapshot[] {
     return [...this.players.values()].map(
-      ({ id, userId, name, team, status, hp, position, rotation, positionAt, pose }) => ({
+      ({ id, userId, name, team, status, hp, armor, position, rotation, positionAt, pose }) => ({
         pose,
         id,
         userId,
@@ -1085,6 +1099,7 @@ export class GameRoom {
         team,
         status,
         hp,
+        armor: armor ?? 0,
         position,
         rotation,
         positionAt,

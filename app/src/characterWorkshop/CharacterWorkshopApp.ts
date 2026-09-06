@@ -166,10 +166,19 @@ export class CharacterWorkshopApp {
     sfx.setListener(this.camera, this.player);
     this.weapons = new WeaponSystem(this.scene, this.player, null);
     for (const id of WEAPON_IDS.slice(3)) this.weapons.grantWeapon(id, 100, false);
-    attachModel(this.player, "noir-character", (model) => {
-      model.position.y = -1;
-      this.animator = new CharacterAnimator(model, model.animations);
-    });
+    const teamPicker=document.createElement('select');teamPicker.setAttribute('aria-label','Character team');
+    teamPicker.innerHTML='<option value="a">Team A · Trench coat</option><option value="b">Team B · Street enforcer</option>';
+    this.viewport.append(teamPicker);teamPicker.style.cssText='position:absolute;top:48px;left:16px;z-index:5;padding:8px;background:#20262d;color:#eee;border:1px solid #68717c';
+    let generation=0;
+    const loadTeam=(team:string)=>{
+      const request=++generation;
+      attachModel(this.player,`noir-character-team-${team}`,model=>{
+        if(request!==generation){this.player.remove(model);return;}
+        if(this.animator){this.player.remove(this.animator.model);this.animator.dispose();}
+        model.position.y=-1;this.animator=new CharacterAnimator(model,model.animations);
+      });
+    };
+    teamPicker.addEventListener('change',()=>loadTeam(teamPicker.value));loadTeam('a');
 
     this.buildPoseList();
     this.buildWeaponList();

@@ -714,6 +714,29 @@ describe("GameRoom", () => {
       expect(next[0].payload.crateId).toBe("crate-0");
     });
 
+    it("rebuilds projectile colliders after same-tick crate destruction", () => {
+      twoPlayers();
+      const front = room.map.crates[2];
+      const back = room.map.crates[0];
+      const shot = {
+        ownerId: "alice",
+        weaponId: "pistol" as const,
+        position: { x: front.position.x, y: 0.5, z: front.position.z + 2 },
+        direction: { x: 0, y: 0, z: -1 },
+        speed: 100,
+        damage: CRATE_MAX_HP,
+        traveled: 0,
+        maxRange: 90,
+      };
+
+      room.projectiles.push({ id: 1, ...shot }, { id: 2, ...shot });
+      runTicks(1);
+
+      expect(room.crates.has(front.id)).toBe(false);
+      expect(room.crates.has(back.id)).toBe(false);
+      expect(transport.received("alice", GAME_EVENTS.CRATE.DESTROYED)).toHaveLength(2);
+    });
+
     it("destroyed crates sometimes drop a pickup", () => {
       const { alice } = twoPlayers();
       for (const crate of room.map.crates) room.damageCrate(crate.id, CRATE_MAX_HP);
@@ -722,6 +745,39 @@ describe("GameRoom", () => {
       expect(spawned.length).toBeGreaterThan(0);
       expect(spawned.length).toBeLessThan(room.map.crates.length);
       expect(room.pickups.size).toBe(spawned.length);
+    });
+  });
+
+  describe("interactive projectile geometry", () => {
+    it("rebuilds projectile colliders after same-tick interactive destruction", () => {
+      const map = testMap();
+      map.props = [
+        { id: "front-cover", type: "cover-panel", position: vec3(20, 0, 20), rotation: 0, scale: 1 },
+        { id: "back-cover", type: "cover-panel", position: vec3(20, 0, 16), rotation: 0, scale: 1 },
+      ];
+      room = new GameRoom(transport, {
+        clock: () => now,
+        seed: 1,
+        map,
+        matchRules: OPEN_ENDED_RULES,
+      });
+      twoPlayers();
+
+      const shot = {
+        ownerId: "alice",
+        weaponId: "pistol" as const,
+        position: { x: 20, y: 0.75, z: 24 },
+        direction: { x: 0, y: 0, z: -1 },
+        speed: 200,
+        damage: 100,
+        traveled: 0,
+        maxRange: 90,
+      };
+      room.projectiles.push({ id: 1, ...shot }, { id: 2, ...shot });
+      runTicks(1);
+
+      expect(room.interactions.states.get("front-cover")?.hp).toBe(0);
+      expect(room.interactions.states.get("back-cover")?.hp).toBe(0);
     });
   });
 
@@ -793,7 +849,8 @@ describe("GameRoom", () => {
 
     it("rejects claims from out of reach and double claims", () => {
       const { alice, bob } = twoPlayers();
-      const pickup = dropPickup("ammo");
+      const pickup: PickupSpec = { id: "claim-test", kind: "ammo", weaponId: "pistol", amount: 30, position: vec3(5, .5, 5) };
+      room.pickups.set(pickup.id, { spec: pickup, expiresAt: now + 30000 });
       transport.clear();
 
       // Bob is 10 units away
@@ -816,6 +873,17 @@ describe("GameRoom", () => {
       expect(taken).toHaveLength(1);
       expect(taken[0].payload.playerId).toBe("alice");
       expect(taken[0].payload.hp).toBe(PLAYER_MAX_HP); // ammo leaves HP alone
+    });
+
+    it("collects armor up to 50 and includes it in snapshots", () => {
+      const { alice } = twoPlayers();
+      for (let i = 0; i < 3; i++) {
+        const spec: PickupSpec = { id: `armor-${i}`, kind: 'armor', amount: 25, position: vec3(0, .5, 0) };
+        room.pickups.set(spec.id, { spec, expiresAt: now + 30000 });
+        alice.send(GAME_EVENTS.PICKUP.CLAIM, { pickupId: spec.id });
+      }
+      expect(room.players.get('alice')!.armor).toBe(50);
+      expect(alice.received(GAME_EVENTS.PICKUP.TAKEN)[2].payload).toMatchObject({ armor: 50, hp: 100 });
     });
 
     it("pickups expire after their lifetime", () => {

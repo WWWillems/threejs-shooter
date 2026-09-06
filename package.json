@@ -15,6 +15,7 @@
     "generate:default-level": "node --import tsx scripts/levels/generate-default-level.mjs",
     "build:app": "npm run build -w app",
     "build:server": "npm run build -w server",
+    "deploy:server": "node scripts/deploy-server.mjs",
     "build": "npm run build:app && npm run build:server",
     "typecheck": "tsc -p shared && tsc -p server --noEmit && tsc -p app",
     "test": "vitest run",

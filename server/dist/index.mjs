@@ -180,12 +180,12 @@ function sweepSegmentRotatedAABB(from, to, box, yaw) {
   );
 }
 
-var __defProp$4 = Object.defineProperty;
-var __defNormalProp$4 = (obj, key, value) => key in obj ? __defProp$4(obj, key, { enumerable: true, configurable: true, writable: true, value }) : obj[key] = value;
-var __publicField$4 = (obj, key, value) => __defNormalProp$4(obj, key + "" , value);
+var __defProp$5 = Object.defineProperty;
+var __defNormalProp$5 = (obj, key, value) => key in obj ? __defProp$5(obj, key, { enumerable: true, configurable: true, writable: true, value }) : obj[key] = value;
+var __publicField$5 = (obj, key, value) => __defNormalProp$5(obj, key + "" , value);
 class Rng {
   constructor(seed) {
-    __publicField$4(this, "state");
+    __publicField$5(this, "state");
     this.state = seed >>> 0;
   }
   /** Uniform float in [0, 1). */
@@ -456,9 +456,9 @@ function pickSpawnPoint(occupied, points = SPAWN_POINTS) {
   return best;
 }
 
-var __defProp$3 = Object.defineProperty;
-var __defNormalProp$3 = (obj, key, value) => key in obj ? __defProp$3(obj, key, { enumerable: true, configurable: true, writable: true, value }) : obj[key] = value;
-var __publicField$3 = (obj, key, value) => __defNormalProp$3(obj, typeof key !== "symbol" ? key + "" : key, value);
+var __defProp$4 = Object.defineProperty;
+var __defNormalProp$4 = (obj, key, value) => key in obj ? __defProp$4(obj, key, { enumerable: true, configurable: true, writable: true, value }) : obj[key] = value;
+var __publicField$4 = (obj, key, value) => __defNormalProp$4(obj, typeof key !== "symbol" ? key + "" : key, value);
 const MAP_SEED = 20240913;
 const GROUND_SIZE = 76;
 const WALL_HEIGHT = 2.5;
@@ -509,15 +509,15 @@ function generateMap(seed = MAP_SEED) {
 const mirrored = (p) => vec3(-p.x || 0, p.y, -p.z || 0);
 class ArenaBuilder {
   constructor(rng) {
-    __publicField$3(this, "rng", rng);
-    __publicField$3(this, "buildings", []);
-    __publicField$3(this, "cars", []);
-    __publicField$3(this, "streetLights", []);
-    __publicField$3(this, "crates", []);
-    __publicField$3(this, "cones", []);
-    __publicField$3(this, "trees", []);
-    __publicField$3(this, "bushes", []);
-    __publicField$3(this, "props", []);
+    __publicField$4(this, "rng", rng);
+    __publicField$4(this, "buildings", []);
+    __publicField$4(this, "cars", []);
+    __publicField$4(this, "streetLights", []);
+    __publicField$4(this, "crates", []);
+    __publicField$4(this, "cones", []);
+    __publicField$4(this, "trees", []);
+    __publicField$4(this, "bushes", []);
+    __publicField$4(this, "props", []);
   }
   building(type, id, x, z, rotation = 0) {
     this.both(
@@ -852,9 +852,9 @@ function movementOnlyColliders(map) {
   ];
 }
 
-var __defProp$2 = Object.defineProperty;
-var __defNormalProp$2 = (obj, key, value) => key in obj ? __defProp$2(obj, key, { enumerable: true, configurable: true, writable: true, value }) : obj[key] = value;
-var __publicField$2 = (obj, key, value) => __defNormalProp$2(obj, typeof key !== "symbol" ? key + "" : key, value);
+var __defProp$3 = Object.defineProperty;
+var __defNormalProp$3 = (obj, key, value) => key in obj ? __defProp$3(obj, key, { enumerable: true, configurable: true, writable: true, value }) : obj[key] = value;
+var __publicField$3 = (obj, key, value) => __defNormalProp$3(obj, typeof key !== "symbol" ? key + "" : key, value);
 const interactionHp = (type) => type === "explosive-barrel" ? 45 : type === "tire-stack" ? 120 : type === "cover-panel" ? 80 : 1;
 function initialInteractions(props) {
   return props.filter((p) => isDynamicProp(p.type)).map((p) => ({ id: p.id, hp: interactionHp(p.type), open: 0, targetOpen: false, active: 0, cooldown: 0 }));
@@ -871,8 +871,8 @@ function interactionBoxes(prop, state) {
 const interactionDistance = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
 class InteractiveWorld {
   constructor(props) {
-    __publicField$2(this, "specs");
-    __publicField$2(this, "states", /* @__PURE__ */ new Map());
+    __publicField$3(this, "specs");
+    __publicField$3(this, "states", /* @__PURE__ */ new Map());
     this.specs = new Map(props.filter((p) => isDynamicProp(p.type)).map((p) => [p.id, p]));
     this.reset();
   }
@@ -1481,23 +1481,6 @@ const CLOUD_EFFECTS = {
   gas: { ...GRENADE_EFFECTS.gas, source: "gas" },
   fire: { ...GRENADE_EFFECTS.molotov, source: "molotov" }
 };
-function cloudKindOf(kind) {
-  switch (kind) {
-    case "smoke":
-      return "smoke";
-    case "gas":
-      return "gas";
-    case "molotov":
-      return "fire";
-    case "frag":
-    case "flash":
-      return null;
-    default: {
-      const unhandled = kind;
-      throw new Error(`Unhandled grenade kind: ${String(unhandled)}`);
-    }
-  }
-}
 const CLOUD_HEIGHT = 2.5;
 function spawnCloud(id, grenade, kind) {
   return {
@@ -1624,7 +1607,9 @@ function isWithinPickupReach(playerPos, pickupPos) {
   return dx * dx + dz * dz <= PICKUP_REACH * PICKUP_REACH;
 }
 function rollPickupContents(rng, id, position) {
-  if (rng.next() < 0.5) {
+  const roll = rng.next();
+  if (roll < 0.15) return { id, kind: "armor", position, amount: 25 };
+  if (roll < 0.5) {
     return {
       id,
       kind: "health",
@@ -1652,6 +1637,7 @@ function rollCrateDrop(rng, id, position) {
     const grenadeKind = GRENADE_KINDS[rng.int(GRENADE_KINDS.length)];
     return { id, kind: "throwable", position, grenadeKind, amount: GRENADE_LOADOUT[grenadeKind].pickup };
   }
+  if (roll >= 0.9) return { id, kind: "armor", position, amount: 25 };
   if (roll < CRATE_DROP_ODDS.health) {
     return { id, kind: "health", position, amount: 25 };
   }
@@ -1679,6 +1665,332 @@ function findPickupSpawnPosition(rng, blockers, playerPositions, attempts = 30) 
     return candidate;
   }
   return null;
+}
+
+var __defProp$2 = Object.defineProperty;
+var __defNormalProp$2 = (obj, key, value) => key in obj ? __defProp$2(obj, key, { enumerable: true, configurable: true, writable: true, value }) : obj[key] = value;
+var __publicField$2 = (obj, key, value) => __defNormalProp$2(obj, typeof key !== "symbol" ? key + "" : key, value);
+class WorkingCombatState {
+  constructor(world) {
+    __publicField$2(this, "world", world);
+    __publicField$2(this, "players");
+    __publicField$2(this, "crates");
+    __publicField$2(this, "interactions");
+    __publicField$2(this, "operations", []);
+    this.players = new Map(
+      world.players.map((player) => [
+        player.id,
+        { ...player, position: player.position ? { ...player.position } : void 0 }
+      ])
+    );
+    this.crates = new Map(
+      world.crates.map((crate) => [crate.id, { ...crate, hp: crate.hp }])
+    );
+    this.interactions = new Map(
+      world.interactions.map((interaction) => [
+        interaction.id,
+        {
+          ...interaction,
+          state: { ...interaction.state }
+        }
+      ])
+    );
+  }
+  damagePlayer(shooterId, targetId, damage, source, position) {
+    const target = this.players.get(targetId);
+    if (!target || target.status !== "alive" || !target.position || damage <= 0) return;
+    const absorbed = Math.min(target.armor ?? 0, damage);
+    target.armor = Math.max(0, (target.armor ?? 0) - absorbed);
+    target.hp = Math.max(0, target.hp - (damage - absorbed));
+    this.operations.push({
+      kind: "player-damaged",
+      armor: target.armor,
+      shooterId,
+      targetId,
+      damage,
+      hp: target.hp,
+      source,
+      position: { ...position }
+    });
+    if (target.hp > 0) return;
+    target.status = "dead";
+    const killer = this.players.get(shooterId);
+    const isPlayerKiller = killer !== void 0 && shooterId !== targetId;
+    const killerTeam = isPlayerKiller ? killer.team : null;
+    this.operations.push({
+      kind: "player-killed",
+      killerId: shooterId,
+      victimId: targetId,
+      source,
+      killerTeam,
+      teamKill: killerTeam !== null && killerTeam === target.team
+    });
+  }
+  damageCrate(crateId, damage) {
+    const crate = this.crates.get(crateId);
+    if (!crate || crate.hp <= 0 || damage <= 0) return;
+    crate.hp = Math.max(0, crate.hp - damage);
+    this.operations.push({
+      kind: "crate-damaged",
+      crateId,
+      damage,
+      hp: crate.hp
+    });
+    if (crate.hp > 0) return;
+    this.crates.delete(crateId);
+    this.operations.push({
+      kind: "crate-destroyed",
+      crateId,
+      position: { ...crate.spec.position }
+    });
+    this.operations.push({
+      kind: "pickup-drop-request",
+      position: { x: crate.spec.position.x, y: 0.5, z: crate.spec.position.z }
+    });
+  }
+  damageInteraction(interactionId, damage, ownerId) {
+    const queue = [];
+    const damageOne = (targetId, amount) => {
+      const interaction = this.interactions.get(targetId);
+      if (!interaction || interaction.state.hp <= 0 || !["tire-stack", "cover-panel", "explosive-barrel"].includes(interaction.spec.type) || !Number.isFinite(amount) || amount <= 0) {
+        return false;
+      }
+      const wasSolid = interaction.state.hp > 0;
+      interaction.state.hp = Math.max(0, interaction.state.hp - amount);
+      if (interaction.state.hp === 0 && interaction.spec.type === "explosive-barrel") {
+        interaction.state.active = 8;
+      }
+      this.operations.push({
+        kind: "interactive-damaged",
+        interactionId: targetId,
+        damage: amount,
+        destroyed: wasSolid && interaction.state.hp === 0
+      });
+      return wasSolid && interaction.state.hp === 0 && interaction.spec.type === "explosive-barrel";
+    };
+    if (damageOne(interactionId, damage)) queue.push(interactionId);
+    for (let index = 0; index < queue.length; index += 1) {
+      const interaction = this.interactions.get(queue[index]);
+      if (!interaction) continue;
+      const center = {
+        ...interaction.spec.position,
+        y: interaction.spec.position.y + 0.5
+      };
+      this.operations.push({
+        kind: "world-blast",
+        id: interaction.id,
+        position: center
+      });
+      const falloff = (position) => Math.max(
+        0,
+        Math.round(
+          80 - 80 * Math.hypot(
+            position.x - center.x,
+            position.y - center.y,
+            position.z - center.z
+          ) / 4
+        )
+      );
+      for (const player of this.players.values()) {
+        if (!player.position) continue;
+        this.damagePlayer(ownerId, player.id, falloff(player.position), "barrel", center);
+      }
+      for (const crate of this.crates.values()) {
+        this.damageCrate(crate.id, falloff(crateCenter(crate.spec)));
+      }
+      for (const other of this.interactions.values()) {
+        if (damageOne(other.id, falloff(interactionCenter(other.spec)))) {
+          queue.push(other.id);
+        }
+      }
+    }
+  }
+  plan() {
+    return { operations: this.operations };
+  }
+}
+function resolveProjectileHit(world, request) {
+  const state = new WorkingCombatState(world);
+  switch (request.target.kind) {
+    case "player":
+      state.damagePlayer(
+        request.ownerId,
+        request.target.id,
+        request.damage,
+        request.weaponId,
+        request.position
+      );
+      break;
+    case "crate":
+      state.damageCrate(request.target.id, request.damage);
+      break;
+    case "interactive":
+      state.damageInteraction(request.target.id, request.damage, request.ownerId);
+      break;
+    default: {
+      const unhandled = request.target;
+      throw new Error(`Unhandled projectile target: ${String(unhandled)}`);
+    }
+  }
+  return state.plan();
+}
+function resolveRocketBlast(world, request) {
+  const state = new WorkingCombatState(world);
+  state.operations.push({
+    kind: "world-blast",
+    id: `rocket-${request.projectileId}`,
+    position: { ...request.position }
+  });
+  const damageAt = (position) => rocketBlastDamage(
+    Math.hypot(
+      position.x - request.position.x,
+      position.y - request.position.y,
+      position.z - request.position.z
+    )
+  );
+  for (const player of state.players.values()) {
+    if (!player.position) continue;
+    const damage = damageAt(player.position);
+    if (damage > 0 && !sweepProjectile(request.position, player.position, world.blockers)) {
+      state.damagePlayer(
+        request.ownerId,
+        player.id,
+        damage,
+        "rocket",
+        request.position
+      );
+    }
+  }
+  for (const crate of state.crates.values()) {
+    state.damageCrate(crate.id, damageAt(crateCenter(crate.spec)));
+  }
+  for (const interaction of state.interactions.values()) {
+    state.damageInteraction(
+      interaction.id,
+      damageAt(interactionCenter(interaction.spec)),
+      request.ownerId
+    );
+  }
+  return state.plan();
+}
+function resolveArcHit(world, request) {
+  const state = new WorkingCombatState(world);
+  const first = state.players.get(request.firstTargetId);
+  if (!first?.position || first.status !== "alive") return state.plan();
+  const points = [{ ...request.projectilePosition }, { ...first.position }];
+  const visited = /* @__PURE__ */ new Set([request.firstTargetId, request.ownerId]);
+  let from = first.position;
+  for (const damage of [20, 12]) {
+    const candidates = [...state.players.values()].filter(
+      (player) => player.status === "alive" && player.position && !visited.has(player.id)
+    ).map((player) => ({
+      player,
+      distance: Math.hypot(
+        player.position.x - from.x,
+        player.position.y - from.y,
+        player.position.z - from.z
+      )
+    })).filter((candidate) => candidate.distance <= 4).sort((a, b) => a.distance - b.distance);
+    const target = candidates.find(
+      ({ player }) => player.position !== void 0 && !sweepProjectile(from, player.position, world.blockers)
+    )?.player;
+    if (!target?.position) break;
+    visited.add(target.id);
+    state.damagePlayer(
+      request.ownerId,
+      target.id,
+      damage,
+      request.weaponId,
+      target.position
+    );
+    from = target.position;
+    points.push({ ...from });
+  }
+  state.operations.push({ kind: "world-arc", points });
+  state.damagePlayer(
+    request.ownerId,
+    request.firstTargetId,
+    request.damage,
+    request.weaponId,
+    first.position
+  );
+  return state.plan();
+}
+function resolveGrenadeExplosion(world, request) {
+  const state = new WorkingCombatState(world);
+  const hits = [];
+  const flashed = [];
+  if (request.kind === "frag") {
+    for (const player of state.players.values()) {
+      if (!player.position || player.status !== "alive") continue;
+      const damage = blastDamage(request.position, player.position);
+      if (damage > 0) hits.push({ targetId: player.id, damage });
+    }
+    for (const crate of state.crates.values()) {
+      const damage = blastDamage(request.position, crateCenter(crate.spec));
+      if (damage > 0) hits.push({ targetId: crate.id, damage });
+    }
+  } else if (request.kind === "flash") {
+    for (const player of state.players.values()) {
+      if (!player.position || player.status !== "alive") continue;
+      const intensity = flashIntensity(request.position, player.position);
+      if (intensity > 0 && !sweepProjectile(request.position, player.position, world.blockers)) {
+        flashed.push({ targetId: player.id, intensity });
+      }
+    }
+  }
+  if (request.kind === "smoke" || request.kind === "gas" || request.kind === "molotov") {
+    state.operations.push({
+      kind: "cloud-created",
+      cloudId: `cloud-${request.grenadeId}`,
+      cloudKind: request.kind === "molotov" ? "fire" : request.kind,
+      ownerId: request.ownerId,
+      position: { ...request.position }
+    });
+  }
+  state.operations.push({
+    kind: "grenade-exploded",
+    grenadeId: request.grenadeId,
+    grenadeKind: request.kind,
+    ownerId: request.ownerId,
+    position: { ...request.position },
+    hits,
+    flashed
+  });
+  if (request.kind === "frag") {
+    for (const interaction of state.interactions.values()) {
+      state.damageInteraction(
+        interaction.id,
+        blastDamage(request.position, interactionCenter(interaction.spec)),
+        request.ownerId
+      );
+    }
+    for (const hit of hits) {
+      if (state.players.has(hit.targetId)) {
+        state.damagePlayer(
+          request.ownerId,
+          hit.targetId,
+          hit.damage,
+          "grenade",
+          request.position
+        );
+      } else {
+        state.damageCrate(hit.targetId, hit.damage);
+      }
+    }
+  }
+  return state.plan();
+}
+function planChangesGeometry(plan) {
+  return plan.operations.some(
+    (operation) => operation.kind === "crate-destroyed" || operation.kind === "interactive-damaged" && operation.destroyed
+  );
+}
+function crateCenter(spec) {
+  return aabbCenter(crateBox(spec));
+}
+function interactionCenter(spec) {
+  return { ...spec.position, y: spec.position.y + 0.5 };
 }
 
 var __defProp$1 = Object.defineProperty;
@@ -1896,6 +2208,7 @@ class GameRoom {
     player.status = "alive";
     player.pose = void 0;
     player.hp = PLAYER_MAX_HP;
+    player.armor = 0;
     player.position = { ...position };
     player.rotation = facingCenterYaw(position);
     player.positionAt = this.clock();
@@ -1939,6 +2252,7 @@ class GameRoom {
       team,
       status: "alive",
       hp: PLAYER_MAX_HP,
+      armor: 0,
       position,
       rotation,
       positionAt: this.clock(),
@@ -2019,6 +2333,7 @@ class GameRoom {
       playerId,
       position,
       hp: player.hp,
+      armor: player.armor ?? 0,
       rotation: player.rotation
     });
   }
@@ -2067,6 +2382,9 @@ class GameRoom {
     if (!isWithinPickupReach(player.position, pickup.spec.position)) return;
     this.pickups.delete(pickup.spec.id);
     switch (pickup.spec.kind) {
+      case "armor":
+        player.armor = Math.min(50, (player.armor ?? 0) + pickup.spec.amount);
+        break;
       case "health":
         player.hp = Math.min(PLAYER_MAX_HP, player.hp + pickup.spec.amount);
         break;
@@ -2082,7 +2400,8 @@ class GameRoom {
     this.transport.broadcast(GAME_EVENTS.PICKUP.TAKEN, {
       pickup: pickup.spec,
       playerId,
-      hp: player.hp
+      hp: player.hp,
+      armor: player.armor ?? 0
     });
   }
   handleGrenadeThrow(playerId, payload) {
@@ -2120,76 +2439,14 @@ class GameRoom {
    */
   explodeGrenade(grenade) {
     this.grenades.delete(grenade.id);
-    const outcome = {
-      grenadeId: grenade.id,
-      kind: grenade.kind,
-      ownerId: grenade.ownerId,
-      position: grenade.position,
-      hits: [],
-      flashed: []
-    };
-    switch (grenade.kind) {
-      case "frag":
-        outcome.hits = this.fragHits(grenade.position);
-        break;
-      case "flash":
-        outcome.flashed = this.flashVictims(grenade.position);
-        break;
-      case "smoke":
-      case "gas":
-      case "molotov": {
-        const cloudKind = cloudKindOf(grenade.kind);
-        if (!cloudKind) break;
-        this.clouds.set(`cloud-${grenade.id}`, spawnCloud(`cloud-${grenade.id}`, grenade, cloudKind));
-        break;
-      }
-      default: {
-        const unhandled = grenade.kind;
-        throw new Error(`Unhandled grenade kind: ${String(unhandled)}`);
-      }
-    }
-    this.transport.broadcast(GAME_EVENTS.GRENADE.EXPLODED, outcome);
-    if (grenade.kind !== "frag") return;
-    const center = grenade.position;
-    for (const p of this.interactions.specs.values()) this.damageInteraction(p.id, blastDamage(center, { ...p.position, y: p.position.y + 0.5 }), grenade.ownerId);
-    for (const { targetId, damage } of outcome.hits) {
-      if (this.players.has(targetId)) {
-        this.applyDamage(grenade.ownerId, targetId, damage, "grenade", center);
-      } else {
-        this.damageCrate(targetId, damage);
-      }
-    }
-  }
-  /** Players and crates inside a frag blast at `center`, with the damage each takes. */
-  fragHits(center) {
-    const hits = [];
-    for (const player of this.players.values()) {
-      if (player.status !== "alive" || !player.position) continue;
-      const damage = blastDamage(center, player.position);
-      if (damage <= 0) continue;
-      hits.push({ targetId: player.id, damage });
-    }
-    for (const crate of this.crates.values()) {
-      const damage = blastDamage(center, aabbCenter(crateBox(crate.spec)));
-      if (damage <= 0) continue;
-      hits.push({ targetId: crate.spec.id, damage });
-    }
-    return hits;
-  }
-  /**
-   * Everyone alive within the flash radius who has a clear line to it, the
-   * thrower included. Solid cover blocks the flash, like rocket splash.
-   */
-  flashVictims(center) {
-    const blockers = [...this.staticColliders, ...this.crateColliders(), ...this.interactionColliders()];
-    const flashed = [];
-    for (const player of this.players.values()) {
-      if (player.status !== "alive" || !player.position) continue;
-      const intensity = flashIntensity(center, player.position);
-      if (intensity <= 0 || sweepProjectile(center, player.position, blockers)) continue;
-      flashed.push({ targetId: player.id, intensity });
-    }
-    return flashed;
+    this.applyCombatPlan(
+      resolveGrenadeExplosion(this.combatWorldView(), {
+        grenadeId: grenade.id,
+        kind: grenade.kind,
+        ownerId: grenade.ownerId,
+        position: grenade.position
+      })
+    );
   }
   /**
    * Clouds thin out and vanish; while a gas cloud or a fire lasts, anyone
@@ -2224,104 +2481,75 @@ class GameRoom {
   }
   stepProjectiles(dt) {
     if (this.projectiles.length === 0) return;
+    let colliders;
     for (let i = this.projectiles.length - 1; i >= 0; i--) {
       const projectile = this.projectiles[i];
+      colliders ?? (colliders = [
+        ...this.staticColliders,
+        ...this.crateColliders(),
+        ...this.playerColliders(),
+        ...this.interactionColliders()
+      ]);
       const { hit, expired } = integrateProjectile(
         projectile,
         dt,
-        [...this.staticColliders, ...this.crateColliders(), ...this.playerColliders(), ...this.interactionColliders()],
+        colliders,
         (c) => c.tag.kind === "player" && c.tag.id === projectile.ownerId
       );
+      let geometryChanged = false;
       if (projectile.weaponId === "rocket" && expired) {
-        this.explodeRocket(projectile);
+        const center = {
+          x: projectile.position.x - projectile.direction.x * 0.04,
+          y: Math.max(0.04, projectile.position.y - projectile.direction.y * 0.04),
+          z: projectile.position.z - projectile.direction.z * 0.04
+        };
+        geometryChanged = this.applyCombatPlan(
+          resolveRocketBlast(this.combatWorldView(), {
+            projectileId: projectile.id,
+            ownerId: projectile.ownerId,
+            position: center
+          })
+        );
       } else if (hit) {
-        if (projectile.weaponId === "arc" && hit.collider.tag.kind === "player") this.chainArc(projectile, hit.collider.tag.id);
-        switch (hit.collider.tag.kind) {
-          case "player":
-            this.applyDamage(
-              projectile.ownerId,
-              hit.collider.tag.id,
-              projectile.damage,
-              projectile.weaponId,
-              hit.point
-            );
-            break;
-          case "crate":
-            this.damageCrate(hit.collider.tag.id, projectile.damage);
-            break;
-          case "interactive":
-            this.damageInteraction(hit.collider.tag.id, projectile.damage, projectile.ownerId);
-            break;
-          case "static":
-            break;
-          default: {
-            const unhandled = hit.collider.tag;
-            throw new Error(`Unhandled collider tag: ${String(unhandled)}`);
-          }
+        const target = hit.collider.tag;
+        if (projectile.weaponId === "arc" && target.kind === "player") {
+          geometryChanged = this.applyCombatPlan(
+            resolveArcHit(this.combatWorldView(), {
+              ownerId: projectile.ownerId,
+              weaponId: projectile.weaponId,
+              projectilePosition: projectile.position,
+              firstTargetId: target.id,
+              damage: projectile.damage
+            })
+          );
+        } else if (target.kind !== "static") {
+          geometryChanged = this.applyCombatPlan(
+            resolveProjectileHit(this.combatWorldView(), {
+              ownerId: projectile.ownerId,
+              weaponId: projectile.weaponId,
+              position: hit.point,
+              target,
+              damage: projectile.damage
+            })
+          );
         }
       }
+      if (geometryChanged) colliders = void 0;
       if (expired) this.projectiles.splice(i, 1);
     }
   }
-  explodeRocket(projectile) {
-    const center = { x: projectile.position.x - projectile.direction.x * 0.04, y: Math.max(0.04, projectile.position.y - projectile.direction.y * 0.04), z: projectile.position.z - projectile.direction.z * 0.04 };
-    this.transport.broadcast(GAME_EVENTS.WORLD.BLAST, { id: `rocket-${projectile.id}`, position: center });
-    const blockers = [...this.staticColliders, ...this.crateColliders(), ...this.interactionColliders()];
-    const damageAt = (p) => rocketBlastDamage(Math.hypot(p.x - center.x, p.y - center.y, p.z - center.z));
-    for (const player of this.players.values()) {
-      if (!player.position || player.status !== "alive") continue;
-      const damage = damageAt(player.position);
-      if (damage > 0 && !sweepProjectile(center, player.position, blockers)) this.applyDamage(projectile.ownerId, player.id, damage, "rocket", center);
-    }
-    for (const crate of this.crates.values()) {
-      const damage = damageAt(aabbCenter(crateBox(crate.spec)));
-      if (damage > 0) this.damageCrate(crate.spec.id, damage);
-    }
-    for (const prop of this.interactions.specs.values()) this.damageInteraction(prop.id, damageAt({ ...prop.position, y: prop.position.y + 0.5 }), projectile.ownerId);
-  }
-  chainArc(projectile, firstId) {
-    const first = this.players.get(firstId);
-    if (!first?.position) return;
-    const points = [{ ...projectile.position }, { ...first.position }];
-    const visited = /* @__PURE__ */ new Set([firstId, projectile.ownerId]);
-    let from = first.position;
-    const blockers = [...this.staticColliders, ...this.crateColliders(), ...this.interactionColliders()];
-    for (const damage of [20, 12]) {
-      const candidates = [...this.players.values()].filter((p) => p.status === "alive" && p.position && !visited.has(p.id)).map((p) => ({ p, d: Math.hypot(p.position.x - from.x, p.position.y - from.y, p.position.z - from.z) })).filter((v) => v.d <= 4).sort((a, b) => a.d - b.d);
-      const target = candidates.find(({ p }) => !sweepProjectile(from, p.position, blockers))?.p;
-      if (!target?.position) break;
-      visited.add(target.id);
-      this.applyDamage(projectile.ownerId, target.id, damage, "arc", target.position);
-      from = target.position;
-      points.push({ ...from });
-    }
-    this.transport.broadcast(GAME_EVENTS.WORLD.ARC, { points });
-  }
   /** Apply damage to a crate; destroy it and maybe drop a pickup at zero HP. */
   damageCrate(crateId, damage) {
-    const crate = this.crates.get(crateId);
-    if (!crate) return;
-    if (!combatAllowed(this.match.phase)) return;
-    crate.hp = Math.max(0, crate.hp - damage);
-    this.transport.broadcast(GAME_EVENTS.CRATE.DAMAGED, {
-      crateId,
-      damage,
-      hp: crate.hp,
-      maxHp: CRATE_MAX_HP
-    });
-    if (crate.hp > 0) return;
-    this.crates.delete(crateId);
-    const position = crate.spec.position;
-    this.transport.broadcast(GAME_EVENTS.CRATE.DESTROYED, { crateId, position });
-    if (this.rng.next() < CRATE_DROP_CHANCE) {
-      this.spawnPickup(
-        rollCrateDrop(this.rng, this.allocatePickupId(), {
-          x: position.x,
-          y: 0.5,
-          z: position.z
-        })
-      );
-    }
+    if (!combatAllowed(this.match.phase)) return false;
+    return this.applyCombatPlan(
+      resolveProjectileHit(this.combatWorldView(), {
+        ownerId: "",
+        weaponId: "grenade",
+        position: { x: 0, y: 0, z: 0 },
+        target: { kind: "crate", id: crateId },
+        damage
+      })
+    );
   }
   /** Expire old pickups and spawn new ones on the random cadence. */
   stepPickups(dt, now) {
@@ -2386,38 +2614,164 @@ class GameRoom {
     }
   }
   applyDamage(shooterId, targetId, damage, source, position) {
-    const target = this.players.get(targetId);
-    if (!target || target.status !== "alive") return;
-    if (!combatAllowed(this.match.phase)) return;
-    target.hp = Math.max(0, target.hp - damage);
-    this.transport.broadcast(GAME_EVENTS.COMBAT.HIT, {
-      shooterId,
-      targetId,
-      damage,
-      hp: target.hp,
-      source,
-      position
-    });
-    if (target.hp > 0) return;
-    target.status = "dead";
-    const killerPlayer = this.players.get(shooterId);
-    const killer = this.leaderBoard[shooterId];
-    const teamKill = killerPlayer !== void 0 && killerPlayer.team === target.team;
-    if (killer && killerPlayer && shooterId !== targetId) {
-      const delta = teamKill ? -1 : 1;
-      killer.kills += delta;
-      killer.score += delta * KILL_SCORE;
-      this.teamScores[killerPlayer.team] += delta;
+    if (!combatAllowed(this.match.phase)) return false;
+    return this.applyCombatPlan(
+      resolveProjectileHit(this.combatWorldView(), {
+        ownerId: shooterId,
+        weaponId: source,
+        position,
+        target: { kind: "player", id: targetId },
+        damage
+      })
+    );
+  }
+  combatWorldView() {
+    return {
+      players: [...this.players.values()].map((player) => ({
+        id: player.id,
+        team: player.team,
+        status: player.status,
+        hp: player.hp,
+        armor: player.armor ?? 0,
+        position: player.position ? { ...player.position } : void 0
+      })),
+      crates: [...this.crates.values()].map((crate) => ({
+        id: crate.spec.id,
+        spec: crate.spec,
+        hp: crate.hp
+      })),
+      interactions: this.interactions.snapshot().flatMap((state) => {
+        const spec = this.interactions.specs.get(state.id);
+        return spec ? [{ id: state.id, spec, state }] : [];
+      }),
+      blockers: [
+        ...this.staticColliders,
+        ...this.crateColliders(),
+        ...this.interactionColliders()
+      ]
+    };
+  }
+  applyCombatPlan(plan) {
+    let geometryChanged = false;
+    for (const operation of plan.operations) {
+      switch (operation.kind) {
+        case "player-damaged": {
+          const target = this.players.get(operation.targetId);
+          if (!target || target.status !== "alive") break;
+          target.hp = operation.hp;
+          target.armor = operation.armor;
+          this.transport.broadcast(GAME_EVENTS.COMBAT.HIT, {
+            shooterId: operation.shooterId,
+            targetId: operation.targetId,
+            damage: operation.damage,
+            hp: operation.hp,
+            armor: operation.armor,
+            source: operation.source,
+            position: operation.position
+          });
+          break;
+        }
+        case "player-killed": {
+          const target = this.players.get(operation.victimId);
+          if (!target) break;
+          target.status = "dead";
+          const killer = this.leaderBoard[operation.killerId];
+          if (killer && operation.killerTeam) {
+            const delta = operation.teamKill ? -1 : 1;
+            killer.kills += delta;
+            killer.score += delta * KILL_SCORE;
+            this.teamScores[operation.killerTeam] += delta;
+          }
+          const victim = this.leaderBoard[operation.victimId];
+          if (victim) victim.deaths += 1;
+          this.transport.broadcast(GAME_EVENTS.COMBAT.KILL, {
+            killerId: operation.killerId,
+            victimId: operation.victimId,
+            source: operation.source,
+            teamKill: operation.teamKill,
+            teamScores: { ...this.teamScores }
+          });
+          break;
+        }
+        case "crate-damaged": {
+          const crate = this.crates.get(operation.crateId);
+          if (!crate) break;
+          crate.hp = operation.hp;
+          this.transport.broadcast(GAME_EVENTS.CRATE.DAMAGED, {
+            crateId: operation.crateId,
+            damage: operation.damage,
+            hp: operation.hp,
+            maxHp: CRATE_MAX_HP
+          });
+          break;
+        }
+        case "crate-destroyed": {
+          const crate = this.crates.get(operation.crateId);
+          if (!crate) break;
+          this.crates.delete(operation.crateId);
+          geometryChanged = true;
+          this.transport.broadcast(GAME_EVENTS.CRATE.DESTROYED, {
+            crateId: operation.crateId,
+            position: operation.position
+          });
+          break;
+        }
+        case "interactive-damaged": {
+          const state = this.interactions.states.get(operation.interactionId);
+          const wasSolid = state !== void 0 && state.hp > 0;
+          this.interactions.damage(operation.interactionId, operation.damage);
+          geometryChanged = geometryChanged || wasSolid && state !== void 0 && state.hp <= 0;
+          break;
+        }
+        case "world-blast":
+          this.transport.broadcast(GAME_EVENTS.WORLD.BLAST, {
+            id: operation.id,
+            position: operation.position
+          });
+          break;
+        case "world-arc":
+          this.transport.broadcast(GAME_EVENTS.WORLD.ARC, {
+            points: operation.points
+          });
+          break;
+        case "grenade-exploded":
+          this.transport.broadcast(GAME_EVENTS.GRENADE.EXPLODED, {
+            grenadeId: operation.grenadeId,
+            kind: operation.grenadeKind,
+            ownerId: operation.ownerId,
+            position: operation.position,
+            hits: operation.hits,
+            flashed: operation.flashed
+          });
+          break;
+        case "cloud-created":
+          this.clouds.set(
+            operation.cloudId,
+            spawnCloud(
+              operation.cloudId,
+              { ownerId: operation.ownerId, position: operation.position },
+              operation.cloudKind
+            )
+          );
+          break;
+        case "pickup-drop-request":
+          if (this.rng.next() < CRATE_DROP_CHANCE) {
+            this.spawnPickup(
+              rollCrateDrop(
+                this.rng,
+                this.allocatePickupId(),
+                operation.position
+              )
+            );
+          }
+          break;
+        default: {
+          const unhandled = operation;
+          throw new Error(`Unhandled combat operation: ${String(unhandled)}`);
+        }
+      }
     }
-    const victim = this.leaderBoard[targetId];
-    if (victim) victim.deaths += 1;
-    this.transport.broadcast(GAME_EVENTS.COMBAT.KILL, {
-      killerId: shooterId,
-      victimId: targetId,
-      source,
-      teamKill: teamKill && shooterId !== targetId,
-      teamScores: { ...this.teamScores }
-    });
+    return geometryChanged || planChangesGeometry(plan);
   }
   interactionColliders() {
     return this.interactions.snapshot().flatMap((s) => {
@@ -2427,26 +2781,16 @@ class GameRoom {
   }
   /** The barrel is marked destroyed before cascading, so a chain detonates each only once. */
   damageInteraction(id, damage, ownerId) {
-    if (!combatAllowed(this.match.phase)) return;
-    const queue = [];
-    if (this.interactions.damage(id, damage)) queue.push(id);
-    for (let i = 0; i < queue.length; i++) {
-      const p = this.interactions.specs.get(queue[i]);
-      const center = { ...p.position, y: p.position.y + 0.5 };
-      const falloff = (position) => Math.max(0, Math.round(80 * (1 - Math.hypot(position.x - center.x, position.y - center.y, position.z - center.z) / 4)));
-      this.transport.broadcast(GAME_EVENTS.WORLD.BLAST, { id: p.id, position: center });
-      for (const player of this.players.values()) if (player.position) {
-        const amount = falloff(player.position);
-        if (amount > 0) this.applyDamage(ownerId, player.id, amount, "barrel", center);
-      }
-      for (const crate of this.crates.values()) {
-        const amount = falloff(aabbCenter(crateBox(crate.spec)));
-        if (amount > 0) this.damageCrate(crate.spec.id, amount);
-      }
-      for (const other of this.interactions.specs.values()) {
-        if (this.interactions.damage(other.id, falloff({ ...other.position, y: other.position.y + 0.5 }))) queue.push(other.id);
-      }
-    }
+    if (!combatAllowed(this.match.phase)) return false;
+    return this.applyCombatPlan(
+      resolveProjectileHit(this.combatWorldView(), {
+        ownerId,
+        weaponId: "barrel",
+        position: { x: 0, y: 0, z: 0 },
+        target: { kind: "interactive", id },
+        damage
+      })
+    );
   }
   crateColliders() {
     return [...this.crates.values()].map(({ spec }) => ({
@@ -2491,7 +2835,7 @@ class GameRoom {
   }
   snapshotPlayers() {
     return [...this.players.values()].map(
-      ({ id, userId, name, team, status, hp, position, rotation, positionAt, pose }) => ({
+      ({ id, userId, name, team, status, hp, armor, position, rotation, positionAt, pose }) => ({
         pose,
         id,
         userId,
@@ -2499,6 +2843,7 @@ class GameRoom {
         team,
         status,
         hp,
+        armor: armor ?? 0,
         position,
         rotation,
         positionAt

@@ -17,7 +17,8 @@ interface MessageTimers {
 
 /**
  * Room-wide text chat. The server echo is the acknowledgement that clears a
- * submitted draft, so rejected messages remain available for retry.
+ * submitted draft while leaving the input open, so rejected messages remain
+ * available for retry.
  */
 export class Chat {
   private readonly root: HTMLElement;
@@ -108,7 +109,6 @@ export class Chat {
 
     const text = this.input.value.trim();
     if (!text) {
-      this.close();
       return;
     }
 
@@ -147,7 +147,7 @@ export class Chat {
       this.pendingMessages.delete(message.text) &&
       this.input.value.trim() === message.text
     ) {
-      this.close();
+      this.input.value = "";
     }
   }
 

@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import type { Team } from '@threejs-shooter/shared';
 import { attachModel } from '../core/models';
 import { CharacterAnimator, type CharacterMotion } from './CharacterAnimator';
 
@@ -10,19 +11,41 @@ interface VisualState {
   initialized: boolean;
   speed: number;
   removed: boolean;
+  team: Team;
+  generation: number;
 }
 const visuals = new WeakMap<THREE.Object3D, VisualState>();
+const CHARACTER_MODEL_BY_TEAM: Record<Team, string> = {
+  blue: 'noir-character-team-a',
+  red: 'noir-character-team-b',
+};
+
+export function characterModelForTeam(team: Team): string {
+  return CHARACTER_MODEL_BY_TEAM[team];
+}
+
 export function addCharacterVisual(player: THREE.Mesh): void {
   const state: VisualState = { previous: player.position.clone(), crouched: false,
-    dead: false, initialized: false, speed: 0, removed: false };
-  visuals.set(player, state);
-  attachModel(player, 'noir-character', (model) => {
-    if (state.removed) { player.remove(model); return; }
-    for (const material of Array.isArray(player.material) ? player.material : [player.material]) material.visible = false;
-    player.castShadow = false;
-    model.position.y = -1;
-    state.animator = new CharacterAnimator(model, model.animations);
+    dead: false, initialized: false, speed: 0, removed: false, team:'blue', generation:0 };
+  visuals.set(player,state);loadTeamModel(player,state);
+}
+function loadTeamModel(player:THREE.Mesh,state:VisualState):void {
+  const generation=++state.generation;
+  attachModel(player,characterModelForTeam(state.team),model=>{
+    if(state.removed||state.generation!==generation){player.remove(model);return;}
+    const previous=state.animator;
+    previous?.dispose();if(previous)player.remove(previous.model);
+    for(const material of Array.isArray(player.material)?player.material:[player.material])material.visible=false;
+    player.castShadow=false;
+    model.traverse(o=>{if(/^WeaponSocket[._]?\d+$/.test(o.name))o.name='WeaponSocket';});
+    model.position.y=state.crouched?-.5:-1;
+    state.animator=new CharacterAnimator(model,model.animations);
+    state.initialized=false;
   });
+}
+export function setCharacterTeam(player:THREE.Mesh,team:Team):void {
+  const state=visuals.get(player);if(!state||state.team===team)return;
+  state.team=team;loadTeamModel(player,state);
 }
 export function setCharacterCrouch(player: THREE.Object3D, crouched: boolean): void {
   const state = visuals.get(player);

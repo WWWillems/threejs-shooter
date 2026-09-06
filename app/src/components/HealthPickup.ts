@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { Pickup } from "./Pickup";
+import { attachModel } from "../core/models";
 
 /**
  * Health pickup class
@@ -17,33 +18,15 @@ export class HealthPickup extends Pickup {
   }
 
   protected createMesh(): THREE.Object3D {
-    // Create a health pickup mesh (red cross)
     const group = new THREE.Group();
-
-    // Base
-    const baseGeometry = new THREE.CylinderGeometry(0.5, 0.5, 0.2, 16);
-    const baseMaterial = new THREE.MeshStandardMaterial({ color: 0xeeeeee });
-    const base = new THREE.Mesh(baseGeometry, baseMaterial);
-    base.position.y = 0.1;
-    group.add(base);
-
-    // Cross vertical part
-    const verticalGeometry = new THREE.BoxGeometry(0.2, 0.8, 0.2);
-    const crossMaterial = new THREE.MeshStandardMaterial({ color: 0xff0000 });
-    const verticalPart = new THREE.Mesh(verticalGeometry, crossMaterial);
-    verticalPart.position.y = 0.5;
-    group.add(verticalPart);
-
-    // Cross horizontal part
-    const horizontalGeometry = new THREE.BoxGeometry(0.8, 0.2, 0.2);
-    const horizontalPart = new THREE.Mesh(horizontalGeometry, crossMaterial);
-    horizontalPart.position.y = 0.5;
-    group.add(horizontalPart);
+    attachModel(group, 'noir-health-pickup');
 
     // Add animation
+    const root = new THREE.Group();
+    root.add(group);
     this.addHoverAnimation(group);
 
-    return group;
+    return root;
   }
 
   protected getPickupType(): string {
@@ -75,7 +58,7 @@ export class HealthPickup extends Pickup {
 
     // Create animation function
     const animatePickup = (delta: number) => {
-      if (!group.parent) return false; // If no longer in scene, remove animation
+      if (!group.parent?.parent) return false; // If no longer in scene, remove animation
 
       // Check if animation data exists
       if (!group.userData || !group.userData.animation) return false;

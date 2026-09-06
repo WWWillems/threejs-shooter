@@ -1,7 +1,7 @@
 import * as THREE from "three";
-import { addCharacterVisual, updateCharacterVisual, removeCharacterVisual, setCharacterDead } from "./CharacterVisual";
+import { addCharacterVisual, updateCharacterVisual, removeCharacterVisual, setCharacterDead, setCharacterTeam } from "./CharacterVisual";
 import type { NetworkClient } from "../net/NetworkClient";
-import type { Replication, ReplicatedPlayer } from "../net/Replication";
+import type { Replication, ReplicatedPlayer, ReplicatedWorld } from "../net/Replication";
 import type { HUD } from "./HUD";
 import { WeaponSystem } from "./Weapon";
 import {
@@ -225,6 +225,7 @@ export class RemotePlayerManager {
 
   private setTeam(player: RemotePlayer, team: Team): void {
     player.team = team;
+    setCharacterTeam(player.mesh,team);
     this.nameplates.setTeam(player.id, team, this.isTeammate(team));
   }
 
@@ -295,8 +296,9 @@ export class RemotePlayerManager {
    * Per-frame: place every remote player where the replicated world says it
    * is, then advance cosmetic bullets and render nameplates.
    */
-  public update(delta: number, camera: THREE.Camera): void {
-    const states = this.replication.sample(performance.now());
+  public update(delta: number, camera: THREE.Camera): ReplicatedWorld {
+    const world = this.replication.sampleWorld(performance.now());
+    const { players: states } = world;
     const selfId = this.net.selfId;
 
     for (const state of states.values()) {
@@ -317,6 +319,7 @@ export class RemotePlayerManager {
       this.nameplates.setVisible(player.id, !player.isDead && !this.concealed(player.mesh.position));
     }
     this.nameplates.render(camera);
+    return world;
   }
 
   private applyState(state: ReplicatedPlayer): void {

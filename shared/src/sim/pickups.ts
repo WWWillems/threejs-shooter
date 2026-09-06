@@ -38,7 +38,9 @@ export function rollPickupContents(
   id: string,
   position: Vec3
 ): PickupSpec {
-  if (rng.next() < 0.5) {
+  const roll = rng.next();
+  if (roll < .15) return { id, kind: "armor", position, amount: 25 };
+  if (roll < 0.5) {
     return {
       id,
       kind: "health",
@@ -74,6 +76,7 @@ export function rollCrateDrop(rng: Rng, id: string, position: Vec3): PickupSpec 
     const grenadeKind = GRENADE_KINDS[rng.int(GRENADE_KINDS.length)];
     return { id, kind: "throwable", position, grenadeKind, amount: GRENADE_LOADOUT[grenadeKind].pickup };
   }
+  if (roll >= .9) return { id, kind: "armor", position, amount: 25 };
   if (roll < CRATE_DROP_ODDS.health) {
     return { id, kind: "health", position, amount: 25 };
   }

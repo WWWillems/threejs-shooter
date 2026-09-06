@@ -39,8 +39,25 @@ pm2 save
 
 Node 22 is expected (`.nvmrc` at the repo root).
 
-### Routine deploy (unchanged)
+### Routine deploy
 
-1. `npm run build:server` locally.
-2. Commit `server/dist/index.mjs` and push to `origin master`.
-3. `ssh <server>`, `cd threejs-shooter && git pull && npm ci --omit=dev -w server`, then `pm2 restart threejs-shooter-server`.
+The routine can be run as one command from a clean local checkout:
+
+```bash
+npm run deploy:server
+```
+
+The helper defaults to the `bang-bang-api` SSH host or alias from `~/.ssh/config`.
+It verifies that the checkout is on `master` and clean, builds the committed server
+bundle, pushes it, then checks out `master`, runs `git pull --ff-only`,
+`npm ci --omit=dev -w server`, and `pm2 restart threejs-shooter-server` remotely.
+Set `DEPLOY_HOST` to override the default.
+
+You can override the remote path or PM2 process name when needed:
+
+```bash
+DEPLOY_HOST=bang-bang-api \
+DEPLOY_PATH=/var/www/bang-bang-game \
+DEPLOY_PROCESS=threejs-shooter-server \
+npm run deploy:server
+```

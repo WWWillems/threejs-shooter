@@ -144,7 +144,7 @@ export class WeaponSystem {
   private createHeldModel(id: WeaponId): THREE.Group {
     const group = new THREE.Group();
     group.name = `held-${id}`;
-    attachModel(group, `noir-${id}`, model=>model.traverse(o=>{if(/^(Muzzle|Magazine|Slide|Pump|Bolt)\.\d+$/.test(o.name))o.name=o.name.replace(/\.\d+$/, "");}));
+    attachModel(group, `noir-${id}`, model=>model.traverse(o=>{if(/^(Muzzle|Magazine|Slide|Pump|Bolt)[._]?\d+$/.test(o.name))o.name=o.name.replace(/[._]?\d+$/, "");}));
     return group;
   }
 
