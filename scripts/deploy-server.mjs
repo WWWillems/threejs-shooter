@@ -27,11 +27,15 @@ function shellQuote(value) {
 
 const branch = capture("git", ["branch", "--show-current"]);
 if (branch !== "master") {
-  throw new Error(`Deploys must come from master; currently on ${branch || "detached HEAD"}`);
+  throw new Error(
+    `Deploys must come from master; currently on ${branch || "detached HEAD"}`,
+  );
 }
 
 if (capture("git", ["status", "--porcelain"])) {
-  throw new Error("Working tree is not clean; commit or stash changes before deploying");
+  throw new Error(
+    "Working tree is not clean; commit or stash changes before deploying",
+  );
 }
 
 console.log("Building the production server bundle...");
