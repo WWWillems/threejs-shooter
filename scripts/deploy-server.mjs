@@ -1,8 +1,7 @@
 import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
-import path from "node:path";
 
-const root = path.dirname(fileURLToPath(new URL("../", import.meta.url)));
+const root = fileURLToPath(new URL("../", import.meta.url));
 const host = process.env.DEPLOY_HOST ?? "bang-bang-api";
 const deployPath = process.env.DEPLOY_PATH ?? "/var/www/bang-bang-game";
 const processName = process.env.DEPLOY_PROCESS ?? "threejs-shooter-server";
