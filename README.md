@@ -125,6 +125,76 @@ npm run build:server # pkgroll -> server/dist/index.mjs (committed)
 
 See [server/README.md](server/README.md).
 
+## Production deployment
+
+The production deployment has two parts:
+
+- Frontend: Vercel at `https://bang-bang.dapps.be`
+- API: the cloud server at `https://bang-bang-api.dapps.be`, with Nginx proxying to
+  `localhost:3000` and PM2 running the Node server
+
+### Frontend (Vercel)
+
+The Vercel project must be connected to this repository, `WWWillems/threejs-shooter`, rather
+than the archived standalone frontend repository. Use the repository root as Vercel's root
+directory so npm workspaces resolve correctly:
+
+- Framework preset: `Vite`
+- Root directory: `./`
+- Install command: `npm ci`
+- Build command: `npm run build:app`
+- Output directory: `app/dist`
+- Production branch: `master`
+
+Set this production environment variable in Vercel:
+
+```env
+VITE_SERVER_URL=https://bang-bang-api.dapps.be
+```
+
+`app/dist` is gitignored, so building the app on the API server does not update the Vercel
+frontend. Push the frontend changes to `master` and redeploy the Vercel project.
+
+### API server
+
+The API server runs from the monorepo checkout. The old
+`WWWillems/threejs-shooter-server` repository is archived; a deployment that was cloned from
+it should be replaced with a checkout of this repository rather than pulled with
+`--allow-unrelated-histories`.
+
+Install runtime dependencies and start the API with PM2:
+
+```bash
+cd /var/www/bang-bang-game
+npm ci --omit=dev -w server
+pm2 start npm \
+  --name threejs-shooter-server \
+  --cwd /var/www/bang-bang-game/server \
+  -- start
+pm2 save
+```
+
+Starting the server through `npm start` is intentional. Some older PM2 versions try to
+`require()` the ESM bundle directly and fail with `ERR_REQUIRE_ESM`; the npm start script
+launches it correctly with Node:
+
+```text
+node ./dist/index.mjs
+```
+
+For routine deployments:
+
+```bash
+cd /var/www/bang-bang-game
+git pull
+npm ci --omit=dev -w server
+pm2 restart threejs-shooter-server
+```
+
+Nginx should proxy `https://bang-bang-api.dapps.be` to `http://localhost:3000` and preserve
+the WebSocket upgrade headers. The frontend must use the public API hostname above; it must
+not use `http://localhost:3000`, because that would refer to the player's own computer.
+
 ## Controls
 
 - WASD - Move
